@@ -4,6 +4,8 @@ import {
   isEligibleMultimodalImageUrl, parseSelections, writeSelections, mergeSelections, toHref,
   parseAemPageHost, aemPageToPreviewDaLiveUrl,
 } from '../imageSelections.js';
+import { collectMultimodalVideoUrls } from '../videoAssets.js';
+import { parseVideoSelections, writeVideoSelections } from '../videoSelections.js';
 
 function buildSourceUrl({ org, site, path }) {
   return `${DA_ORIGIN}/source/${org}/${site}${path}.html`;
@@ -50,9 +52,20 @@ async function savePageHtml({ org, site, path, token, html }) {
   return { ok: resp.ok, status: resp.status };
 }
 
+function followsImageNamingGuidelines(href) {
+  try {
+    const filename = decodeURIComponent(new URL(href).pathname.split('/').pop());
+    return /^[A-Za-z0-9-]+\.[A-Za-z0-9]+$/.test(filename);
+  } catch {
+    return false;
+  }
+}
+
 /** One row per <img> found on the page, deduped by normalized src. */
-export function buildImageRows(html) {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
+export function buildImageRows(htmlOrDoc) {
+  const doc = typeof htmlOrDoc === 'string'
+    ? new DOMParser().parseFromString(htmlOrDoc, 'text/html')
+    : htmlOrDoc;
   const selections = parseSelections(doc);
   const seen = new Set();
   const rows = [];
@@ -64,17 +77,28 @@ export function buildImageRows(html) {
     // Display-only: an aem.page thumbnail src needs the preview.da.live cookie to render
     // as an <img>. The row's own `src` (used for marking/writing) is never touched.
     const previewHost = parseAemPageHost(href);
+    const supported = isEligibleMultimodalImageUrl(src);
+    const validName = followsImageNamingGuidelines(href);
     rows.push({
       src: href,
       thumbnail: previewHost ? aemPageToPreviewDaLiveUrl(href, previewHost) : href,
       previewHost,
       needsAuthenticatedFetch: needsAuthenticatedFetch(href),
       alt: img.getAttribute('alt') || '',
-      eligible: isEligibleMultimodalImageUrl(src),
+      eligible: supported && validName,
+      ineligibleReason: supported && !validName
+        ? 'Image name does not adhere to GLaaS guidelines. Use only letters (A-Z, a-z), numbers (0-9), and hyphens (-); no spaces, underscores, or special characters.'
+        : 'Not eligible for image translation (unsupported host, format, or URL).',
       checked: selections.has(href),
     });
   });
   return rows;
+}
+
+export function buildVideoRows(doc) {
+  const selections = parseVideoSelections(doc);
+  const urls = new Set(collectMultimodalVideoUrls(doc).map(toHref).filter(Boolean));
+  return [...urls].map((src) => ({ src, checked: selections.has(src) }));
 }
 
 // Resolves thumbnails for DA-internal rows in place (see fetchAuthenticatedThumbnail).
@@ -109,13 +133,24 @@ export function ensureThumbnailLogins(rows, token) {
   return Promise.all([...hosts.values()].map((host) => gimmeCookie(host, token)));
 }
 
-function toSelectionRows(imageRows) {
-  return imageRows.map((row) => ({ src: row.src, translate: row.checked ? 'true' : 'false' }));
+function toSelectionRows(rows) {
+  return rows.map((row) => ({ src: row.src, translate: row.checked ? 'true' : 'false' }));
+}
+
+function mergeVideoSelections({ doc, initialRows, currentRows }) {
+  const latest = buildVideoRows(doc);
+  const currentBySrc = new Map(currentRows.map((row) => [row.src, row]));
+  const current = latest.map((row) => currentBySrc.get(row.src) ?? row);
+  return mergeSelections(
+    toSelectionRows(latest),
+    toSelectionRows(initialRows),
+    toSelectionRows(current),
+  );
 }
 
 // Re-fetches before writing so a concurrent change elsewhere survives (see mergeSelections).
 export async function saveSelections({
-  org, site, path, token, initialRows, currentRows,
+  org, site, path, token, initialRows, currentRows, initialVideoRows, currentVideoRows,
 }) {
   const latestHtml = await fetchPageHtml({ org, site, path, token });
   if (latestHtml === null) return { error: 'Could not fetch the latest page content.' };
@@ -130,6 +165,13 @@ export async function saveSelections({
   }));
 
   const merged = mergeSelections(latest, initial, current);
-  const updatedHtml = writeSelections(latestDoc, merged);
+  const imageHtml = writeSelections(latestDoc, merged);
+  const updatedHtml = currentVideoRows
+    ? writeVideoSelections(latestDoc, mergeVideoSelections({
+      doc: latestDoc,
+      initialRows: initialVideoRows,
+      currentRows: currentVideoRows,
+    }))
+    : imageHtml;
   return savePageHtml({ org, site, path, token, html: updatedHtml });
 }

@@ -588,9 +588,34 @@ export async function getContentHashes({ doc, site, config }) {
   return blocks.filter(({ block }) => !block.isSection).map(({ hash }) => hash);
 }
 
+const partHtml = (part) => (Array.isArray(part) ? getGroupInnerHtml(part) : part.outerHTML);
+
+// Like merge, each added block (or block group) carries the attribute on its first element.
+const addedHtml = (part) => {
+  const [first, ...rest] = Array.isArray(part) ? part : [part];
+  const added = first.cloneNode(true);
+  added.setAttribute(ADDED_TAG, '');
+  return partHtml([added, ...rest]);
+};
+
+function markedHtml({ parts, mark }) {
+  if (mark !== 'upstream') return parts.map(addedHtml).join('');
+  return `<${DELETED_TAG}>${parts.map(partHtml).join('')}</${DELETED_TAG}>`;
+}
+
+const groupMarks = (blocks) => blocks.reduce((groups, entry) => {
+  const prev = groups.at(-1);
+  if (!entry.mark) return [...groups, entry];
+  if (prev?.mark !== entry.mark || prev.group !== entry.group) {
+    return [...groups, { ...entry, parts: [entry.block] }];
+  }
+  return [...groups.slice(0, -1), { ...prev, parts: [...prev.parts, entry.block] }];
+}, []);
+
 function buildHtmlFromBlocks(blocks) {
-  const inner = blocks.reduce((html, { block }, idx) => {
+  const inner = groupMarks(blocks).reduce((html, { block, mark, parts }, idx) => {
     if (block.isSection) return `${html}${idx ? '</div>' : ''}${block.openTag || '<div>'}`;
+    if (mark) return `${html}${markedHtml({ parts, mark })}`;
     if (Array.isArray(block)) {
       const group = block.map((el) => (el.isSection ? `</div>${el.openTag || '<div>'}` : el.outerHTML));
       return `${html}${group.join('')}`;
@@ -603,7 +628,8 @@ function buildHtmlFromBlocks(blocks) {
 /**
  * Block-level three-way merge. Applies upstream (source) changes made since the
  * base to the destination, keeping destination edits. When both sides changed
- * the same region, the destination wins and the change is counted as skipped.
+ * the same region, the destination wins and the change is counted as skipped, or, when
+ * uncertain, counted in `review` with `da-diff-*` markers in `html`.
  * @param {Object} params
  * @param {String[]} params.base ordered block hashes of the source at the last rollout
  * @param {Document} params.source the current upstream document
@@ -611,8 +637,9 @@ function buildHtmlFromBlocks(blocks) {
  * @param {String[]} [params.rejected] block hashes the author rejected in a merge review
  * @param {String} params.site the DA site, used for link normalization
  * @param {Object} params.config the translation config (equivalent fragment hostnames)
- * @returns {Promise<{ html: String, skipped: Number, sourceHashes: String[] }>} sourceHashes is the
- *   next baseline
+ * @returns {Promise<{ html: String, skipped: Number, review: Boolean, removedUpstream: Number,
+ *   reordered: Boolean, swaps: String[], swapsAsBase: String[], sourceHashes: String[] }>}
+ *   sourceHashes is the next baseline. Other fields: see threeWayMerge.
  */
 export async function smartMerge({
   base, source, dest, rejected = [], site, config,
@@ -622,13 +649,24 @@ export async function smartMerge({
   const destBlocks = await getHashedBlocks(dest, { site, config });
   const rejectedBlocks = sourceBlocks.filter(isRejectedBlock(rejected));
   const { default: threeWayMerge } = await import('./smart-merge.js');
-  const { blocks, skipped, baseline } = threeWayMerge({
+  const {
+    blocks, skipped, review, removedUpstream, reordered, swaps, swapsAsBase, baseline,
+  } = threeWayMerge({
     base,
     source: sourceBlocks,
     dest: destBlocks,
     rejected: new Set(rejectedBlocks.map(({ hash }) => hash)),
   });
-  return { html: buildHtmlFromBlocks(blocks), skipped, sourceHashes: baseline };
+  return {
+    html: buildHtmlFromBlocks(blocks),
+    skipped,
+    review: review > 0,
+    removedUpstream,
+    reordered,
+    swaps,
+    swapsAsBase,
+    sourceHashes: baseline,
+  };
 }
 
 export async function regionalDiff(
