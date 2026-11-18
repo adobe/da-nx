@@ -39,7 +39,7 @@ flowchart TD
   diff3 --> who{"Per block: who differs from the baseline?<br/>(baseline = global when apac last received it)"}
   who -- "only global (new global edit)" --> apply["Apply global change"]
   who -- "only apac (localized, old or new)" --> keep["Keep apac"]
-  who -- "both, differently" --> skip["Keep apac<br/>count as skipped"]
+  who -- "both, differently" --> skip["Keep apac<br/>skipped, reported or marked for review"]
   copy --> save["Save page + record new rolloutbase"]
   merge --> save
   take --> save
@@ -93,7 +93,37 @@ upstream (S) and destination (D). Logic lives in `nx/public/loc/smart-merge.js` 
 | unchanged | changed | keep destination |
 | changed identically | changed identically | keep destination |
 | inserted at a spot | inserted at the same spot | keep both (destination first, no duplicates) |
-| changed | changed differently | keep destination, count as **skipped** |
+| changed | changed differently | keep destination: **skipped**, reported or **needs review** (below) |
+
+When both sides changed the same region, the destination wins. What the report says depends on whether the result
+may be wrong (notation: baseline → upstream / destination):
+
+| # | Case (example) | Result | Report |
+|---|---|---|---|
+| 1 | Both edited the same block (`A B C` → `A G C` / `A L C`) | `A L C` | skipped |
+| 2 | The page deleted a block upstream edited (`A B C` → `A B2 C` / `A C`) | `A C` | skipped |
+| 3 | Upstream deleted a block the page edited (`A B C` → `A C` / `A L C`) | `A L C` | skipped, and the page is listed under "upstream removed an edited block" |
+| 4 | Upstream moved and edited a block the page edited (`A X B C` → `A B C X2` / `A Xl B C`) | `A Xl B C X2`, `Xl` marked Local | needs review |
+| 5 | Upstream removed one of two identical copies, the page edited one (`A B B C` → `A B C` / `A B Bl C`) | `A B Bl C`, `Bl` marked Local | needs review |
+| 6 | Upstream's change also covers blocks the page didn't touch (`A B C` → `A2 Y B C` / `L B C`) | upstream's `A2 Y` (Upstream) before `L` (Local), then `B C` | needs review |
+| 7 | Upstream added content to a section the page removed (or anything else of rows 4–6 that holds a section break) | the destination's version, no markers; an addition at the end of the removed section is applied to the section before it | needs review |
+| 8 | Both inserted at the same spot, one of them with a section break | the destination's version, no markers | needs review |
+
+- Rows 1–3 count as "skipped (localized)". Rows 4–8 don't: they are listed under "needs review".
+- Rows 3, 4 and 5 look the same inside the conflict (upstream deleted, the page changed). A deleted block that
+  repeats in the baseline is row 5; otherwise, if upstream also added a new block anywhere on the page (a possible
+  move), it is row 4; otherwise row 3. An unrelated upstream addition elsewhere therefore turns a row 3 case into
+  row 4, so the author sees more, not less.
+- Marked blocks use the `da-diff-*` markup, grouped per conflict: one `<da-diff-deleted>` around consecutive
+  Upstream blocks; for Local, exactly like merge, the `da-diff-added` attribute on each block (on the first div of
+  a block group). When both sides hold the same kinds of blocks, the pair renders as a tabbed choice (Keep Local /
+  Keep Upstream / Keep Both) in the editor; otherwise each side shows its own keep/delete, as in a merge review.
+  Rows 4–5 mark only the page's copy, so after keeping it the author may need to delete the other copy by hand.
+  In row 6 the editor pairs the Upstream group with the first Local block only; any further Local blocks in the
+  conflict keep their own keep/delete, as extra blocks do in a merge review.
+- Like skipped changes, marked and flagged changes are not offered again: the next baseline already contains them.
+  The exception: until the markers are resolved, every smart rollout to the page is a full merge review, which
+  offers again every upstream difference, including earlier skipped changes (see "Unresolved review").
 
 Blocks rejected in a merge review (the page's `rejectedhashes`) are treated as if upstream never had them: before
 the merge they are removed from the upstream page, together with any section that held only rejected blocks, and
@@ -110,11 +140,29 @@ is applied, and a block upstream replaced with only rejected blocks is deleted l
   `rejectedhashes`.
 
 4. Upstream reorders: if the destination has no localized blocks (it is still identical to upstream as of the last
-   rollout), the result is exactly upstream (reorders included). Otherwise, like merge, upstream moves are not
-   applied: moved blocks stay in the destination's order (not reported), so content is never duplicated, lost or
+   rollout), the result is exactly upstream (reorders included). Otherwise an upstream move is applied when the moved
+   block appears once in the baseline and once in the destination, and the destination left it unchanged in place
+   (same baseline order relative to every other block that appears once on both).
+   The merge is then checked against putting every move back: if it would keep different blocks or resolve fewer
+   changes, all moves are put back instead. Moves that aren't applied (the destination edited the moved block, it
+   repeats, or a whole section moved) keep the destination's order, so content is never duplicated, lost or
    resurrected. The recorded baseline keeps that (unapplied) order, so later upstream edits to moved blocks still
    apply. Reordered sections are put back as whole units, so edits inside a moved section (such as its section
    metadata) stay with that section.
+   - When moves were put back and the page still has two blocks in the baseline order that upstream swapped, the
+     page is listed under "upstream reordered blocks"; reorders only the page made don't count. To list it only
+     once, the rollout records a fingerprint of every block upstream swapped (in upstream's order and in the
+     baseline's, which together define the swapped pairs) in a `rolloutorder` metadata row
+     (`<destination path>|<hash>`), next to `rolloutbase`. The fingerprint doesn't depend on the page's own order,
+     so the page is listed again only when upstream's reorder changes: adding, removing or editing other blocks
+     doesn't list it again, while removing a swapped block does. Blocks upstream only edited in place count as the
+     blocks they replaced, so editing a swapped block doesn't list it again either. Repeated identical blocks are compared by occurrence, and section breaks only
+     when they are unique on both sides (plain sections all look the same). `threeWayMerge` returns the
+     fingerprint as `swaps` (named by upstream's hashes and ordered by the next baseline: the stored value) and
+     `swapsAsBase` (named and ordered by the current baseline: the compared value). If upstream only
+     reordered, the page is otherwise unchanged and only that row is written. The row is removed once upstream's
+     order no longer conflicts with the page's, and whenever a merge, overwrite or **Set sync point** records a
+     new baseline.
 5. Sections: new sections inserted by both sides at the same spot are compared whole, so boundaries and section
    metadata stay with their content. Section breaks that would leave an empty section after merging are dropped,
    unless the destination or upstream already has an empty section.
@@ -128,30 +176,58 @@ Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`
 - A block present exactly once in the baseline, upstream and destination is always kept.
 - The merge never creates an empty section, except one (the last) when every upstream block was rejected: a
   saved empty page still has one section.
-- If nothing is reported as skipped, every new upstream block was applied, except blocks in the destination's
-  `rejectedhashes`, which are never added (also on later rollouts).
+- If nothing is reported as skipped or needing review, every new upstream block was applied, except blocks in the
+  destination's `rejectedhashes`, which are never added (also on later rollouts).
+- Applying moves (rule 4) changes only the order: the result holds the same blocks, markers and counts as putting
+  every move back.
 
 Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N skipped (localized)". A skipped
-change is not offered again: the next baseline already contains it.
+change is not offered again: the next baseline already contains it, unless the page still has unresolved
+markers (see "Unresolved review").
 
-Known limitation: a section break dropped as empty (rule 5) stays in the baseline, so upstream content added to that
-section later is reported as skipped. Leaving the break out of the baseline instead would let it come back on later
-rollouts and move localized blocks into it (see the "keeps local content in its section" test).
+Known limitation: a section break dropped as empty (rule 5) stays in the baseline. Upstream content added to that
+section later is listed under "needs review" (row 7): added at the end of the section it is applied to the section
+before it; added anywhere else in it, it is not applied. Leaving the break out of the baseline
+instead would let it come back on later rollouts and move localized blocks into it (see the "keeps local content in
+its section" test).
+
+Known limitation: the "upstream reordered blocks" check matches a page's edited block to the block it replaced
+only when it was replaced one for one. If the page replaced a moved block with a different number of blocks, the
+move is still not applied (local wins) but the page is not listed. If upstream later replaces a swapped block with a
+different number of blocks (e.g. edits it and adds one next to it), the page is listed again once, even though
+upstream's order didn't change.
+
+Known limitation: upstream moving and editing a block the page edited, while also replacing another block at the
+spot it moved to (`A X B C D` → `A B X2 D` / `A Xl B C D`), looks like an in-place edit (`C` → `X2`) plus a
+deletion of `X`. It is treated as row 3: the result `A Xl B X2 D` has no markers, and the page is listed under
+"upstream removed an edited block", so the author still opens it and finds both `Xl` and `X2`.
+
+Known limitation: if the page deleted the same block upstream deleted and edited the block next to it
+(`A B C D` → `A C D` / `A Cl D`), the merge can't tell this apart from editing the deleted block, so the page is
+listed under "upstream removed an edited block" (or marked for review if upstream also added blocks). The content is
+correct; the listing is a false positive.
 
 Each smart rollout also reports, per page:
 - **unchanged**: nothing new to apply since the sync point (upstream unchanged, or only rejected changes), so
-  nothing was written (Loc app: "N unchanged" per locale; plugin: "unchanged").
+  nothing was written except the `rolloutorder` row when upstream's reorder changed (Loc app: "N unchanged" per
+  locale; plugin: "unchanged").
 - **needs review**: the saved page has `da-diff-*` markers to accept or reject in the editor (e.g. a first rollout
-  without a sync point, or a review that is still unresolved). The Loc app lists these pages under each locale, each
-  linking to the page in the DA editor; in the plugin, "needs review" links to the page. The list is saved with the
-  project and replaced by the next rollout.
+  without a sync point, or a review that is still unresolved), or the merge hit an uncertain case (rows 4–8 above).
+  The Loc app lists these pages under each locale, each linking to the page in the DA editor; in the plugin, "needs
+  review" links to the page. The list is saved with the project and replaced by the next rollout.
+- **upstream removed an edited block** (row 3): the page kept its edited block. The Loc app lists these pages under
+  "Upstream removed a block these pages edited (local version kept):"; in the plugin, the label links to the page.
+- **upstream reordered blocks** (rule 4): the page kept its order for at least one upstream move. The Loc app
+  lists these pages under "Upstream reordered blocks on these pages (some moves not applied):"; in the plugin,
+  the label links to the page.
 
 Merge and overwrite rollouts report only "without sync point" (above). The legacy project rollout view reports none of
 these.
 
 - Unresolved review: while the destination still has `da-diff-*` markers (e.g. a first-run merge review that
   was not resolved yet), every smart rollout is today's merge again, honoring earlier accept/reject decisions,
-  even when a baseline exists. Pending upstream changes keep showing until the author resolves them and are never
+  even when a baseline exists. Rejected upstream blocks stay out, but a local block the author already kept is
+  marked Local again, since keeping the local side isn't recorded. Pending upstream changes keep showing until the author resolves them and are never
   dropped; once the markers are gone, the next smart rollout uses the baseline. Markers include the
   `da-diff-added` attribute and the `<da-diff-added>` element that list items wrap their added content in.
 
@@ -173,7 +249,7 @@ these.
 - Granularity is the block (paragraph, heading, block table, block group). Any edit inside a block counts as a
   change to that block (whitespace is ignored except inside code blocks, `<pre>`), and blocks are matched by
   content: an upstream block that is both moved and edited is seen as a deletion plus a new block, so if the
-  destination localized it both versions are kept for the author to tidy. Section wrapper attributes (e.g.
+  destination localized it both versions are kept, the localized one marked for review (row 4). Section wrapper attributes (e.g.
   `<div id="…">`) and empty paragraphs are kept as authored.
 
 ## Set sync point

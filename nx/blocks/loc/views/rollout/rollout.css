@@ -272,7 +272,8 @@ ul.lang-list {
       }
     }
 
-    .no-sync-note {
+    .no-sync-note,
+    .review-note {
       margin: 8px 0 0;
       padding: 0 0 0 16px;
       font-size: 12px;

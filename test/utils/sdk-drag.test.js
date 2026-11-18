@@ -130,13 +130,12 @@ describe('SDK draggable sources', () => {
     expect(element.draggable).to.equal(true);
     expect(port.postMessage.called).to.equal(false);
   });
-  it('hands mouse capture to the host and reports its terminal result once', async () => {
+  it('retains mouse capture after acknowledgement and reports the host result once', async () => {
     bind();
     pointer('pointerdown');
     pointer('pointermove', 30);
     await settle();
-    expect(element.releasePointerCapture.calledOnce).to.equal(true);
-    pointer('lostpointercapture');
+    expect(element.releasePointerCapture.called).to.equal(false);
     expect(port.postMessage.calledWithMatch({ action: 'dragCancel' })).to.equal(false);
     const result = {
       action: 'dragResult', details: { dragId: 'host-drag', result: { ok: true } },
@@ -146,6 +145,39 @@ describe('SDK draggable sources', () => {
     await settle();
     expect(onResult.calledOnceWithExactly({ ok: true })).to.equal(true);
     expect(request.calledOnce).to.equal(true);
+    expect(element.releasePointerCapture.calledOnce).to.equal(true);
+  });
+  it('forwards held mouse movement after acknowledgement and finishes only on release', async () => {
+    bind();
+    pointer('pointerdown');
+    pointer('pointermove', 30);
+    await settle();
+    pointer('pointermove', -100, 200);
+    await new Promise((resolve) => { requestAnimationFrame(resolve); });
+    await settle();
+    expect(port.postMessage.calledWith({
+      action: 'dragMove', details: { dragId: 'host-drag', point: { x: -100, y: 200 } },
+    })).to.equal(true);
+    expect(request.calledOnce).to.equal(true);
+    expect(element.releasePointerCapture.called).to.equal(false);
+    pointer('pointerup', -100, 200);
+    await settle();
+    expect(request.secondCall.args).to.deep.equal(['dragFinish', {
+      dragId: 'host-drag', point: { x: -100, y: 200 },
+    }]);
+    expect(onResult.calledOnce).to.equal(true);
+  });
+  it('cancels when pointer capture is unexpectedly lost after acknowledgement', async () => {
+    bind();
+    pointer('pointerdown');
+    pointer('pointermove', 30);
+    await settle();
+    pointer('lostpointercapture');
+    await settle();
+    expect(port.postMessage.calledWith({
+      action: 'dragCancel', details: { dragId: 'host-drag' },
+    })).to.equal(true);
+    expect(onResult.calledOnceWithExactly({ ok: false, error: 'cancelled' })).to.equal(true);
   });
   it('deduplicates a host result and a pending finish acknowledgement', async () => {
     let acknowledge;

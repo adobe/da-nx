@@ -71,10 +71,10 @@ export function makeDraggable({
       suppressClick = false;
       active = {
         pointerId: event.pointerId,
-        pointerType: event.pointerType,
         origin: point(event),
         point: point(event),
       };
+      // Keep capture until pointerup; a mid-drag release loses events across iframe boundaries.
       element.setPointerCapture(event.pointerId);
     }, { signal });
     element.addEventListener('pointermove', (event) => {
@@ -95,9 +95,6 @@ export function makeDraggable({
         drag.started.then((result) => {
           if (!result.ok && !drag.cancelled) {
             settle(drag, result);
-          } else if (active === drag && drag.pointerType !== 'touch') {
-            drag.handedOff = true;
-            release(drag);
           }
         });
       }
@@ -121,7 +118,7 @@ export function makeDraggable({
     }, { signal });
     element.addEventListener('pointercancel', cancel, { signal });
     element.addEventListener('lostpointercapture', () => {
-      if (active && !active.handedOff) cancel();
+      if (active) cancel();
     }, { signal });
     element.addEventListener('click', (event) => {
       if (!suppressClick) return;
