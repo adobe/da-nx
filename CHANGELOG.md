@@ -1,3 +1,10 @@
+# [1.55.0](https://github.com/adobe/da-nx/compare/v1.54.3...v1.55.0) (2026-11-18)
+
+
+### Features
+
+* **glaas:** integrate video caption localization and delivery tracking ([#1020](https://github.com/adobe/da-nx/issues/1020)) ([1bbe94c](https://github.com/adobe/da-nx/commit/1bbe94cf1989e9691bfa41fa0cd45213d5867a8a))
+
 ## [1.54.3](https://github.com/adobe/da-nx/compare/v1.54.2...v1.54.3) (2026-11-18)
 
 
