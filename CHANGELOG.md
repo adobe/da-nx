@@ -1,3 +1,53 @@
+# [1.55.0](https://github.com/adobe/da-nx/compare/v1.54.3...v1.55.0) (2026-11-18)
+
+
+### Features
+
+* **glaas:** integrate video caption localization and delivery tracking ([#1020](https://github.com/adobe/da-nx/issues/1020)) ([1bbe94c](https://github.com/adobe/da-nx/commit/1bbe94cf1989e9691bfa41fa0cd45213d5867a8a))
+
+## [1.54.3](https://github.com/adobe/da-nx/compare/v1.54.2...v1.54.3) (2026-11-18)
+
+
+### Bug Fixes
+
+* **shell:** await target chat readiness before SDK init ([#977](https://github.com/adobe/da-nx/issues/977)) ([f709d11](https://github.com/adobe/da-nx/commit/f709d110a4670083427d6d1e131ecaed484dca78))
+
+## [1.54.2](https://github.com/adobe/da-nx/compare/v1.54.1...v1.54.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **sdk:** retain pointer capture during extension drags ([e5489ca](https://github.com/adobe/da-nx/commit/e5489cac292ad210acbb50eaa2415716c0e51bf0))
+
+## [1.54.1](https://github.com/adobe/da-nx/compare/v1.54.0...v1.54.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **toast:** display notifications above toolbar popovers ([4196d78](https://github.com/adobe/da-nx/commit/4196d78af06a538251200886252dbd246c5c9e94))
+* **toast:** guard popover promotion in a helper ([032137a](https://github.com/adobe/da-nx/commit/032137a436b3b9f651ff484d3ac68bd33609f30d))
+
+# [1.54.0](https://github.com/adobe/da-nx/compare/v1.53.1...v1.54.0) (2026-11-18)
+
+
+### Features
+
+* **loc:** flag uncertain smart overwrite merges for review ([f753335](https://github.com/adobe/da-nx/commit/f753335721ef7ddd105d3ab8b75a5a6b9bda2588))
+
+## [1.53.1](https://github.com/adobe/da-nx/compare/v1.53.0...v1.53.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* use theme-aware colors for send menu selection ([#986](https://github.com/adobe/da-nx/issues/986)) ([ed99f92](https://github.com/adobe/da-nx/commit/ed99f9243e8915198e86a1ed6e398d614295f13f))
+
+# [1.53.0](https://github.com/adobe/da-nx/compare/v1.52.10...v1.53.0) (2026-11-16)
+
+
+### Features
+
+* **glaas:** add campaign brief metadata hand-off ([#1017](https://github.com/adobe/da-nx/issues/1017)) ([1876044](https://github.com/adobe/da-nx/commit/187604494945b99d37334bca254e8955d9c70867))
+
 ## [1.52.10](https://github.com/adobe/da-nx/compare/v1.52.9...v1.52.10) (2026-11-16)
 
 

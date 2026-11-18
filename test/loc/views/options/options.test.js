@@ -2,6 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import '../../../../nx/blocks/loc/views/options/options.js';
 import {
   filterLangsBySource,
+  formatConfig,
   formatLangs,
   finalizeOptions,
   getProjectSource,
@@ -52,6 +53,36 @@ function createOptionsEl() {
   };
   return el;
 }
+
+describe('GLaaS MPC environment configuration', () => {
+  ['stage', 'prod'].forEach((env) => {
+    it(`selects the ${env} MPC host independently of preview`, () => {
+      const { config } = formatConfig({
+        config: {
+          data: [
+            { key: 'translation.service.name', value: 'GLaaS' },
+            { key: 'translation.service.stage.mpc', value: 'mpc-stage.example' },
+            { key: 'translation.service.prod.mpc', value: 'mpc-prod.example' },
+            { key: 'translation.service.stage.preview', value: 'preview-stage.example' },
+            { key: 'translation.service.prod.preview', value: 'preview-prod.example' },
+          ],
+        },
+      });
+      const { options } = finalizeOptions(
+        config,
+        { 'translation.service.all.env': env },
+        [{ code: 'fr', activeAction: { value: 'translate' } }],
+        [],
+      );
+      expect(options.service).to.include({
+        name: 'GLaaS',
+        env,
+        mpc: `mpc-${env}.example`,
+        preview: `preview-${env}.example`,
+      });
+    });
+  });
+});
 
 describe('NxLocOptions - loadConnectorServiceOptions', () => {
   beforeEach(() => {
