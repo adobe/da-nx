@@ -1,3 +1,15 @@
+# [1.56.0](https://github.com/adobe/da-nx/compare/v1.55.0...v1.56.0) (2026-11-18)
+
+
+### Bug Fixes
+
+* **loc:** ignore recovered Trados task failures in status checks ([#1002](https://github.com/adobe/da-nx/issues/1002)) ([eae249e](https://github.com/adobe/da-nx/commit/eae249ec146a0833adfcde5c2e512b943cc05eba))
+
+
+### Features
+
+* **loc:** validate translate config at project start ([#955](https://github.com/adobe/da-nx/issues/955)) ([b46e3b3](https://github.com/adobe/da-nx/commit/b46e3b3472e1a76c2bd7470912f83f75c3f9e9aa))
+
 # [1.55.0](https://github.com/adobe/da-nx/compare/v1.54.3...v1.55.0) (2026-11-18)
 
 
