@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import threeWayMerge from '../../nx/public/loc/smart-merge.js';
 
 const toBlocks = (str) => (str ? str.split(' ') : [])
-  .map((hash) => ({ hash, block: hash === '|' ? { isSection: true } : {} }));
+  .map((hash) => ({ hash, block: hash.startsWith('|') ? { isSection: true } : {} }));
 const run = ({
   base, source, dest, rejected,
 }) => {
@@ -40,12 +40,13 @@ describe('threeWayMerge', () => {
     ['keeps sections both sides prepended apart', '| A', '| G | A', '| L | A', '| L | G | A', 0],
     ['keeps sections both sides inserted between sections apart', '| A | B', '| A | G | B', '| A | L | B', '| A | L | G | B', 0],
     ['ignores an upstream section swap while the destination has edits', 'A | B', 'B | A', 'L | B', 'L | B', 0],
-    ['ignores upstream moves while the destination has edits', 'A B C D', 'B A C D', 'A B C L', 'A B C L', 0],
+    ['applies an upstream move of a block the destination left in place', 'A B C D', 'B A C D', 'A B C L', 'B A C L', 0],
+    ['keeps the destination order when upstream moved a block it edited', 'A B C', 'C A B', 'A B L', 'A B L', 0],
     ['applies upstream moves when the destination is unchanged', 'A B C', 'B A C', 'A B C', 'B A C', 0],
     ['keeps a local reorder and applies an upstream edit', 'A B C', 'A B2 C', 'B A C', 'B2 A C', 0],
     ['keeps edits with their section when upstream reorders sections', '| A MA | B MB', '| B MB2 | A MA', '| AL MA | B MB', '| AL MA | B MB2', 0],
     ['keeps a new copy of a section upstream prepended', '| A | B', '| B | A | B', '| L | B', '| B | L | B', 0],
-    ['does not swap sections that only share blocks', '| A X | A Y', '| A Y | A Z', '| L X | A Y', '| L | A Y Z', 0],
+    ['does not swap sections that only share blocks', '| A X | A Y', '| A Y | A Z', '| L X | A Y', '| L Y | A Z', 0],
   ];
 
   cases.forEach(([name, base, source, dest, expected, skipped]) => {
@@ -131,10 +132,10 @@ describe('threeWayMerge', () => {
   });
 
   it('records the merged upstream order so later upstream edits still apply', () => {
-    const first = threeWayMerge({ base: ['A', 'B', 'C', 'D'], source: toBlocks('B A C D'), dest: toBlocks('A B C L') });
+    const first = threeWayMerge({ base: ['A', 'B', 'C', 'D'], source: toBlocks('B C D A'), dest: toBlocks('L B C D') });
     expect(first.baseline).to.deep.equal(['A', 'B', 'C', 'D']);
-    const second = threeWayMerge({ base: first.baseline, source: toBlocks('B2 A C D'), dest: first.blocks });
-    expect(second.blocks.map(({ hash }) => hash).join(' ')).to.equal('B2 A C L');
+    const second = threeWayMerge({ base: first.baseline, source: toBlocks('B2 C D A'), dest: first.blocks });
+    expect(second.blocks.map(({ hash }) => hash).join(' ')).to.equal('L B2 C D');
     expect(second.skipped).to.equal(0);
   });
 
@@ -156,6 +157,92 @@ describe('threeWayMerge', () => {
   it('never duplicates a localized block that upstream moved', () => {
     const { result } = run({ base: 'A B C', source: 'B A C', dest: 'L B C' });
     expect(result.split(' ').sort()).to.deep.equal(['B', 'C', 'L']);
+  });
+});
+
+// Conflict cases: docs/rollout-smart-overwrite.md. Marked blocks show as hash[local|upstream].
+describe('threeWayMerge conflict reporting', () => {
+  const report = ({ base, source, dest }) => {
+    const {
+      blocks, skipped, review, removedUpstream, reordered,
+    } = threeWayMerge({ base: base.split(' '), source: toBlocks(source), dest: toBlocks(dest) });
+    const result = blocks.map(({ hash, mark }) => (mark ? `${hash}[${mark}]` : hash)).join(' ');
+    return {
+      result, skipped, review, removedUpstream, reordered,
+    };
+  };
+  const counts = (skipped, review, removedUpstream = 0, reordered = false) => ({
+    skipped, review, removedUpstream, reordered,
+  });
+
+  const cases = [
+    ['skips when both edited a block', 'A B C', 'A G C', 'A L C', 'A L C', counts(1, 0)],
+    ['skips when the page deleted a block upstream edited', 'A B C', 'A B2 C', 'A C', 'A C', counts(1, 0)],
+    ['skips and reports when upstream deleted a block the page edited', 'A B C', 'A C', 'A L C', 'A L C', counts(1, 0, 1)],
+    ['still skips a removed edited block when upstream also edits another block', 'A B C D', 'A C D2', 'A L C D', 'A L C D2', counts(1, 0, 1)],
+    ['marks the local copy when upstream moved and edited a block the page edited', 'A X B C', 'A B C X2', 'A Xl B C', 'A Xl[local] B C X2', counts(0, 1)],
+    ['marks the local copy when upstream removed one of two identical blocks', 'A B B C', 'A B C', 'A B Bl C', 'A B Bl[local] C', counts(0, 1)],
+    ['offers upstream beside the page when its change covers more than the page changed', 'A B C', 'A2 Y B C', 'L B C', 'A2[upstream] Y[upstream] L[local] B C', counts(0, 1)],
+    ['flags without markers when the conflict holds a section break', 'A | | B', 'A | Y Z | B', 'A Bl', 'A Bl', counts(0, 1)],
+    ['applies and flags an upstream addition at the end of a section the page removed', '|1 A |2 B |3 C', '|1 A |2 B N |3 C', '|1 A |3 C', '|1 A N |3 C', counts(0, 1)],
+    ['applies and flags an upstream addition to the last section when the page removed it', '|1 A |2', '|1 A |2 N', '|1 A', '|1 A N', counts(0, 1)],
+    ['applies an upstream addition after a removed block that kept its section', 'A B C', 'A B N C', 'A C', 'A N C', counts(0, 0)],
+    ['applies an upstream addition before a block the page kept from a removed section', '|1 A |2 B C', '|1 A |2 B N C', '|1 A C', '|1 A N C', counts(0, 0)],
+    ['applies an upstream addition after a section the page replaced', '|1 A |2 B', '|1 A |2 B N', '|1 A |3 X Y', '|1 A |3 X Y N', counts(0, 0)],
+    ['applies an upstream addition after a block the page removed at the end of a section', '|1 A B |2 C', '|1 A B N |2 C', '|1 A |2 C', '|1 A N |2 C', counts(0, 0)],
+    ['applies an upstream new section after a section the page removed', '|1 A |2 B', '|1 A |2 B |3 N', '|1 A', '|1 A |3 N', counts(0, 0)],
+    ['flags both sides inserting at one spot with a section break', 'A B', 'A Y | Z B', 'A N B', 'A N B', counts(0, 1)],
+    ['applies a move of a block the page left in place without reporting it', 'A B C', 'C A B', 'A Bl C', 'C A Bl', counts(0, 0)],
+    ['reports a reorder it could not apply to an edited block', 'A B C', 'C A B', 'A B Cl', 'A B Cl', counts(0, 0, 0, true)],
+    ['reports a section reorder it could not apply', '| A | B', '| B | A', '| Al | B', '| Al | B', counts(0, 0, 0, true)],
+    ['reports a reorder of distinct sections with repeated content', '|1 A |2 A', '|2 A |1 A', '|1 L |2 A', '|1 L |2 A', counts(0, 0, 0, true)],
+    ['reports a reorder of repeated blocks it could not apply', 'A B B C', 'B B A C', 'Al B B C', 'Al B B C', counts(0, 0, 0, true)],
+    ['falls back to putting moves back when applying one would change the blocks kept', 'M R I L D', 'R Ls M', 'M R D I L', 'M R D Ls[upstream] I[local] L[local]', counts(0, 1, 0, true)],
+    ['keeps and reports a page reorder that conflicts with upstream\'s', 'A B C', 'A C B', 'B A C', 'B A C', counts(0, 0, 0, true)],
+    ['does not report a reorder only the page made', 'A B C D', 'A B C D2', 'C A B D', 'C A B D2', counts(0, 0)],
+    ['does not report a page reorder when the page already follows upstream\'s', 'A B C D E', 'B A C D E', 'B A C E D', 'B A C E D', counts(0, 0)],
+    ['reports an unapplied upstream reorder beside a page reorder', 'A B C D E', 'A C D B E', 'A L C E D', 'A L C E D', counts(0, 0, 0, true)],
+  ];
+
+  cases.forEach(([name, base, source, dest, result, expected]) => {
+    it(name, () => {
+      expect(report({ base, source, dest })).to.deep.equal({ result, ...expected });
+    });
+  });
+
+  it('does not mutate the input blocks when marking', () => {
+    const dest = toBlocks('A Xl B C');
+    threeWayMerge({ base: ['A', 'X', 'B', 'C'], source: toBlocks('A B C X2'), dest });
+    expect(dest.some((entry) => 'mark' in entry)).to.be.false;
+  });
+
+  it('keeps the marks of separate conflicts in separate groups', () => {
+    const { blocks } = threeWayMerge({
+      base: 'A B C D E F'.split(' '), source: toBlocks('A2 Y B C D2 Z E F'), dest: toBlocks('L B C L2 E F'),
+    });
+    const groups = blocks.filter(({ mark }) => mark).map(({ hash, group }) => `${hash}:${group}`);
+    expect(groups).to.deep.equal(['A2:0', 'Y:0', 'L:0', 'D2:1', 'Z:1', 'L2:1']);
+  });
+
+  it('keeps the reorder fingerprint when the page adds or removes section breaks', () => {
+    const merge = (dest) => threeWayMerge({
+      base: '|x A |y B'.split(' '), source: toBlocks('|y B |x A'), dest: toBlocks(dest),
+    });
+    const first = merge('|x Al |y B');
+    expect(first.reordered).to.be.true;
+    ['|x Al B', '|x Al |y B |x C', '|x Al |y B |y C'].forEach((dest) => {
+      expect(merge(dest).swapsAsBase).to.deep.equal(first.swapsAsBase);
+    });
+  });
+
+  it('records marked changes in the next base so they are not offered again', () => {
+    const base = ['A', 'B', 'C'];
+    const source = toBlocks('A2 Y B C');
+    const first = threeWayMerge({ base, source, dest: toBlocks('L B C') });
+    expect(first.baseline).to.deep.equal(['A2', 'Y', 'B', 'C']);
+    const resolved = first.blocks.filter(({ mark }) => mark !== 'upstream');
+    const second = threeWayMerge({ base: first.baseline, source, dest: resolved });
+    expect(second.review).to.equal(0);
   });
 });
 
@@ -206,6 +293,8 @@ describe('threeWayMerge invariants (seeded random)', () => {
     return out;
   };
   const count = (list, token) => list.filter((t) => t === token).length;
+  // The page if the author keeps every local version (upstream's offered blocks left out).
+  const localKept = (blocks) => blocks.filter(({ mark }) => mark !== 'upstream').map(({ hash }) => hash);
   // Reference for "upstream minus rejected blocks": extra copies beyond the base's go, and so do
   // sections left holding nothing; one (the last) section stays if nothing remains.
   const upstreamWithoutRejected = ({ base, source, rejected }) => {
@@ -255,8 +344,8 @@ describe('threeWayMerge invariants (seeded random)', () => {
       const base = Array.from({ length: Math.floor(random() * 7) }, () => pick(['A', 'B', 'C', 'D', 'E', '|']));
       const source = mutate(base, 's');
       const dest = mutate(base, 'd');
-      const { blocks, skipped } = threeWayMerge({ base, source: toBlocks(source.join(' ')), dest: toBlocks(dest.join(' ')) });
-      const result = blocks.map(({ hash }) => hash);
+      const { blocks, skipped, review } = threeWayMerge({ base, source: toBlocks(source.join(' ')), dest: toBlocks(dest.join(' ')) });
+      const result = localKept(blocks);
       const label = `base=${base} source=${source} dest=${dest} result=${result} skipped=${skipped}`;
       const same = (a, b) => a.join() === b.join();
 
@@ -272,7 +361,7 @@ describe('threeWayMerge invariants (seeded random)', () => {
       expectNoLossOrDuplicates({
         base, source, dest, result, label,
       });
-      if (skipped === 0) {
+      if (skipped + review === 0) {
         source.filter((t) => t !== '|' && !base.includes(t)).forEach((token) => {
           expect(result, `applied when nothing skipped: ${label}`).to.include(token);
         });
@@ -286,10 +375,10 @@ describe('threeWayMerge invariants (seeded random)', () => {
       const source = mutate(base, 's');
       const dest = mutate(base, 'd');
       const rejected = new Set(source.filter((t) => t.startsWith('s') && random() < 0.5));
-      const { blocks, skipped } = threeWayMerge({
+      const { blocks, skipped, review } = threeWayMerge({
         base, source: toBlocks(source.join(' ')), dest: toBlocks(dest.join(' ')), rejected,
       });
-      const result = blocks.map(({ hash }) => hash);
+      const result = localKept(blocks);
       const label = `base=${base} source=${source} dest=${dest} rejected=${[...rejected]} result=${result} skipped=${skipped}`;
 
       expect(result.filter((t) => rejected.has(t)), `no rejected blocks: ${label}`).to.deep.equal([]);
@@ -299,7 +388,7 @@ describe('threeWayMerge invariants (seeded random)', () => {
       dest.filter((t) => t !== '|' && !base.includes(t)).forEach((token) => {
         expect(count(result, token), `local content kept: ${label}`).to.equal(count(dest, token));
       });
-      if (skipped === 0) {
+      if (skipped + review === 0) {
         source.filter((t) => t !== '|' && !base.includes(t) && !rejected.has(t)).forEach((token) => {
           expect(result, `applied when nothing skipped: ${label}`).to.include(token);
         });
@@ -320,10 +409,10 @@ describe('threeWayMerge invariants (seeded random)', () => {
       const second = threeWayMerge({
         base: first.baseline, source: toBlocks(later.join(' ')), dest: first.blocks, rejected,
       });
-      const result = second.blocks.map(({ hash }) => hash);
+      const result = localKept(second.blocks);
       const label = `base=${base} source=${source} dest=${dest} later=${later} result=${result}`;
 
-      if (second.skipped === 0) {
+      if (second.skipped + second.review === 0) {
         later.filter((t) => t.startsWith('n')).forEach((token) => {
           expect(result, `later upstream block applied: ${label}`).to.include(token);
         });
@@ -364,12 +453,12 @@ describe('threeWayMerge invariants (seeded random)', () => {
       const first = threeWayMerge({
         base, source: toBlocks(source.join(' ')), dest: toBlocks(dest.join(' ')), rejected,
       });
-      const result = first.blocks.map(({ hash }) => hash);
+      const result = localKept(first.blocks);
       const label = `base=${base} source=${source} dest=${dest} rejected=${[...rejected]} result=${result}`;
 
-      const second = threeWayMerge({
+      const second = localKept(threeWayMerge({
         base: first.baseline, source: toBlocks(source.join(' ')), dest: first.blocks, rejected,
-      }).blocks.map(({ hash }) => hash);
+      }).blocks);
       expectNoLossOrDuplicates({
         base, source, dest, result, label, rejected,
       });
