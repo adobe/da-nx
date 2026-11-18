@@ -243,17 +243,51 @@ function revertSectionMoves({ base, source, dest = [] }) {
   return [...units].sort((x, y) => x.key - y.key).flatMap(({ blocks }) => blocks);
 }
 
-function withoutMoves({ base, source: upstream, dest }) {
+// Moves of blocks the page left as they were (see rule 4 in rollout-smart-overwrite.md).
+function safeMoves({ base, dest, moves }) {
+  const destHashes = toHashes(dest);
+  const kept = new Set([...lcsMatches(base, destHashes).keys()].map((idx) => base[idx]));
+  const breaks = new Set(toHashes(dest.filter(isSection)));
+  const baseCounts = countHashes(base);
+  const destCounts = countHashes(destHashes);
+  const once = (hash) => baseCounts.get(hash) === 1 && destCounts.get(hash) === 1;
+  const destPos = new Map(destHashes.map((hash, idx) => [hash, idx]));
+  const pairs = base.map((hash) => [hash, destPos.get(hash)]).filter(([hash]) => once(hash));
+  const inOrder = (hash) => {
+    const at = destPos.get(hash);
+    const idx = pairs.findIndex(([other]) => other === hash);
+    return pairs.every(([, pos], k) => k === idx || (k < idx) === (pos < at));
+  };
+  return [...moves.keys()].filter((hash) => !breaks.has(hash) && kept.has(hash) && once(hash)
+    && inOrder(hash));
+}
+
+function withoutMoves({
+  base, source: upstream, dest, applyMoves,
+}) {
   const upstreamMatches = lcsMatches(base, toHashes(upstream));
-  if (upstreamMatches.size === base.length) return { blocks: upstream, matches: upstreamMatches };
+  if (upstreamMatches.size === base.length) {
+    return {
+      blocks: upstream, matches: upstreamMatches, applied: [], reverted: false,
+    };
+  }
   const source = revertSectionMoves({ base, source: upstream, dest });
   const matches = source === upstream ? upstreamMatches : lcsMatches(base, toHashes(source));
-  const moves = getMoves({ base, source, matches });
-  if (!moves.size) return { blocks: source, matches };
+  const found = getMoves({ base, source, matches });
+  const applied = applyMoves ? safeMoves({ base, dest, moves: found }) : [];
+  const moves = new Map([...found].filter(([hash]) => !applied.includes(hash)));
+  const reverted = source !== upstream || moves.size > 0;
+  if (!moves.size) {
+    return {
+      blocks: source, matches, applied, reverted,
+    };
+  }
   return {
     blocks: revertMoves({
       base, source, matches, moves,
     }),
+    applied,
+    reverted,
   };
 }
 
@@ -277,20 +311,66 @@ function destRange({ start, end, hunks, dest, toDest }) {
 // When both sides insert at one spot that can't be combined safely, so the destination wins.
 const isAmbiguousInsert = (blocks) => blocks.some(isSection) && !isSection(blocks[0]);
 
-function resolveCluster({ cluster, dest, toDest }) {
+const hasBreak = ({ block }) => !!block?.isSection
+  || (Array.isArray(block) && block.some((el) => el?.isSection));
+
+const withMark = (blocks, mark) => blocks.map((entry) => ({ ...entry, mark }));
+
+const indexesOf = ({ start, end }) => Array.from({ length: end - start }, (_, idx) => start + idx);
+
+// The page wins a conflict; uncertain ones are marked for review (see rollout-smart-overwrite.md).
+function resolveConflict({ cluster, context }) {
+  const { sourceHunks, destHunks } = cluster;
+  const { dest, toDest, upstream } = context;
+  const count = sourceHunks.length;
+  const keepDest = (hunks = destHunks) => destRange({
+    ...cluster, hunks, dest, toDest,
+  });
+  const destBlocks = keepDest();
+  const flag = { blocks: destBlocks, review: count };
+  const destTouched = new Set(destHunks.flatMap(indexesOf));
+  const covered = (hunk) => hunk.start < hunk.end && hunk.blocks.length <= hunk.end - hunk.start
+    && indexesOf(hunk).every((idx) => destTouched.has(idx));
+  const deletes = sourceHunks.filter((hunk) => !hunk.blocks.length);
+  const pageBlocks = destHunks.flatMap((hunk) => hunk.blocks);
+  if (sourceHunks.every(covered)) {
+    if (!deletes.length || !pageBlocks.length) return { blocks: destBlocks, skipped: count };
+    const repeated = deletes.flatMap(indexesOf)
+      .some((idx) => context.baseCounts.get(context.base[idx]) > 1);
+    if (!repeated && !context.addsBlocks) {
+      return { blocks: destBlocks, skipped: count, removedUpstream: deletes.length };
+    }
+    if (pageBlocks.some(hasBreak)) return flag;
+    const marked = destHunks.map((hunk) => ({ ...hunk, blocks: withMark(hunk.blocks, 'local') }));
+    return { blocks: keepDest(marked), review: count };
+  }
+  const upstreamBlocks = destRange({
+    ...cluster, hunks: sourceHunks, dest: upstream, toDest: context.toSource,
+  });
+  if ([...upstreamBlocks, ...destBlocks].some(hasBreak)) return flag;
+  return {
+    blocks: [...withMark(upstreamBlocks, 'upstream'), ...withMark(destBlocks, 'local')],
+    review: count,
+  };
+}
+
+function resolveCluster({ cluster, context }) {
   const { sourceHunks, destHunks, type } = cluster;
-  const keepDest = () => destRange({ ...cluster, hunks: destHunks, dest, toDest });
+  const { dest, toDest } = context;
+  const keepDest = () => destRange({
+    ...cluster, hunks: destHunks, dest, toDest,
+  });
   const sourceBlocks = sourceHunks.flatMap((hunk) => hunk.blocks);
-  if (type === 'dest' || type === 'same') return { blocks: keepDest(), skipped: 0 };
-  if (type === 'source') return { blocks: sourceBlocks, skipped: 0 };
+  if (type === 'dest' || type === 'same') return { blocks: keepDest() };
+  if (type === 'source') return { blocks: sourceBlocks };
   if (type === 'inserts') {
     const destBlocks = keepDest();
     if (isAmbiguousInsert(destBlocks) || isAmbiguousInsert(sourceBlocks)) {
-      return { blocks: destBlocks, skipped: sourceHunks.length };
+      return { blocks: destBlocks, review: sourceHunks.length };
     }
-    return { blocks: mergeInserts(destBlocks, sourceBlocks), skipped: 0 };
+    return { blocks: mergeInserts(destBlocks, sourceBlocks) };
   }
-  return { blocks: keepDest(), skipped: sourceHunks.length };
+  return resolveConflict({ cluster, context });
 }
 
 const opensEmptySection = (blocks, idx) => isSection(blocks[idx])
@@ -322,15 +402,172 @@ function withoutRejected({ base, source, rejected }) {
   return kept.length ? kept : source.filter(isSection).slice(-1);
 }
 
+// A block edited in place counts as the baseline block it replaced.
+const asBase = ({ blocks, base, hunks }) => {
+  const identities = new Map(hunks
+    .filter(({ start, end, blocks: edited }) => end - start === edited.length)
+    .flatMap(({ start, blocks: edited }) => edited
+      .map((entry, idx) => [entry, base[start + idx]])));
+  return blocks.map((entry) => ({ ...entry, hash: identities.get(entry) ?? entry.hash }));
+};
+
+const numbered = (hashes) => hashes.reduce((acc, hash) => {
+  acc.seen.set(hash, (acc.seen.get(hash) || 0) + 1);
+  acc.list.push(`${hash}#${acc.seen.get(hash)}`);
+  return acc;
+}, { seen: new Map(), list: [] }).list;
+
+// Blocks upstream swapped, when the page keeps any pair of them in baseline order (see docs).
+function keptSwaps({
+  ours, theirs, upstream, base, next,
+}) {
+  const breaks = (list) => countHashes(toHashes(list.filter(isSection)));
+  const [ourBreaks, theirBreaks, baseCounts] = [breaks(ours), breaks(theirs), countHashes(base)];
+  // Which blocks count depends on upstream and the baseline only, never on page edits.
+  const keeps = (block) => !isSection(block)
+    || (theirBreaks.get(block.hash) === 1 && (baseCounts.get(block.hash) ?? 0) <= 1);
+  const onlyOnce = (block) => keeps(block)
+    && (!isSection(block) || ourBreaks.get(block.hash) === 1);
+  const positions = (hashes) => new Map(hashes.map((hash, idx) => [hash, idx]));
+  const mine = positions(numbered(toHashes(ours.filter(onlyOnce))));
+  const counted = theirs.map((block, idx) => (keeps(block) ? idx : -1)).filter((idx) => idx >= 0);
+  const ids = numbered(counted.map((idx) => theirs[idx].hash));
+  const raw = numbered(counted.map((idx) => upstream[idx].hash));
+  const inBase = positions(numbered(base));
+  const all = ids.map((_, idx) => idx);
+  const onPage = all.filter((idx) => mine.has(ids[idx]));
+  const pageKeeps = onPage.some((first, idx) => onPage.some((later, at) => (
+    at > idx && inBase.has(ids[first]) && inBase.has(ids[later])
+    && inBase.get(ids[later]) < inBase.get(ids[first])
+    && mine.get(ids[later]) < mine.get(ids[first]))));
+  if (!pageKeeps) return { swaps: [], swapsAsBase: [] };
+  // The swapped blocks in upstream's order, then in the baseline's: together they define the pairs.
+  const swapped = ({ names, order }) => {
+    const listed = all.filter((idx) => order.has(names[idx]));
+    const at = listed.map((idx) => order.get(names[idx]));
+    const maxBefore = [];
+    at.forEach((pos, idx) => maxBefore.push(Math.max(maxBefore[idx - 1] ?? -1, pos)));
+    const minAfter = [];
+    [...at].reverse()
+      .forEach((pos, idx) => minAfter.push(Math.min(minAfter[idx - 1] ?? Infinity, pos)));
+    minAfter.reverse();
+    const moved = listed
+      .filter((_, idx) => maxBefore[idx - 1] > at[idx] || minAfter[idx + 1] < at[idx])
+      .map((idx) => names[idx]);
+    return [...moved, '|', ...[...moved].sort((one, other) => order.get(one) - order.get(other))];
+  };
+  return {
+    swaps: swapped({ names: raw, order: positions(numbered(next)) }),
+    swapsAsBase: swapped({ names: ids, order: inBase }),
+  };
+}
+
+// An upstream insert at the end of a section the page removed lands in the section before it.
+const endsRemovedSection = ({
+  hunk, cluster, isBreak, size,
+}) => hunk.side === 'source' && hunk.start === hunk.end && !isSection(hunk.blocks[0])
+  && hunk.start === cluster.end
+  && (hunk.start === size || isBreak(hunk.start))
+  && cluster.hunks.some((other) => other.side === 'dest' && other.end === hunk.start
+    && indexesOf(other).some(isBreak) && !other.blocks.some(hasBreak));
+
+function mergeBlocks({
+  base, source, dest, applyMoves,
+}) {
+  const {
+    blocks: merged, matches, applied, reverted,
+  } = withoutMoves({
+    base, source, dest, applyMoves,
+  });
+  const destDiff = getHunks({ base, blocks: dest, side: 'dest' });
+  const sourceDiff = getHunks({
+    base, blocks: merged, side: 'source', matches,
+  });
+  const isBreak = (idx) => [[sourceDiff.matches, merged], [destDiff.matches, dest]]
+    .some(([toSide, side]) => toSide.has(idx) && isSection(side[toSide.get(idx)]));
+  const clusters = getClusters([...sourceDiff.hunks, ...destDiff.hunks]).map(classify);
+  const misplaced = clusters.filter((cluster, idx) => idx && endsRemovedSection({
+    hunk: cluster.hunks[0], cluster: clusters[idx - 1], isBreak, size: base.length,
+  })).length;
+  const inBase = new Set(base);
+  // Only blocks upstream inserted could be a moved, edited block; in-place edits can't.
+  const inserted = sourceDiff.hunks.filter((hunk) => hunk.blocks.length > hunk.end - hunk.start)
+    .flatMap((hunk) => hunk.blocks);
+  const context = {
+    base,
+    baseCounts: countHashes(base),
+    dest,
+    toDest: destDiff.matches,
+    upstream: merged,
+    toSource: sourceDiff.matches,
+    addsBlocks: inserted.some((block) => !isSection(block) && !inBase.has(block.hash)),
+  };
+
+  const blocks = [];
+  const add = (acc, resolved) => ({
+    skipped: acc.skipped + (resolved.skipped || 0),
+    review: acc.review + (resolved.review || 0),
+    removedUpstream: acc.removedUpstream + (resolved.removedUpstream || 0),
+  });
+  const end = clusters.reduce((acc, cluster, group) => {
+    blocks.push(...destRange({
+      start: acc.pos, end: cluster.start, hunks: [], dest, toDest: context.toDest,
+    }));
+    const resolved = resolveCluster({ cluster, context });
+    const tagged = resolved.blocks
+      .map((entry) => (entry.mark ? { ...entry, group } : entry));
+    blocks.push(...tagged);
+    return { pos: cluster.end, ...add(acc, resolved) };
+  }, {
+    pos: 0, skipped: 0, review: 0, removedUpstream: 0,
+  });
+  blocks.push(...destRange({
+    start: end.pos, end: base.length, hunks: [], dest, toDest: context.toDest,
+  }));
+  const keepAsIs = hasEmptySection(dest) || hasEmptySection(source);
+  const result = keepAsIs ? blocks : tidySections(blocks);
+  const { swaps, swapsAsBase } = reverted ? keptSwaps({
+    ours: asBase({ blocks: result, base, hunks: [...destDiff.hunks, ...sourceDiff.hunks] }),
+    theirs: asBase({ blocks: source, base, hunks: sourceDiff.hunks }),
+    upstream: source,
+    base,
+    next: toHashes(merged),
+  }) : { swaps: [], swapsAsBase: [] };
+  return {
+    blocks: result,
+    skipped: end.skipped,
+    review: end.review + misplaced,
+    removedUpstream: end.removedUpstream,
+    reordered: swapsAsBase.length > 0,
+    swaps,
+    swapsAsBase,
+    baseline: toHashes(merged),
+    applied,
+  };
+}
+
+const markedHashes = (blocks) => countHashes(blocks.map(({ hash, mark }) => `${mark}:${hash}`));
+
+const sameBlocks = (one, other) => {
+  const counts = markedHashes(one);
+  const others = markedHashes(other);
+  return counts.size === others.size
+    && [...counts].every(([hash, count]) => others.get(hash) === count);
+};
+
+// Applied moves may only change the order: same blocks and sections, no more unresolved changes.
+const keepsApplied = (tried, plain) => sameBlocks(tried.blocks, plain.blocks)
+  && ['skipped', 'review', 'removedUpstream'].every((key) => tried[key] === plain[key]);
+
 /**
  * @param {Object} params
  * @param {String[]} params.base ordered block hashes at the last rollout
  * @param {{ hash: String }[]} params.source current upstream blocks
  * @param {{ hash: String }[]} params.dest current destination blocks
  * @param {Set<String>} [params.rejected] upstream block hashes rejected in a merge review
- * @returns {{ blocks: Object[], skipped: Number, baseline: String[] }} `baseline` is the upstream
- *   order that was merged (unapplied moves reverted, rejected blocks left out); it becomes the next
- *   base
+ * @returns {{ blocks: Object[], skipped: Number, review: Number, removedUpstream: Number,
+ *   reordered: Boolean, swaps: String[], swapsAsBase: String[], baseline: String[] }}
+ *   `baseline` becomes the next base. Fields and conflict rows: docs/rollout-smart-overwrite.md
  */
 export default function threeWayMerge({
   base, source: upstream, dest, rejected = new Set(),
@@ -338,33 +575,22 @@ export default function threeWayMerge({
   const source = withoutRejected({ base, source: upstream, rejected });
   const baseKey = base.join();
   const baseline = toHashes(source);
-  if (baseline.join() === baseKey) return { blocks: dest, skipped: 0, baseline };
-  if (toHashes(dest).join() === baseKey) return { blocks: source, skipped: 0, baseline };
-  if (baseline.join() === toHashes(dest).join()) return { blocks: dest, skipped: 0, baseline };
-  const { blocks: merged, matches } = withoutMoves({ base, source, dest });
-  const destDiff = getHunks({ base, blocks: dest, side: 'dest' });
-  const toDest = destDiff.matches;
-  const sourceDiff = getHunks({
-    base, blocks: merged, side: 'source', matches,
+  const clean = (blocks) => ({
+    blocks,
+    skipped: 0,
+    review: 0,
+    removedUpstream: 0,
+    reordered: false,
+    swaps: [],
+    swapsAsBase: [],
+    baseline,
   });
-  const clusters = getClusters([...sourceDiff.hunks, ...destDiff.hunks]).map(classify);
-
-  const blocks = [];
-  const end = clusters.reduce((acc, cluster) => {
-    blocks.push(...destRange({
-      start: acc.pos, end: cluster.start, hunks: [], dest, toDest,
-    }));
-    const resolved = resolveCluster({ cluster, dest, toDest });
-    blocks.push(...resolved.blocks);
-    return { pos: cluster.end, skipped: acc.skipped + resolved.skipped };
-  }, { pos: 0, skipped: 0 });
-  blocks.push(...destRange({
-    start: end.pos, end: base.length, hunks: [], dest, toDest,
-  }));
-  const keepAsIs = hasEmptySection(dest) || hasEmptySection(source);
-  return {
-    blocks: keepAsIs ? blocks : tidySections(blocks),
-    skipped: end.skipped,
-    baseline: toHashes(merged),
-  };
+  if (baseline.join() === baseKey) return clean(dest);
+  if (toHashes(dest).join() === baseKey) return clean(source);
+  if (baseline.join() === toHashes(dest).join()) return clean(dest);
+  const params = { base, source, dest };
+  const tried = mergeBlocks({ ...params, applyMoves: true });
+  const plain = tried.applied.length ? mergeBlocks(params) : tried;
+  const { applied: _, ...result } = keepsApplied(tried, plain) ? tried : plain;
+  return result;
 }

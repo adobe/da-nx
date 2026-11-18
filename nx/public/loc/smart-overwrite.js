@@ -3,7 +3,7 @@ import {
   regionalDiff, removeLocTags, getBlockHashes, getContentHashes, smartMerge, LOC_MARKERS,
   isSnapshotPath, removeRejectedBlocks,
 } from './regional-diff.js';
-import { ROLLOUT_BASE_KEY } from './hashes.js';
+import { ROLLOUT_BASE_KEY, ROLLOUT_ORDER_KEY, getDiffHash } from './hashes.js';
 
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const EMPTY_TAGS = new Set(['DIV', 'P', 'BR']);
@@ -27,6 +27,12 @@ function getRolloutBase(metadataEl, path) {
 }
 
 const formatRolloutBase = (path, hashes) => `${toBasePath(path)}|${hashes.join(',')}`;
+
+// Fingerprint of the blocks upstream swapped, so an unchanged reorder is listed once.
+const formatRolloutOrder = (path, hashes) => `${toBasePath(path)}|${getDiffHash(hashes.join(','))}`;
+
+const readRolloutOrder = (metadataEl) => getElementMetadata(metadataEl)[ROLLOUT_ORDER_KEY]
+  ?.content.textContent.trim();
 
 // Block extraction only reads `main > div` sections; anything else would be silently dropped.
 function getSectionedMain(doc) {
@@ -102,12 +108,17 @@ async function smartRollout({
   const base = !isSnapshotPath(path) && getRolloutBase(metadataEl, path);
   if (base && !destMarked) {
     const sourceHashes = await getBlockHashes({ doc: source, site, config });
-    if (sourceHashes.join() === base.join()) return { unchanged: true };
+    if (sourceHashes.join() === base.join()) return { unchanged: true, reordered: false };
     const merged = await smartMerge({
       base, source, dest, rejected: getRejected(metadataEl), site, config,
     });
-    if (merged.sourceHashes.join() === base.join()) return { unchanged: true };
-    return { ...merged, daMetadata };
+    const orders = {
+      reordered: merged.reordered,
+      order: formatRolloutOrder(path, merged.swaps),
+      seenOrder: formatRolloutOrder(path, merged.swapsAsBase),
+    };
+    if (merged.sourceHashes.join() === base.join()) return { unchanged: true, ...orders };
+    return { ...merged, ...orders, daMetadata };
   }
   if (empty) {
     return copySource({
@@ -122,8 +133,7 @@ async function smartRollout({
 
 const isHtmlPath = (path) => path.toLowerCase().endsWith('.html');
 
-// Sets only the baseline row (a null value removes it); everything else stays exactly as authored.
-function withBaselineRow(doc, value, { dropKeys = [] } = {}) {
+function withMetadataRow(doc, { key, value, dropKeys = [] }) {
   const page = doc.cloneNode(true);
   let metadata = page.querySelector(DA_METADATA_SELECTOR);
   if (!metadata && value) {
@@ -131,14 +141,14 @@ function withBaselineRow(doc, value, { dropKeys = [] } = {}) {
     metadata.className = 'da-metadata';
     page.body.insertBefore(metadata, page.querySelector('body > footer'));
   }
-  const removed = [ROLLOUT_BASE_KEY, ...dropKeys];
+  const removed = [key, ...dropKeys];
   [...metadata?.children || []]
     .filter((el) => removed.includes(el.children[0]?.textContent.trim().toLowerCase()))
     .forEach((el) => el.remove());
   if (value) {
     const row = page.createElement('div');
     row.append(page.createElement('div'), page.createElement('div'));
-    row.firstElementChild.textContent = ROLLOUT_BASE_KEY;
+    row.firstElementChild.textContent = key;
     row.lastElementChild.textContent = value;
     metadata.append(row);
   }
@@ -146,6 +156,11 @@ function withBaselineRow(doc, value, { dropKeys = [] } = {}) {
   const doctype = doc.sourceShape.doctype ? '<!DOCTYPE html>\n' : '';
   return `${doctype}${page.documentElement.outerHTML}`;
 }
+
+// A new sync point also drops the recorded upstream order, which only described the old one.
+const withBaselineRow = (doc, value, { dropKeys = [] } = {}) => withMetadataRow(doc, {
+  key: ROLLOUT_BASE_KEY, value, dropKeys: [ROLLOUT_ORDER_KEY, ...dropKeys],
+});
 
 // Destination blocks with no matching upstream block (repeated blocks are matched one for one).
 function countLocalBlocks(sourceHashes, destHashes) {
@@ -186,8 +201,20 @@ export default function createSmartOverwrite({
     return source;
   };
 
+  const recordOrder = async ({
+    url, reordered, order, keptOrder,
+  }) => {
+    const value = reordered ? order : null;
+    if ((value ?? undefined) === keptOrder) return { ok: true };
+    const latest = await getHtml(url.destination, undefined, { raw: true });
+    if (!latest || !getSectionedMain(latest)) throw new Error('Unexpected destination content');
+    return saveBody(url, withMetadataRow(latest, { key: ROLLOUT_ORDER_KEY, value }));
+  };
+
   const smartOverwrite = async (url, title) => {
     delete url.outcome;
+    delete url.removedUpstream;
+    delete url.reordered;
     try {
       const regional = await getHtml(url.destination, undefined, { raw: true });
       const regionalMain = regional && getSectionedMain(regional);
@@ -201,10 +228,12 @@ export default function createSmartOverwrite({
       const destMarked = !!regional?.querySelector(LOC_MARKERS);
       const destMetadata = readMetadata(regional?.querySelector(DA_METADATA_SELECTOR));
       const keptBase = destMetadata[ROLLOUT_BASE_KEY];
+      const keptOrder = readRolloutOrder(regional?.querySelector(DA_METADATA_SELECTOR));
       if (regional) removeLocTags(regional);
 
       const {
-        html, skipped, sourceHashes, daMetadata, unchanged, review,
+        html, skipped, sourceHashes, daMetadata, unchanged, review, removedUpstream, reordered,
+        order, seenOrder,
       } = await smartRollout({
         source,
         dest: regional,
@@ -215,17 +244,29 @@ export default function createSmartOverwrite({
         site,
         config,
       });
+      const newlyReordered = reordered && seenOrder !== keptOrder;
       if (unchanged) {
+        const recorded = await recordOrder({
+          url, reordered, order, keptOrder,
+        });
+        if (!recorded.ok) return fail(url, responseError(recorded, 'Save'));
         url.status = 'success';
         url.skipped = 0;
         url.outcome = 'unchanged';
+        if (newlyReordered) url.reordered = true;
         return { ok: true };
       }
       // A snapshot keeps the page's sync point and never records one.
       if (!isSnapshotPath(url.destination)) {
         daMetadata[ROLLOUT_BASE_KEY] = formatRolloutBase(url.destination, sourceHashes);
-      } else if (keptBase) daMetadata[ROLLOUT_BASE_KEY] = keptBase;
-      else delete daMetadata[ROLLOUT_BASE_KEY];
+        if (reordered) daMetadata[ROLLOUT_ORDER_KEY] = order;
+        else delete daMetadata[ROLLOUT_ORDER_KEY];
+      } else {
+        if (keptBase) daMetadata[ROLLOUT_BASE_KEY] = keptBase;
+        else delete daMetadata[ROLLOUT_BASE_KEY];
+        if (keptOrder) daMetadata[ROLLOUT_ORDER_KEY] = destMetadata[ROLLOUT_ORDER_KEY];
+        else delete daMetadata[ROLLOUT_ORDER_KEY];
+      }
 
       const response = await saveHtml(url, html, daMetadata);
       if (!response.ok) return fail(url, responseError(response, 'Save'));
@@ -233,6 +274,8 @@ export default function createSmartOverwrite({
       url.status = 'success';
       url.skipped = skipped;
       if (review) url.outcome = 'review';
+      if (removedUpstream) url.removedUpstream = removedUpstream;
+      if (newlyReordered) url.reordered = true;
       return response;
     } catch (error) {
       return fail(url, error);

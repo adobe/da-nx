@@ -1,3 +1,10 @@
+# [1.54.0](https://github.com/adobe/da-nx/compare/v1.53.1...v1.54.0) (2026-11-18)
+
+
+### Features
+
+* **loc:** flag uncertain smart overwrite merges for review ([f753335](https://github.com/adobe/da-nx/commit/f753335721ef7ddd105d3ab8b75a5a6b9bda2588))
+
 ## [1.53.1](https://github.com/adobe/da-nx/compare/v1.53.0...v1.53.1) (2026-11-17)
 
 
