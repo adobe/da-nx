@@ -1,3 +1,11 @@
+## [1.54.1](https://github.com/adobe/da-nx/compare/v1.54.0...v1.54.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **toast:** display notifications above toolbar popovers ([4196d78](https://github.com/adobe/da-nx/commit/4196d78af06a538251200886252dbd246c5c9e94))
+* **toast:** guard popover promotion in a helper ([032137a](https://github.com/adobe/da-nx/commit/032137a436b3b9f651ff484d3ac68bd33609f30d))
+
 # [1.54.0](https://github.com/adobe/da-nx/compare/v1.53.1...v1.54.0) (2026-11-18)
 
 
