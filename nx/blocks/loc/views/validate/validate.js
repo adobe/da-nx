@@ -4,7 +4,15 @@ import { loadStyle } from '../../../../../nx2/scripts/nx.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
-import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
+import {
+  createSnapshotPrefix,
+  fetchConfig,
+  findDuplicateBasePaths,
+  getProjectBasePath,
+  getSourceLocations,
+  isSourceDetectEnabled,
+  resolveSourceLang,
+} from '../../utils/utils.js';
 import { getFragmentUrls } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
 
@@ -132,9 +140,38 @@ class NxLocValidate extends LitElement {
 
       notChecked = this._urls.filter((url) => !url.status);
     }
+
+    await this.updateSourceMessage();
   }
 
-  async getSourcePrefix() {
+  async detectSource() {
+    const enabled = isSourceDetectEnabled(await this.findConfigValue('source.language.detect'));
+    if (!enabled) return {};
+
+    const langs = this._configSheet.languages?.data || [];
+    const configured = await this.findConfigValue('source.language');
+    const found = langs.find((row) => row.name === configured);
+    const defaultSourceLang = found
+      && { name: found.name, code: found.code, location: found.location };
+    const urls = this._urls.filter((url) => url.checked).map((url) => url.pathname);
+
+    return resolveSourceLang({ langs, urls, defaultSourceLang });
+  }
+
+  async updateSourceMessage() {
+    const { error } = await this.detectSource();
+    if (error) {
+      this._sourceError = error;
+      this._message = { type: 'error', text: error };
+    } else if (this._sourceError) {
+      if (this._message?.text === this._sourceError) this._message = undefined;
+      this._sourceError = undefined;
+    }
+  }
+
+  async getSourcePrefix(detected = {}) {
+    if (detected.detected) return detected.sourceLang.location;
+
     const sourceLang = await this.findConfigValue('source.language');
     if (!sourceLang) return undefined;
     const foundLang = this._configSheet.languages.data.find((row) => row.name === sourceLang);
@@ -151,9 +188,20 @@ class NxLocValidate extends LitElement {
       return { message: { type: 'error', text: 'Please select at least one URL.' } };
     }
 
-    const sourcePrefix = await this.getSourcePrefix();
+    const detected = await this.detectSource();
+    if (detected.error) return { message: { type: 'error', text: detected.error } };
+
+    const defaultLocation = await this.getSourcePrefix(detected);
+    const sourceLocations = getSourceLocations({
+      options: { 'source.language': { location: defaultLocation } },
+      langs: this._configSheet?.languages?.data,
+    });
     const urls = checked.map((url) => {
-      const { aemBasePath } = convertPath({ path: url.pathname, sourcePrefix });
+      const aemBasePath = getProjectBasePath({
+        path: url.pathname,
+        defaultLocation,
+        sourceLocations,
+      });
       return {
         basePath: aemBasePath,
         suppliedPath: url.pathname,
@@ -161,7 +209,15 @@ class NxLocValidate extends LitElement {
       };
     });
 
-    return { updates: { urls } };
+    const duplicates = findDuplicateBasePaths({ urls });
+    if (duplicates.length) {
+      const conflicts = duplicates.map((paths) => paths.join(', ')).join('; ');
+      return { message: { type: 'error', text: `Multiple URLs resolve to the same base path. Remove one: ${conflicts}` } };
+    }
+
+    const detectedSource = detected.detected ? detected.sourceLang : null;
+
+    return { updates: { urls, sourceLocations, detectedSource } };
   }
 
   async handleAction(e) {
@@ -180,6 +236,7 @@ class NxLocValidate extends LitElement {
   handleChanged(url) {
     url.checked = !url.checked;
     this._urls = [...this._urls];
+    this.updateSourceMessage();
   }
 
   get notReady() {

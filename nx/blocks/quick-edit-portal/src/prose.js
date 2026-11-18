@@ -8,6 +8,7 @@ import {
   ySyncPlugin,
   yCursorPlugin,
   yUndoPlugin,
+  ySyncPluginKey,
 } from 'da-y-wrapper';
 import { getSchema } from 'https://da.live/deps/da-parser/dist/index.js';
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
@@ -40,10 +41,14 @@ function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
               const commonEditable = findCommonEditableAncestor(view, changes, prevState);
 
               if (commonEditable) {
-                // All changes are within a single editable element
+                // All changes are within a single editable element. Yjs also applies
+                // local undo/redo, which still counts as a local edit.
+                const ySync = ySyncPluginKey.getState(view.state);
+                const remote = ySync?.isChangeOrigin && !ySync.isUndoRedoOperation;
                 getEditor?.({
                   cursorOffset: commonEditable.pos + 1,
                   lengthDiff: view.state.doc.content.size - prevState.doc.content.size,
+                  origin: remote ? 'remote' : 'local',
                 });
               } else {
                 // TODO don't force this, let the user decide when.

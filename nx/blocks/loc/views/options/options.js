@@ -1,7 +1,17 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import { fetchConfig } from '../../utils/utils.js';
-import { getAllActions, formatLangs, formatConfig, finalizeOptions, getCustomOptions } from './utils/utils.js';
+import { fetchConfig, isSourceDetectEnabled } from '../../utils/utils.js';
+import { VIEWS } from '../../utils/steps.js';
+import { validateConfig, configErrorMessage } from '../../utils/validate-config.js';
+import {
+  getAllActions,
+  formatLangs,
+  formatConfig,
+  finalizeOptions,
+  getCustomOptions,
+  filterLangsBySource,
+  getProjectSource,
+} from './utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -17,6 +27,8 @@ class NxLocOptions extends LitElement {
     _actions: { state: true },
     _message: { state: true },
     _serviceOptions: { state: true },
+    _detectedSource: { state: true },
+    _configErrors: { state: true },
   };
 
   connectedCallback() {
@@ -35,8 +47,10 @@ class NxLocOptions extends LitElement {
   async formatOptions() {
     const { org, site } = this.project;
     const sheets = await fetchConfig(org, site);
-    if (!(sheets.config || sheets.languages)) {
-      this._message = { text: 'No config available.', type: 'error' };
+    const { errors } = await validateConfig(sheets);
+    if (errors.length) {
+      this._configErrors = errors;
+      this._message = configErrorMessage(errors);
       return;
     }
     const { config, options } = formatConfig(sheets);
@@ -50,6 +64,8 @@ class NxLocOptions extends LitElement {
     // Langs have information inside them
     this._siteLangs = formatLangs(sheets.languages.data, config);
 
+    this.detectSource({ options, enabled: isSourceDetectEnabled(config['source.language.detect']) });
+
     // Distill down available lang actions into a single list.
     this._actions = getAllActions(this._siteLangs);
 
@@ -58,12 +74,43 @@ class NxLocOptions extends LitElement {
     this.loadConnectorServiceOptions();
   }
 
+  detectSource({ options, enabled }) {
+    const defaultSourceLang = options['source.language'];
+    const { sourceLang, detected, error } = getProjectSource({
+      project: this.project,
+      enabled,
+      langs: this._siteLangs,
+      defaultSourceLang,
+    });
+
+    if (error) {
+      this._message = { text: error, type: 'error' };
+      return;
+    }
+    if (!detected) return;
+
+    options['source.language'] = sourceLang;
+    this._detectedSource = sourceLang;
+    this._siteLangs = filterLangsBySource({
+      langs: this._siteLangs,
+      sourceLocation: sourceLang.location,
+      defaultLocation: defaultSourceLang?.location,
+    });
+  }
+
   updateOptions() {
+    const { urls, sourceLocations } = this.project;
     const {
       options,
       langs,
       message,
-    } = finalizeOptions(this._siteConfig, this._siteOptions, this._siteLangs, this.project.urls);
+    } = finalizeOptions(
+      this._siteConfig,
+      this._siteOptions,
+      this._siteLangs,
+      urls,
+      sourceLocations,
+    );
 
     if (message) return { message };
 
@@ -74,17 +121,30 @@ class NxLocOptions extends LitElement {
     return { updates: { options, langs } };
   }
 
+  /**
+   * Handles prev/next. Back navigation always proceeds without showing errors,
+   * saving current options only when they are valid.
+   * @param {CustomEvent} e - Action event from nx-loc-actions.
+   */
   handleAction(e) {
     const { view } = e.detail;
-    const { message, updates } = this.updateOptions();
-    if (message) {
+    const isBack = view === VIEWS.options(this.project).prev.view;
+    const hasConfigErrors = !!this._configErrors?.length;
+
+    if (!isBack && hasConfigErrors) {
+      this._message = configErrorMessage(this._configErrors);
+      return;
+    }
+
+    const { message, updates } = hasConfigErrors ? {} : this.updateOptions();
+    if (message && !isBack) {
       this._message = message;
       return;
     }
-    const data = { view, ...updates };
+
+    const data = { view, ...(message ? {} : updates) };
     const opts = { detail: { data }, bubbles: true, composed: true };
-    const event = new CustomEvent('action', opts);
-    this.dispatchEvent(event);
+    this.dispatchEvent(new CustomEvent('action', opts));
   }
 
   handleChangeOption({ target }) {
@@ -397,6 +457,12 @@ class NxLocOptions extends LitElement {
           <p class="detail-card-heading">Sources</p>
           <p>${this.project.urls.length}</p>
         </div>
+        ${this._detectedSource ? html`
+          <div class="detail-card detail-card-source">
+            <p class="detail-card-heading">Source</p>
+            <p>${this._detectedSource.location}</p>
+          </div>
+        ` : nothing}
         <div class="detail-card detail-card-languages">
           <p class="detail-card-heading">Languages</p>
           <p>${this.langCount}</p>
@@ -423,7 +489,21 @@ class NxLocOptions extends LitElement {
     `;
   }
 
+  /**
+   * Renders the actions bar alone so config errors stay visible when the options can't load.
+   * @returns {import('da-lit').TemplateResult} The actions template.
+   */
+  renderConfigErrors() {
+    return html`
+      <nx-loc-actions
+        .project=${this._project}
+        .message=${this._message}
+        @action=${this.handleAction}>
+      </nx-loc-actions>`;
+  }
+
   render() {
+    if (this._configErrors?.length) return this.renderConfigErrors();
     return html`
       ${this._siteConfig && html`
         <nx-loc-actions

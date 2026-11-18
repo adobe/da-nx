@@ -65,14 +65,34 @@ parallel one. If you do add a new key:
 | `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
+| `DROP_TARGET` | Host ↔ iframe (request/reply) | da-live only |
 | `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
 | `SCROLL_TO_POS` | Host → iframe | da-live only |
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
 | `COMMENT_MARKER_CLEAR` | iframe → host | da-live only |
 | `COMMENT_SHORTCUT` | iframe → host | da-live only |
+| `FOCUS_TOOLBAR` | iframe → host | da-live only |
+| `FOCUS_EDITOR` | Host → iframe | da-live only |
 | `QUICK_EDIT_IFRAME_CLICK` | iframe → host | da-live only |
 
 ---
+
+### `DROP_TARGET`
+
+da-live owns drags that start in another iframe (extension SDK drags and the AEM
+Assets rail): a host overlay captures the pointer above every iframe, so the
+preview never sees those drags or their content. The host asks quick-edit to
+highlight (`hover`) or resolve (`resolve`) the point under the pointer: `html`
+resolves to a before/after boundary between indexed content, `image` only to an
+existing authored image. The reply carries the rendered document version so the
+host can reject stale coordinates before applying the editor transaction.
+While an edit acknowledgement or reload is pending, the reply is
+`{ target: null, reason: 'busy' }` and the host retries briefly. `leave`,
+cancellation and completion clear the highlight. Only da-live initiates this
+flow; the standalone portal does not consume it.
+
+Native drops from outside the browser are a separate path: only image Files on an
+existing image are accepted, and they use `IMAGE_REPLACE` like the replace action.
 
 ### `SET_BODY` (`rerenderScope`)
 
@@ -82,10 +102,19 @@ page (all of `main`). Loaders opt in with `partialReload`, which automatically l
 to `main` and preserves header and footer. The reload callback must be able to decorate just
 `replaced.el`; the iframe re-keys the indices of the DOM it keeps and falls back to the whole
 of `main` whenever that mapping is ambiguous. Without `partialReload`, the whole body is
-replaced. If the page exposes no
-`decorateMain`/`loadSections`, `quick-edit-init.js` replaces the whole body and calls the page's
+replaced. `quick-edit-init.js` uses an optional `reloadEditable(main)` export for custom
+reloading when present. It covers both decoration and loading, replacing `decorateMain` plus
+`loadSections`, which are the default when the hook is missing.
+It receives an undecorated `main` (live for a whole-main reload, detached for inline,
+section and block reloads), may be async, and modifies that `main` in place (including
+replacing or re-wrapping the nodes inside it); no return value is required. The default
+awaits `decorateMain(main)` then `loadSections(main)`; both exports are required.
+If neither pipeline is available, `quick-edit-init.js` replaces the whole body and calls the page's
 `loadPage` (so header and footer re-render); without `loadPage` either, edits are shown
 undecorated in `main`.
+All scopes use the same resolved `reloadEditable` function. `createReload` only handles
+preparing the scope and inserting the reloaded nodes; it does not select any additional
+page hooks or fallbacks.
 An iframe `RELOAD` makes da-live re-send
 everything not confirmed by the iframe itself, since it signals a failed `SET_EDITOR_STATE`.
 
@@ -109,6 +138,32 @@ For example, a heading inside a blockquote opens a mini-editor containing the
 whole blockquote, not just the heading. This preserves quote/list wrappers and
 their other children when the iframe sends the edited node back, and keeps
 host-originated edits targeting the same indexed element.
+
+### `SET_EDITOR_STATE` (inline editors)
+
+Text edits inside one editable element skip `SET_BODY`: the iframe mounts a ProseMirror
+editor in place of the element, which renders raw document markup (e.g. a
+`<strong><a>` instead of the page's `a.button`, `:icon:` text instead of `span.icon`).
+Once the editor is not focused (blur, or an edit made in the host), the iframe swaps
+it back for static markup, but only for loaders with `partialReload`: it passes the element,
+detached, to the reload callback as `replaced = { type: 'element', el }`; the callback may
+return a replacement element. Before the swap, root and descendant indices and descendant
+image versions are refreshed from the live editor, including updates made while decoration
+was pending. Without
+`partialReload` (e.g. site loaders calling `loadQuickEdit(payload, loadPage)`, or the
+`loadPage` fallback above) a single element can't be decorated, so the editor stays open.
+
+Content is always applied immediately, since later prose indices shift with it; only the
+swap (and its decoration) waits. Leaving an iframe editor swaps it right away. Edits from the
+host are timed per editor by the payload's `origin`: `local` (the host user, including their
+undo/redo, and the default when missing) swaps 500 ms after the last local edit; `remote` (a
+collaborator via Yjs) swaps 3 s after the first pending remote edit and never postpones a
+pending swap, so continuous remote typing is still decorated every 3 s instead of on every
+keystroke.
+
+`quick-edit-init.js` handles that scope by putting the element into a detached `main`,
+running the shared `reloadEditable(main)` pipeline described above, and returning the
+indexed element. Without a shared reload pipeline, inline edits settle undecorated.
 
 ### `SET_SELECTED_NODE` / `NODE_SELECT`
 
@@ -165,7 +220,9 @@ upload request, the host replies with the same `IMAGE_REPLACE` type, distinguish
 `payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
 round-trip. Hosts stamp every image in `SET_BODY` with its ProseMirror position
 (`data-image-index`) and the document snapshot (`data-image-version`); `SET_EDITOR_STATE`
-carries the same version for an active inline editor. The iframe sends both values with
+carries the same version for an active inline editor and refreshes it on every indexed
+image and open editor, so a subsequent replacement elsewhere uses the current snapshot.
+The iframe sends both values with
 a per-upload `requestId`, and the host updates exactly that image only while the
 document snapshot is current when the request arrives. During upload, the host
 tracks that image through collaborative edits; unrelated edits do not cancel the
@@ -185,6 +242,44 @@ After an inline edit, the host acknowledges `NODE_UPDATE` with the new `imageVer
 and the edit's `nodeUpdateId`; the iframe has already shifted the affected image
 positions and applies that version without rebuilding the page or losing the active
 editor. A newer edit or full-body refresh invalidates older acknowledgements.
+
+### Link-images and project decoration
+
+A link-image (`editAs: 'image'`) is an editable image that publishes as
+`<a href="…" title="alt" data-edit-as="image">…</a>`. The host stamps it in `SET_BODY`
+with the same `data-image-index` and `data-image-version` as any image, but on the
+anchor. Display and text edits always work. Image select and replace in layout mode
+work only when the project's decoration keeps those attributes.
+
+Project contract, for select and replace:
+
+- Copy every `data-image-*` attribute from the source element (`img`, or
+  `a[data-edit-as="image"]`) onto the rendered `img`, and render it as `picture img`.
+  Both index and version are needed.
+- Index restore and drop-listener setup run once after decoration (`setBody`). Images
+  decorated later aren't droppable. This applies to all images.
+
+What the iframe and host do when the contract isn't met:
+
+- In a paragraph or block whose source contains a link-image, the iframe skips
+  count-based index restore. Indices that survived decoration are kept. Elsewhere,
+  restore is unchanged.
+- If the document contains any link-image, the host refuses a selection that carries
+  only a `src` (no index). Without a link-image, file-name matching is unchanged.
+- `IMAGE_REPLACE` refuses without index and version, as for any image. Replacing a
+  link-image with an upload clears `editAs`: the upload is a DA media file, so the
+  result is a regular image. Uploads never carry `editAs`, on insert or replace, whatever
+  the site's `imageType`; `assetNodeSpec` is for AEM assets only. Host-side AEM-asset
+  replacement can instead preserve or set it: `updateImageInDocument` takes an optional `editAs` (omitted or `null`
+  clears it, a string sets it), and hosts pass the `editAs` from `assetNodeSpec`.
+
+So in a document with link-images, any image without its own `data-image-*`
+attributes, regular or link, can't be selected or replaced in layout mode. Content
+mode, saved HTML and text editing stay correct either way.
+
+The iframe imports its parser from `https://da.live/deps/da-parser`. It must be
+da-parser ≥ 2.2.0 to keep `editAs` through `NODE_UPDATE`; older iframes silently turn
+the link-image into a regular image on the next text edit.
 
 ### Comments (`SET_COMMENT_MARKERS` / `SCROLL_TO_POS` / `COMMENT_MARKER_CLICK` / `COMMENT_MARKER_CLEAR` / `COMMENT_SHORTCUT`)
 
@@ -207,6 +302,23 @@ of marker bubbles and highlights on top of the previewed page (`nx/public/plugin
 
 All five are da-live-embedded only; the standalone `quick-edit-portal.js` host has no
 comments UI, so none are wired up there.
+
+### Toolbar keyboard access (`FOCUS_TOOLBAR` / `FOCUS_EDITOR`)
+
+da-live's formatting and block toolbars float in the host page, so keyboard users can't
+Tab to them from the preview (WCAG 2.1.1). Keys pressed in the iframe never reach the host.
+
+- `FOCUS_TOOLBAR` — the user pressed Alt+F10 inside the iframe (`src/toolbar-shortcut.js`);
+  the host moves focus to the visible toolbar. The host handles the same shortcut itself when
+  focus is in its doc editor.
+- `FOCUS_EDITOR` — the host returns keyboard focus to the preview (Escape in the toolbar, or
+  after a toolbar command). The inline editor usually settled to static markup once focus
+  left the iframe, so the iframe reopens the last-blurred editor and restores its selection
+  (`restoreEditorFocus` in `src/prose.js`). The restored caret is not reported back as a
+  `CURSOR_MOVE`/`SELECTION_CHANGE`: the host already holds that selection, and da-live
+  treats a caret move as a reason to drop a mark just queued from its toolbar (e.g. Bold).
+
+Both are da-live-embedded only.
 
 ### `QUICK_EDIT_IFRAME_CLICK`
 

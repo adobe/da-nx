@@ -44,6 +44,10 @@ sl-select {
     background-color: var(--s2-orange-300);
   }
 
+  .detail-card-source {
+    background-color: var(--s2-blue-300);
+  }
+
   .detail-card-locales {
     background-color: var(--s2-pink-300);
   }

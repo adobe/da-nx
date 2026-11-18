@@ -1,6 +1,6 @@
 import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 import { registerPanelSection, wasPanelOpen, PANEL_EVENT } from '../../../nx2/utils/panel.js';
-import { getEWFlags } from '../../../nx2/utils/ewFlags.js';
+import { isEwChatEnabled } from '../../../nx2/utils/ewFlags.js';
 import { loadChat } from '../../../nx2/utils/chat.js';
 import { getConfig } from '../../../nx2/scripts/nx.js';
 import decorateEditor from './editor.js';
@@ -59,9 +59,7 @@ function installChatToggle(block) {
   return btn;
 }
 
-// The chat workspace (toggle + docked chat) is gated on the `ew.enabled`
-// flag for the current site. Read once from the hash on load — the form
-// workspace is scoped to a single org/site.
+// The form workspace is scoped to the org/site read on load.
 async function setupChat(block) {
   let state;
   const unsubscribe = hashChange.subscribe((s) => { state = s; });
@@ -70,8 +68,7 @@ async function setupChat(block) {
   const { org, site } = state ?? {};
   if (!org || !site) return;
 
-  const flags = await getEWFlags({ org, site });
-  if (flags['ew.enabled'] !== 'true') return;
+  if (!await isEwChatEnabled({ org, site })) return;
 
   registerPanelSection('chat', {
     position: 'before',

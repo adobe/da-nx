@@ -1,7 +1,7 @@
 /* eslint-disable import/no-extraneous-dependencies */
 
 import { importMapsPlugin } from '@web/dev-server-import-maps';
-import { defaultReporter, summaryReporter } from '@web/test-runner';
+import { chromeLauncher, defaultReporter, summaryReporter } from '@web/test-runner';
 // eslint-disable-next-line import/extensions
 import diffReporter from './tools/wtr/diffReporter.mjs';
 
@@ -40,6 +40,9 @@ export default {
   },
   testFramework: { config: { retries: GITHUB_ACTIONS ? 1 : 0 } },
   plugins: [importMapsPlugin({})],
+  // Test files run concurrently. As tabs of one window, all but the active one are hidden
+  // and Chrome pauses their requestAnimationFrame, so give each page its own window.
+  browsers: [chromeLauncher({ createPage: ({ context }) => context.newPage({ type: 'window' }) })],
   reporters: [
     defaultReporter({ reportTestResults: false, reportTestProgress: true }),
     customReporter(),
@@ -54,6 +57,7 @@ export default {
             "imports": {
               "da-lit": "/deps/lit/dist/index.js",
               "da-y-wrapper": "https://da.live/deps/da-y-wrapper/dist/index.js",
+              "https://da.live/blocks/shared/prose-cleanup.js": "/test/mocks/prose-cleanup.js",
               "/nx/public/sl/components.js": "/test/mocks/sl-components.js",
               "/nx2/utils/ims.js": "/nx2/test/mocks/ims.js",
               "/scripts/utils.js": "/nx2/test/mocks/scripts-utils.js"

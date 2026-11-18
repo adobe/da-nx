@@ -1,3 +1,5 @@
+import { findSourceLocation, getProjectSourceLocations } from './utils.js';
+
 const VIEW_TYPES = {
   dashboard: 'none',
   basics: 'setup',
@@ -9,10 +11,13 @@ const VIEW_TYPES = {
   complete: 'none',
 };
 
-function hasSync({ urls, options }) {
+function hasSync(project) {
+  const { urls, options } = project;
   if (!urls || !options) return false;
   const location = options['source.language']?.location || '/';
-  return urls.some((url) => !url.suppliedPath.startsWith(location));
+  if (location === '/') return false;
+  const locations = getProjectSourceLocations(project);
+  return urls.some((url) => !findSourceLocation({ path: url.suppliedPath, locations }));
 }
 
 function hasTranslate({ langs }) {
@@ -124,9 +129,9 @@ function canRollout({ langs }) {
   if (!langs || !langs.length) return false;
   return langs.some((lang) => {
     const rolloutOnly = lang.action === 'rollout';
-    const tranlateComplete = lang.translation?.status === 'complete';
+    const translateComplete = lang.translation?.status === 'complete';
     const copyComplete = lang.copy?.status === 'complete';
-    return rolloutOnly || tranlateComplete || copyComplete;
+    return rolloutOnly || translateComplete || copyComplete;
   });
 }
 

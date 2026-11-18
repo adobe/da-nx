@@ -5,7 +5,7 @@ import {
   updateImageSrc,
   handleImageError,
 } from './src/images.js';
-import { setEditorState, captureFocusedEditor } from './src/prose.js';
+import { setEditorState, captureFocusedEditor, restoreEditorFocus } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
@@ -30,7 +30,9 @@ import {
   getSelectedNode,
 } from './src/selection.js';
 import { installClickForwarding } from './src/click-forwarding.js';
+import { setupToolbarShortcut } from './src/toolbar-shortcut.js';
 import { replaceChanges } from './src/reload.js';
+import { setupDropListeners, handleDropTarget } from './src/drop.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -47,6 +49,7 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 let parentControllerPort = null;
 
 async function setBody(body, rerenderScope, ctx) {
+  ctx.clearDrop?.();
   ctx.reloadRequested = false;
   ctx.bodyGeneration = (ctx.bodyGeneration ?? 0) + 1;
   const generation = ctx.bodyGeneration;
@@ -87,20 +90,27 @@ function onMessage(e, ctx) {
     handleReady(e, ctx);
   } else if (type === MESSAGE_TYPES.SET_BODY) {
     ctx.pendingNodeUpdateId = null;
+    ctx.documentVersion = undefined;
     // A partial reload decorates detached DOM; the next body must not land mid-decoration.
     ctx.bodyQueue = (ctx.bodyQueue ?? Promise.resolve())
-      .then(() => setBody(payload.body, payload.rerenderScope, ctx))
+      .then(async () => {
+        await setBody(payload.body, payload.rerenderScope, ctx);
+        ctx.documentVersion = payload.documentVersion;
+      })
       .catch((error) => {
         // eslint-disable-next-line no-console
         console.error('[quick-edit] failed to set body', error);
       });
   } else if (type === MESSAGE_TYPES.SET_EDITOR_STATE) {
     const {
-      editorState, cursorOffset, imageVersion, lengthDiff,
+      editorState, cursorOffset, imageVersion, lengthDiff, origin,
     } = payload;
-    setEditorState(cursorOffset, editorState, ctx, imageVersion, lengthDiff);
+    setEditorState(cursorOffset, editorState, ctx, { imageVersion, lengthDiff, origin });
+    ctx.documentVersion = imageVersion;
   } else if (type === MESSAGE_TYPES.NODE_UPDATE) {
-    applyImageVersionAck(payload, ctx);
+    if (applyImageVersionAck(payload, ctx)) ctx.documentVersion = payload.imageVersion;
+  } else if (type === MESSAGE_TYPES.DROP_TARGET) {
+    Promise.resolve(ctx.bodyQueue).then(() => handleDropTarget(payload, ctx));
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
     setCursors(payload.cursors, ctx);
   } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
@@ -115,6 +125,8 @@ function onMessage(e, ctx) {
     scrollToProseIndex(payload.proseIndex);
   } else if (type === MESSAGE_TYPES.SET_SELECTED_NODE) {
     setSelectedNode(payload.node, document, { scrollIntoView: payload.scrollIntoView });
+  } else if (type === MESSAGE_TYPES.FOCUS_EDITOR) {
+    restoreEditorFocus(ctx);
   }
 }
 
@@ -125,7 +137,7 @@ function blockLinkNavigation() {
   }, true);
 }
 
-function setupParentController(reloadCallback, partialReload) {
+function setupParentController(reloadCallback, { partialReload }) {
   const listener = (e) => {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
     if (e.source !== window.parent || !isInit || !e.ports?.length) return;
@@ -143,9 +155,11 @@ function setupParentController(reloadCallback, partialReload) {
       readOnly: config?.canWrite !== true,
       partialReload,
     };
+    setupDropListeners(ctx);
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
     setupCommentShortcut(ctx);
+    setupToolbarShortcut(ctx);
     installClickForwarding({ getPort: () => ctx.port });
 
     window.removeEventListener('message', listener);
@@ -167,7 +181,7 @@ function handleLoad(target, config, location, ctx, handler = onMessage) {
   };
 }
 
-function setupIframeController(payload, reloadCallback, partialReload) {
+function setupIframeController(payload, reloadCallback, { partialReload }) {
   const ctx = {
     initialized: false,
     reload: reloadCallback,
@@ -281,6 +295,8 @@ export function claimBootstrap() {
 /**
  * `reloadCallback(document, replaced)` re-decorates after each body update. Pass
  * `partialReload` to preserve header/footer and decorate just `replaced.el`.
+ * With `partialReload`, it is also called with `{ type: 'element', el }` for a detached
+ * inline-edited element once its editor is closed, and may return a replacement element.
  */
 export default async function loadQuickEdit(payload, reloadCallback, {
   bootstrap = false,
@@ -294,10 +310,10 @@ export default async function loadQuickEdit(payload, reloadCallback, {
   const detail = payload?.detail ?? payload ?? {};
   const params = new URLSearchParams(window.location.search);
   if (params.get('controller') === 'parent') {
-    setupParentController(reloadCallback, partialReload);
+    setupParentController(reloadCallback, { partialReload });
   } else if (isStandaloneShell(window.location.href)) {
     setupStandaloneShell(detail);
   } else {
-    setupIframeController(detail, reloadCallback, partialReload);
+    setupIframeController(detail, reloadCallback, { partialReload });
   }
 }

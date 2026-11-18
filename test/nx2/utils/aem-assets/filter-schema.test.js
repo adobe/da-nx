@@ -13,7 +13,9 @@
 import { expect } from '@esm-bundle/chai';
 import {
   createApprovedOnlyFilterSchema,
+  createImagesOnlyFilterSchema,
   getApprovedOnlyFilterProps,
+  toFilterProps,
 } from '../../../../nx2/utils/aem-assets/filter-schema.js';
 
 describe('approved-only AEM Assets filter schema', () => {
@@ -62,5 +64,61 @@ describe('approved-only AEM Assets filter schema', () => {
     expect(disabled).to.deep.equal({});
     expect(disabled).to.not.have.property('filterSchema');
     expect(disabled).to.not.have.property('filterSchemaSource');
+  });
+});
+
+describe('images-only AEM Assets filter schema', () => {
+  it('locks the file type to images', () => {
+    const [group] = createImagesOnlyFilterSchema();
+    const [typeField] = group.fields;
+
+    expect(group.groupKey).to.equal('FileTypeGroup');
+    expect(typeField).to.include({ element: 'checkbox', name: 'type', readOnly: true });
+    expect(typeField.defaultValue).to.deep.equal(['image/*']);
+    expect(typeField.options).to.deep.equal([
+      { label: 'Images', value: 'image/*', readOnly: true },
+    ]);
+  });
+
+  it('returns a fresh nested schema for every call', () => {
+    const first = createImagesOnlyFilterSchema();
+    const second = createImagesOnlyFilterSchema();
+
+    expect(first[0]).to.not.equal(second[0]);
+    expect(first[0].fields[0]).to.not.equal(second[0].fields[0]);
+  });
+});
+
+describe('toFilterProps', () => {
+  const groupKeys = (props) => props.filterSchema.map(({ groupKey }) => groupKey);
+  const typeFilter = () => [{ groupKey: 'FileTypeGroup', fields: [] }];
+
+  it('returns no filter props for no or empty filters', () => {
+    expect(toFilterProps()).to.deep.equal({});
+    expect(toFilterProps([], [])).to.deep.equal({});
+    expect(toFilterProps(null, undefined)).to.deep.equal({});
+  });
+
+  it('returns a single filter in the hybrid contract', () => {
+    const props = toFilterProps(typeFilter());
+
+    expect(groupKeys(props)).to.deep.equal(['FileTypeGroup']);
+    expect(props).to.include({ filterSchemaSource: 'hybrid-merge-deep' });
+  });
+
+  it('combines filters in the given order into one filter schema', () => {
+    const props = toFilterProps(
+      createApprovedOnlyFilterSchema(),
+      [],
+      typeFilter(),
+    );
+
+    expect(groupKeys(props)).to.deep.equal(['AssetStatusGroup', 'FileTypeGroup']);
+  });
+
+  it('does not change the given filters', () => {
+    const types = typeFilter();
+    toFilterProps(createApprovedOnlyFilterSchema(), types);
+    expect(types.map(({ groupKey }) => groupKey)).to.deep.equal(['FileTypeGroup']);
   });
 });

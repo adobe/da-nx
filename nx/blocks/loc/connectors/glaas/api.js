@@ -10,6 +10,12 @@ export function shouldLogGLaaSRequests() {
   }
 }
 
+export function logGLaaSDebug({ step, detail }) {
+  if (!shouldLogGLaaSRequests()) return;
+  // eslint-disable-next-line no-console -- opt-in GLaaS diagnostics (glaas.log)
+  console.info('[GLaaS]', step, detail);
+}
+
 export async function throttle(ms = 500) {
   return new Promise((resolve) => {
     setTimeout(() => { resolve(); }, ms);
@@ -49,9 +55,24 @@ async function getSha256InHex(input) {
     .join('');
 }
 
+// Our brief values are always locale-specific, so langConfig holds everything and
+// the shared config array stays empty.
+function buildAiContextConfig(campaignBrief) {
+  if (!campaignBrief) return undefined;
+  const langConfig = Object.fromEntries(
+    Object.entries(campaignBrief).map(([locale, attrs]) => [
+      locale,
+      Object.entries(attrs).map(([key, value]) => ({ key, value })),
+    ]),
+  );
+  return { config: [], langConfig };
+}
+
 /** Shared callbackConfig + config for v1.2 and v2 multimodal task create. */
 export async function buildGlaasCreateMetadata({ task, service }) {
-  const { name, workflow, businessUnit, reviewerResync } = task;
+  const {
+    name, workflow, businessUnit, reviewerResync, campaignBrief,
+  } = task;
   const callbackConfig = [];
   const projectKeyKV = [];
   if (service?.preview) {
@@ -72,54 +93,8 @@ export async function buildGlaasCreateMetadata({ task, service }) {
   if (reviewerResync) {
     config.push({ key: 'isAutoTranscreationFixTask', value: 'true' });
   }
-  return { callbackConfig, config };
-}
-
-export async function createTask({ origin, clientid, token, task, service }) {
-  const { name, workflowName, workflow, targetLocales } = task;
-  const { callbackConfig, config } = await buildGlaasCreateMetadata({ task, service });
-
-  const body = {
-    name,
-    targetLocales,
-    workflowName,
-    contentSource: 'Adhoc',
-    callbackConfig,
-    config,
-  };
-
-  const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
-
-  try {
-    const resp = await fetch(`${origin}/api/l10n/v1.2/tasks/${workflow}/create`, opts);
-    if (!resp.ok) throw new Error(resp.status);
-    return task;
-  } catch (e) {
-    return { error: 'Error creating task.', status: e };
-  }
-}
-
-export async function getTask({
-  origin, clientid, token, workflow, name, service,
-}) {
-  const apiOrigin = service?.origin ?? origin;
-  const opts = getOpts(clientid, token);
-  try {
-    const resp = await fetch(`${apiOrigin}/api/l10n/v1.2/tasks/${workflow}/${name}`, opts);
-    const json = await resp.json();
-    return { status: resp.status, json };
-  } catch {
-    return { error: 'Error getting task.' };
-  }
-}
-
-// Helper function to ensure GLaaS compatibility with json extensions are converted to html
-export const getGlaasFilename = (daBasePath) => (daBasePath.endsWith('.html') ? daBasePath : `${daBasePath}.html`);
-
-/** AEM preview URL for GLaaS (v1.2 metadata and v2 multimodal create). */
-export function glaasSourcePreviewUrl(aemHref) {
-  if (!aemHref) return undefined;
-  return aemHref.replace(/\/index$/, '/');
+  const aiContextConfig = buildAiContextConfig(campaignBrief);
+  return { callbackConfig, config, aiContextConfig };
 }
 
 async function readGlaasResponse(resp) {
@@ -137,6 +112,65 @@ async function readGlaasResponse(resp) {
     json = undefined;
   }
   return { status, statusText, body, json };
+}
+
+export async function createTask({ origin, clientid, token, task, service }) {
+  const { name, workflowName, workflow, targetLocales } = task;
+  const { callbackConfig, config, aiContextConfig } = await buildGlaasCreateMetadata({
+    task,
+    service,
+  });
+
+  const body = {
+    name,
+    targetLocales,
+    workflowName,
+    contentSource: 'Adhoc',
+    callbackConfig,
+    config,
+    ...(aiContextConfig && { aiContextConfig }),
+  };
+
+  const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
+  const url = `${origin}/api/l10n/v1.2/tasks/${workflow}/create`;
+  logGLaaSDebug({ step: 'v1.2-create', detail: { method: 'POST', url } });
+  logGLaaSDebug({ step: 'v1.2-create-body-json', detail: opts.body });
+
+  try {
+    const resp = await fetch(url, opts);
+    if (shouldLogGLaaSRequests()) {
+      logGLaaSDebug({ step: 'v1.2-create-response', detail: await readGlaasResponse(resp) });
+    }
+    if (!resp.ok) throw new Error(resp.status);
+    return task;
+  } catch (e) {
+    logGLaaSDebug({ step: 'v1.2-create-error', detail: { url, error: String(e) } });
+    return { error: 'Error creating task.', status: e };
+  }
+}
+
+export async function getTask({
+  origin, clientid, token, workflow, name, service, signal,
+}) {
+  const apiOrigin = service?.origin ?? origin;
+  const opts = getOpts(clientid, token);
+  try {
+    const resp = await fetch(`${apiOrigin}/api/l10n/v1.2/tasks/${workflow}/${name}`, { ...opts, signal });
+    const json = await resp.json();
+    return { status: resp.status, json };
+  } catch {
+    signal?.throwIfAborted();
+    return { error: 'Error getting task.' };
+  }
+}
+
+// Helper function to ensure GLaaS compatibility with json extensions are converted to html
+export const getGlaasFilename = (daBasePath) => (daBasePath.endsWith('.html') ? daBasePath : `${daBasePath}.html`);
+
+/** AEM preview URL for GLaaS (v1.2 metadata and v2 multimodal create). */
+export function glaasSourcePreviewUrl(aemHref) {
+  if (!aemHref) return undefined;
+  return aemHref.replace(/\/index$/, '/');
 }
 
 function logGlaasAddAssetsRequest({

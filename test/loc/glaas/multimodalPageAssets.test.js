@@ -18,6 +18,7 @@ import {
   v2AssetStatusFromProbe,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
 import { LOC_SRC_ATTR } from '../../../nx/blocks/loc/connectors/glaas/dnt.js';
+import { collectMultimodalVideoUrls } from '../../../nx/blocks/loc/connectors/glaas/videoAssets.js';
 
 describe('GLaaS multimodal getPutUrlForFile', () => {
   beforeEach(() => {
@@ -229,6 +230,25 @@ describe('GLaaS multimodal image source URLs', () => {
 
 describe('GLaaS multimodal pageAssets', () => {
   const selectionsFor = (...srcs) => new Set(srcs.map((src) => new URL(src).href));
+
+  it('collects images and video links from the same document without parsing again', () => {
+    const src = 'https://content.da.live/adobecom/foo/hero.png';
+    const href = 'https://video.tv.adobe.com/v/333754?autoplay=false';
+    const doc = new DOMParser().parseFromString(
+      `<img src="${src}"><a href="${href}">Video</a>`,
+      'text/html',
+    );
+    const parse = sinon.spy(DOMParser.prototype, 'parseFromString');
+    try {
+      expect(collectMultimodalImageUrls(doc, {
+        imageSelections: selectionsFor(src),
+      })).to.deep.equal([src]);
+      expect(collectMultimodalVideoUrls(doc)).to.deep.equal([href]);
+      expect(parse.called).to.be.false;
+    } finally {
+      parse.restore();
+    }
+  });
 
   it('builds page asset entry with html glaas name and image metadata', () => {
     const src = 'https://content.da.live/adobecom/foo/rectangle%20810724.png';
@@ -576,7 +596,7 @@ describe('GLaaS multimodal v2 asset status', () => {
     expect(result.json[0].assets.every((asset) => asset.status !== 'COMPLETED')).to.equal(true);
   });
 
-  it('returns IN_PROGRESS without throwing when a v2 probe request fails', async () => {
+  it('returns explicit polling errors without throwing when a v2 probe request fails', async () => {
     sinon.stub(window, 'fetch').rejects(new TypeError('Failed to fetch'));
 
     const result = await getMultimodalV2TaskStatus({
@@ -594,8 +614,9 @@ describe('GLaaS multimodal v2 asset status', () => {
 
     expect(result.status).to.equal(200);
     expect(result.json[0].targetLocale).to.equal('de');
-    expect(result.json[0].status).to.equal('IN_PROGRESS');
-    expect(result.json[0].assets).to.deep.equal([]);
+    expect(result.json[0].status).to.equal('ERROR');
+    expect(result.json[0].error).to.include('Error getting v2 asset.');
+    expect(result.json[0].assets.every((asset) => asset.status === 'ERROR')).to.equal(true);
   });
 
   afterEach(() => {
@@ -631,6 +652,27 @@ describe('GLaaS multimodal translated page count', () => {
       { assetName: '/drafts/page-b.html', status: 'COMPLETED' },
     ];
     expect(countMultimodalTranslatedPages(pageAssets, assets)).to.equal(2);
+  });
+
+  it('waits for localized and English MPC delivery, without blocking pages that have no videos', () => {
+    const pages = structuredClone(pageAssets);
+    pages['/page-a'].videos = [{ glaasName: '/video.mp4' }];
+    const assets = [
+      { assetName: '/drafts/page-a.html', status: 'COMPLETED' },
+      { assetName: '/media/a.png', status: 'COMPLETED' },
+      { assetName: '/drafts/page-b.html', status: 'COMPLETED' },
+      { assetName: '/video.mp4', status: 'COMPLETED' },
+    ];
+    const task = { sourceCaptionDelivery: { '/video.mp4': { status: 'delivered' } } };
+    expect(countMultimodalTranslatedPages(pages, assets, task)).to.equal(1);
+    ['queued', 'uploading', 'error'].forEach((status) => {
+      task.videoDelivery = { '/video.mp4': { status } };
+      expect(countMultimodalTranslatedPages(pages, assets, task)).to.equal(1);
+    });
+    task.videoDelivery['/video.mp4'].status = 'delivered';
+    expect(countMultimodalTranslatedPages(pages, assets, task)).to.equal(2);
+    delete task.sourceCaptionDelivery;
+    expect(countMultimodalTranslatedPages(pages, assets, task)).to.equal(1);
   });
 
   it('normalizes asset names without a leading slash', () => {

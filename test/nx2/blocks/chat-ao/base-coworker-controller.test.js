@@ -2,6 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import BaseChatController from '../../../../nx2/blocks/chat-ao/base-chat-controller.js';
 import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker-chat-controller.js';
 import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
+import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
 import { AO_FRAME } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
 
 // These cover the Base/Coworker split (PR: split controller into Base +
@@ -26,6 +27,69 @@ describe('controller decoupling — re-export identity', () => {
   it('Coworker extends Base', () => {
     const coworker = new CoworkerChatController({ onUpdate: () => { } });
     expect(coworker).to.be.instanceOf(BaseChatController);
+  });
+});
+
+describe('chat turn notifications across AO harnesses', () => {
+  function setup(Controller = CoworkerChatController) {
+    const completed = [];
+    const controller = new Controller({
+      onUpdate() {},
+      onTurnCompleted: (detail) => completed.push(detail),
+    });
+    controller.setContext({ org: 'org', site: 'site', path: 'page' });
+    controller._episodeId = 'episode';
+    controller._resolveManifest = async () => ({ manifestId: 'test' });
+    controller._ensureSocket = async () => {};
+    controller._ws = { readyState: WebSocket.OPEN, send() {} };
+    return { controller, completed };
+  }
+
+  [CoworkerChatController, CmaChatController].forEach((Controller) => {
+    it(`forwards terminal ${Controller.name} events, not text completion`, async () => {
+      const { controller, completed } = setup(Controller);
+      await controller.sendMessage('hello');
+      controller._handleServerEvent({ type: 'text_done', turn_id: 'turn', data: { content: 'Hi' } });
+      expect(completed).to.have.lengthOf(0);
+      controller._handleServerEvent({ type: 'turn_completed', turn_id: 'turn' });
+      controller._handleServerEvent({ type: 'turn_completed', turn_id: 'turn' });
+      const detail = {
+        org: 'org',
+        site: 'site',
+        path: 'page',
+        sessionId: 'episode',
+        turnId: 'turn',
+        status: 'completed',
+      };
+      expect(completed).to.deep.equal([detail, detail]);
+    });
+  });
+
+  it('keeps approval pauses open until a terminal server event', async () => {
+    const { controller, completed } = setup();
+    await controller.sendMessage('hello');
+    controller._handleServerEvent({
+      type: 'plan_approval_request', turn_id: 'turn', data: { content: 'Plan' },
+    });
+    expect(completed).to.have.lengthOf(0);
+    controller._handleServerEvent({ type: 'turn_completed', turn_id: 'turn' });
+    expect(completed.map(({ status }) => status)).to.deep.equal(['completed']);
+  });
+
+  it('forwards cancellation acknowledgements even without a turn ID', async () => {
+    const { controller, completed } = setup();
+    await controller.sendMessage('hello');
+    controller.stop();
+    expect(completed).to.have.lengthOf(0);
+    controller._handleServerEvent({ type: 'turn_aborted' });
+    expect(completed).to.deep.equal([{
+      org: 'org',
+      site: 'site',
+      path: 'page',
+      sessionId: 'episode',
+      turnId: undefined,
+      status: 'aborted',
+    }]);
   });
 });
 

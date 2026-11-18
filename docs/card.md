@@ -20,7 +20,7 @@ and behavior.
 import "/path/to/card/card.js";
 
 const card = document.querySelector("#page");
-card.addEventListener("selectionchange", (e) => {
+card.addEventListener("nx-card-selection-change", (e) => {
   card.selected = e.detail.selected;
 });
 ```
@@ -39,6 +39,14 @@ card.addEventListener("selectionchange", (e) => {
 
 Override the footprint with `--nx-card-width` and `--nx-card-height`.
 
+### Methods
+
+`card.focus(options)` focuses the selection checkbox when `selectable`; otherwise
+it uses native host focus (the host must be focusable, for example with `tabindex="-1"`).
+Accepts standard focus options such as `{ preventScroll: true }`. After changing
+`selectable` or first mounting the card, await `card.updateComplete` before focusing.
+Consumers should use this API rather than querying the card's shadow DOM.
+
 ### Slots
 
 | Slot              | Description                                                                |
@@ -54,4 +62,4 @@ Override the footprint with `--nx-card-width` and `--nx-card-height`.
 
 | Event             | Detail         | Description                                                       |
 | ----------------- | -------------- | ----------------------------------------------------------------- |
-| `selectionchange` | `{ selected, shiftKey }` | Fired when the checkbox is toggled. Set `selected` in response; `shiftKey` supports range selection. |
+| `nx-card-selection-change` | `{ selected, shiftKey }` | Fired when the checkbox is toggled. Set `selected` in response; `shiftKey` supports range selection. |

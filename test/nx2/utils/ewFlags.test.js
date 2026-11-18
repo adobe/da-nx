@@ -1,10 +1,12 @@
 import { expect } from '@esm-bundle/chai';
-import { HLX_ADMIN } from '../../../nx2/utils/utils.js';
+import { HLX_ADMIN, DA_ADMIN } from '../../../nx2/utils/utils.js';
+import { fetchDaConfigs } from '../../../nx2/utils/daConfig.js';
 import {
   calls, installFetch, restoreFetch,
 } from '../../../nx2/test/mocks/fetch.js';
 import {
-  getEWFlags, isEWEnabled, isEwChatDisabled, getCoworkerConfig, isCoworkerEnabled, getManifestId,
+  getEWFlags, isEWEnabled, isEwChatDisabled, isEwChatEnabled,
+  getCoworkerConfig, isCoworkerEnabled, getManifestId,
 } from '../../../nx2/utils/ewFlags.js';
 
 // getEWFlags -> daConfig.fetchDaConfigs -> api.js's config.get(), which
@@ -57,6 +59,25 @@ describe('getEWFlags', () => {
     installFetch({ body: JSON.stringify({ flags: { data: [{ key: 'other.flag', value: 'true' }] } }) });
     expect(await getEWFlags({ org: 'flag-org4', site: 'flag-site4' })).to.deep.equal({});
   });
+
+  it('uses only site flags for hlx6, even when legacy org flags are cached', async () => {
+    const org = 'flag-org-hlx6';
+    const site = 'site';
+    installFetch({
+      body: JSON.stringify({
+        flags: { data: [{ key: 'ew.enabled', value: 'false' }, { key: 'ew.disableChat', value: 'true' }] },
+      }),
+    });
+    await Promise.all(fetchDaConfigs({ org }));
+
+    restoreFetch();
+    installFetch({
+      pingHlx6: true,
+      body: JSON.stringify({ config: [], flags: [{ key: 'ew.enabled', value: 'true' }] }),
+    });
+    expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.enabled': 'true' });
+    expect(calls.filter((call) => call.url.startsWith(DA_ADMIN))).to.have.lengthOf(0);
+  });
 });
 
 describe('isEWEnabled', () => {
@@ -102,28 +123,90 @@ describe('isEwChatDisabled', () => {
   });
 });
 
+describe('isEwChatEnabled', () => {
+  let userEnabled;
+
+  beforeEach(() => {
+    userEnabled = localStorage.getItem('nx2:ew-user-enabled');
+    localStorage.removeItem('nx2:ew-user-enabled');
+  });
+
+  afterEach(() => {
+    restoreFetch();
+    if (userEnabled === null) localStorage.removeItem('nx2:ew-user-enabled');
+    else localStorage.setItem('nx2:ew-user-enabled', userEnabled);
+  });
+
+  [
+    { name: 'enabled org', flags: { 'ew.enabled': 'true' }, expected: true },
+    { name: 'legacy org', flags: { 'ew.enabled': 'false' }, expected: false },
+    { name: 'opted-in org', flags: {}, optIn: true, expected: true },
+    {
+      name: 'disabled org',
+      flags: { 'ew.enabled': 'true', 'ew.disableChat': 'true' },
+      expected: false,
+    },
+    {
+      name: 'disabled opted-in org',
+      flags: { 'ew.disableChat': 'true' },
+      optIn: true,
+      expected: false,
+    },
+  ].forEach(({ name, flags, optIn, expected }, index) => {
+    it(`applies shared chat availability to an ${name}`, async () => {
+      if (optIn) localStorage.setItem('nx2:ew-user-enabled', 'true');
+      installFetch({
+        body: JSON.stringify({
+          flags: { data: Object.entries(flags).map(([key, value]) => ({ key, value })) },
+        }),
+      });
+      expect(await isEwChatEnabled({ org: `chat-availability-${index}` })).to.equal(expected);
+    });
+  });
+
+  it('requires an org even when the browser is opted in', async () => {
+    localStorage.setItem('nx2:ew-user-enabled', 'true');
+    expect(await isEwChatEnabled({})).to.be.false;
+  });
+
+  it('inherits org chat-disable flags unless the site explicitly overrides them', async () => {
+    installFlagsByPath({
+      '/chat-override/': JSON.stringify({
+        flags: { data: [{ key: 'ew.disableChat', value: 'false' }] },
+      }),
+      '/chat-inherit/': JSON.stringify({ flags: { data: [] } }),
+      '/chat-org/': JSON.stringify({
+        flags: {
+          data: [
+            { key: 'ew.enabled', value: 'true' },
+            { key: 'ew.disableChat', value: 'true' },
+          ],
+        },
+      }),
+    });
+    expect(await isEwChatEnabled({ org: 'chat-org', site: 'chat-inherit' })).to.be.false;
+    expect(await isEwChatEnabled({ org: 'chat-org', site: 'chat-override' })).to.be.true;
+  });
+});
+
 describe('getCoworkerConfig', () => {
   afterEach(() => restoreFetch());
 
-  it('returns the coworker enablement plus alternate harness details', async () => {
+  it('returns the coworker enablement', async () => {
     installFlagsByPath({
       '/cw-site1/': JSON.stringify({
-        flags: { data: [{ key: 'ew.coworker', value: 'true' }, { key: 'ew.altHarness', value: 'act-key' }] },
+        flags: { data: [{ key: 'ew.coworker', value: 'true' }] },
       }),
     });
     expect(await getCoworkerConfig({ org: 'cw-org1', site: 'cw-site1' })).to.deep.equal({
       enabled: true,
-      altHarness: true,
-      activationKey: 'act-key',
     });
   });
 
-  it('returns false/null defaults when no coworker flags are set', async () => {
+  it('returns false default when no coworker flag is set', async () => {
     installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
     expect(await getCoworkerConfig({ org: 'cw-org2', site: 'cw-site2' })).to.deep.equal({
       enabled: false,
-      altHarness: false,
-      activationKey: null,
     });
   });
 });
