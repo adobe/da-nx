@@ -1,9 +1,13 @@
 #nx-toast-host {
   position: fixed;
   z-index: 10001;
-  left: 0;
-  right: 0;
-  bottom: var(--s2-spacing-400);
+  inset: auto 0 var(--s2-spacing-400);
+  width: auto;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  overflow: visible;
   display: flex;
   flex-direction: column-reverse;
   align-items: center;

@@ -25,6 +25,46 @@ describe('showToast', () => {
   });
 });
 
+describe('showToast popover host', () => {
+  afterEach(() => sinon.restore());
+
+  it('opens a closed host without hiding it first', () => {
+    const hide = sinon.spy(HTMLElement.prototype, 'hidePopover');
+
+    showToast({ text: 'hello', timeout: null });
+
+    expect(hide.called).to.be.false;
+    expect(document.getElementById(HOST_ID).matches(':popover-open')).to.be.true;
+  });
+
+  it('reopens an open host for subsequent notifications', () => {
+    showToast({ text: 'first', timeout: null });
+    const host = document.getElementById(HOST_ID);
+    const hide = sinon.spy(host, 'hidePopover');
+    const show = sinon.spy(host, 'showPopover');
+
+    showToast({ text: 'second', timeout: null });
+
+    expect(hide.calledOnce).to.be.true;
+    expect(show.calledOnce).to.be.true;
+    expect(hide.calledBefore(show)).to.be.true;
+    expect(host.matches(':popover-open')).to.be.true;
+    expect(host.querySelectorAll('nx-toast')).to.have.lengthOf(2);
+  });
+
+  it('still appends notifications when the popover API is unsupported', () => {
+    sinon.stub(HTMLElement.prototype, 'showPopover').value(undefined);
+    sinon.stub(HTMLElement.prototype, 'hidePopover').value(undefined);
+    const matches = sinon.spy(HTMLElement.prototype, 'matches');
+
+    showToast({ text: 'hello', timeout: null });
+
+    const host = document.getElementById(HOST_ID);
+    expect(host.querySelector('nx-toast').message).to.equal('hello');
+    expect(matches.calledWith(':popover-open')).to.be.false;
+  });
+});
+
 // ─── Timeout floor ───────────────────────────────────────────────────────────
 
 describe('NxToast timeout', () => {
