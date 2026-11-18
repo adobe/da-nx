@@ -1,3 +1,10 @@
+## [1.54.3](https://github.com/adobe/da-nx/compare/v1.54.2...v1.54.3) (2026-11-18)
+
+
+### Bug Fixes
+
+* **shell:** await target chat readiness before SDK init ([#977](https://github.com/adobe/da-nx/issues/977)) ([f709d11](https://github.com/adobe/da-nx/commit/f709d110a4670083427d6d1e131ecaed484dca78))
+
 ## [1.54.2](https://github.com/adobe/da-nx/compare/v1.54.1...v1.54.2) (2026-11-18)
 
 
