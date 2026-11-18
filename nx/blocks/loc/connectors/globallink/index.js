@@ -7,6 +7,10 @@ import authReady, {
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 import downloadQueue from '../../utils/downloadQueue.js';
 
+export const requiredKeys = ['endpoint', 'fileFormatName'];
+
+export const requiredCredentialKeys = ['clientId', 'clientSecret', 'username', 'password'];
+
 export const dnt = { addDnt };
 
 const INTEGRATION_NAME = 'globallink';
