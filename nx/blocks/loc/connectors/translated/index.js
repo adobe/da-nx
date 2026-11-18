@@ -8,6 +8,11 @@ import {
 
 export const dnt = { addDnt };
 
+export const requiredKeys = [];
+
+// da-etc reads apiKey from the config or key sheet and sends it upstream server-side.
+export const requiredCredentialKeys = ['apiKey'];
+
 export { isConnected };
 
 export const saveLangConcurrency = 2;
