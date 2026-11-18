@@ -202,6 +202,126 @@ describe('NxSnapshot', () => {
       expect(saved[1].metadata).to.not.have.property('scheduledPublish');
     });
 
+    ['handleSave', 'handleReview'].forEach((method) => {
+      it(`Stays busy until scheduling and rollback finish (${method})`, async () => {
+        let posts = 0;
+        let resolveSchedule;
+        let resolveRollback;
+        let notifyScheduleCalled;
+        let notifyRollbackCalled;
+        const scheduleCalled = new Promise((r) => { notifyScheduleCalled = r; });
+        const rollbackCalled = new Promise((r) => { notifyRollbackCalled = r; });
+        setupFetchMock(originalFetch, {
+          'admin.hlx.page/snapshot/': (urlStr, opts) => {
+            if (opts?.method !== 'POST') return mockManifestResponse();
+            posts += 1;
+            if (posts === 1) return mockManifestResponse(JSON.parse(opts.body));
+            notifyRollbackCalled();
+            return new Promise((r) => { resolveRollback = () => r(mockManifestResponse()); });
+          },
+          'snapshot-scheduler': () => {
+            notifyScheduleCalled();
+            const failed = new Response(null, { status: 500 });
+            return new Promise((r) => { resolveSchedule = () => r(failed); });
+          },
+        });
+        const el = await createElement();
+        el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+        const done = method === 'handleSave' ? el.handleSave() : el.handleReview('approve');
+        await scheduleCalled;
+        expect(el._action).to.be.a('string');
+        resolveSchedule();
+        await rollbackCalled;
+        expect(el._action).to.be.a('string');
+        resolveRollback();
+        await done;
+        expect(el._action).to.be.undefined;
+        expect(el._message.heading).to.equal('Schedule Error');
+      });
+    });
+
+    it('Returns focus to Save after the schedule error dialog closes', async () => {
+      let posts = 0;
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method !== 'POST') return mockManifestResponse();
+          posts += 1;
+          return mockManifestResponse(posts === 1 ? JSON.parse(opts.body) : undefined);
+        },
+        'snapshot-scheduler': () => new Response(null, { status: 500 }),
+      });
+      const el = await createElement({ startOpen: true });
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      const save = [...el.shadowRoot.querySelectorAll('button')]
+        .find((b) => b.textContent.trim() === 'Save');
+      save.focus();
+      const done = el.handleSave();
+      await el.updateComplete;
+      save.blur();
+      await done;
+      const dialog = el.shadowRoot.querySelector('nx-dialog');
+      await dialog.updateComplete;
+      expect(el.shadowRoot.activeElement === dialog).to.equal(true);
+      dialog.handleAction();
+      await el.updateComplete;
+      expect(el.shadowRoot.activeElement === save).to.equal(true);
+    });
+
+    it('Clears the busy state when saving throws', async () => {
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') throw new TypeError('Failed to fetch');
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      const error = await el.handleSave().catch((e) => e);
+      expect(error).to.be.instanceOf(TypeError);
+      expect(el._action).to.be.undefined;
+    });
+
+    it('Clears the busy state when a review request throws', async () => {
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') throw new TypeError('Failed to fetch');
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement();
+      const error = await el.executeReview('request').catch((e) => e);
+      expect(error).to.be.instanceOf(TypeError);
+      expect(el._action).to.be.undefined;
+    });
+
+    [
+      ['delete', (el) => el.handleDialog({ detail: 'delete' })],
+      ['copy', (el) => el.executeCopy(
+        [{ path: '/img.png', aemPreview: 'https://main--site--org.aem.page/img.png' }],
+        'fork',
+        'overwrite',
+      )],
+      ['adding fragments', (el) => {
+        el._discoveredFragments = [{ path: '/fragments/a', selected: true }];
+        return el.handleAddFragments();
+      }],
+    ].forEach(([label, run]) => {
+      it(`Clears the busy state when ${label} throws`, async () => {
+        const el = await createElement({ startOpen: true });
+        window.fetch = async (url, opts) => {
+          const urlStr = typeof url === 'string' ? url : url.toString();
+          if (urlStr.startsWith('/') || urlStr.startsWith('http://localhost')) {
+            return originalFetch.call(window, url, opts);
+          }
+          // isHlx6 memoizes the ping per site, so a rejected ping would leak into later tests.
+          if (urlStr.includes('/ping/')) return new Response('', { status: 200 });
+          throw new TypeError('Failed to fetch');
+        };
+        await run(el).catch(() => {});
+        expect(el._action).to.be.undefined;
+      });
+    });
+
     it('Reports when scheduledPublish could not be cleared', async () => {
       let posts = 0;
       setupFetchMock(originalFetch, {
@@ -959,6 +1079,39 @@ describe('NxSnapshot', () => {
       await el.updateComplete;
       const overlay = el.shadowRoot.querySelector('.nx-snapshot-overlay');
       expect(overlay).to.be.null;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-wrapper').inert).to.equal(false);
+    });
+
+    it('Makes the panel inert while busy', async () => {
+      const el = await createElement({ startOpen: true });
+      el._action = 'Saving';
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-wrapper').inert).to.equal(true);
+    });
+
+    it('Returns focus to the pressed button when busy ends', async () => {
+      const el = await createElement({ startOpen: true });
+      const button = el.shadowRoot.querySelector('.nx-snapshot-expand');
+      button.focus();
+      el._action = 'Saving';
+      await el.updateComplete;
+      button.blur();
+      el._action = undefined;
+      await el.updateComplete;
+      expect(el.shadowRoot.activeElement === button).to.equal(true);
+    });
+
+    it('Keeps focus elsewhere if the user moved it while busy', async () => {
+      const el = await createElement({ startOpen: true });
+      const other = document.createElement('input');
+      document.body.appendChild(other);
+      el.shadowRoot.querySelector('.nx-snapshot-expand').focus();
+      el._action = 'Saving';
+      await el.updateComplete;
+      other.focus();
+      el._action = undefined;
+      await el.updateComplete;
+      expect(document.activeElement === other).to.equal(true);
     });
   });
 

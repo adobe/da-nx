@@ -76,6 +76,24 @@ class NxSnapshot extends LitElement {
     super.update();
   }
 
+  willUpdate(props) {
+    if (props.has('_action') && this._action && !props.get('_action')) {
+      this._focusBeforeAction = this.shadowRoot.activeElement;
+    }
+  }
+
+  updated() {
+    // Inert drops focus while busy; restore it once the action and any dialog it opened end.
+    if (this._action || !this._focusBeforeAction) return;
+    const active = this.shadowRoot.activeElement;
+    const inDialog = active?.localName === 'nx-dialog';
+    if (inDialog && active.details?.open) return;
+    if (inDialog || !document.activeElement || document.activeElement === document.body) {
+      this._focusBeforeAction.focus({ preventScroll: true });
+    }
+    this._focusBeforeAction = undefined;
+  }
+
   async loadManifest() {
     this._manifest = await fetchManifest(this.basics.name);
     this._launchEnabled = this._manifest?.metadata?.launchEnabled === true;
@@ -178,32 +196,34 @@ class NxSnapshot extends LitElement {
     if (scheduledPublish && !this.validateSchedule(scheduledPublish)) return;
 
     this._action = 'Saving';
+    try {
+      // Set the name if it isn't already set
+      if (!this.basics.name) this.basics.name = name;
 
-    // Set the name if it isn't already set
-    if (!this.basics.name) this.basics.name = name;
+      const manifest = this.getUpdatedManifest();
 
-    const manifest = this.getUpdatedManifest();
+      // Handle any URLs which may have changed
+      await this.handleEditUrls();
 
-    // Handle any URLs which may have changed
-    await this.handleEditUrls();
+      // Set the lock status if it's not undefined
+      if (lock === true || lock === false) manifest.locked = lock;
 
-    // Set the lock status if it's not undefined
-    if (lock === true || lock === false) manifest.locked = lock;
+      const result = await saveManifest(name, manifest);
+      this._editUrls = false;
+      if (result.error) {
+        this._message = { heading: 'Note', message: result.error, open: true };
+        return;
+      }
+      this._manifest = result;
 
-    const result = await saveManifest(name, manifest);
-    this._action = undefined;
-    this._editUrls = false;
-    if (result.error) {
-      this._message = { heading: 'Note', message: result.error, open: true };
-      return;
-    }
-    this._manifest = result;
-
-    // Handle scheduled publish if the field exists and has a value
-    if (!scheduledPublish || scheduledPublish === '') return;
-    const scheduleResult = await updateSchedule(name);
-    if (scheduleResult.status !== 200) {
-      await this.clearScheduledPublish(name, manifest, scheduleResult);
+      if (scheduledPublish) {
+        const scheduleResult = await updateSchedule(name);
+        if (scheduleResult.status !== 200) {
+          await this.clearScheduledPublish(name, manifest, scheduleResult);
+        }
+      }
+    } finally {
+      this._action = undefined;
     }
   }
 
@@ -238,8 +258,7 @@ class NxSnapshot extends LitElement {
       const result = await deleteSnapshot(
         this.basics.name,
         this._manifest.resources.map((res) => res.path),
-      );
-      this._action = undefined;
+      ).finally(() => { this._action = undefined; });
       if (result.error) {
         this._message = { heading: 'Note', message: result.error, open: true };
         return;
@@ -276,33 +295,34 @@ class NxSnapshot extends LitElement {
 
         // Schedule the publish instead of immediate approval
         this._action = 'Scheduling';
+        try {
+          // Save the manifest first with the scheduled publish data
+          const manifest = this.getUpdatedManifest();
+          await this.handleEditUrls();
+          const saveResult = await saveManifest(this.basics.name, manifest);
 
-        // Save the manifest first with the scheduled publish data
-        const manifest = this.getUpdatedManifest();
-        await this.handleEditUrls();
-        const saveResult = await saveManifest(this.basics.name, manifest);
+          if (saveResult.error) {
+            this._message = { heading: 'Note', message: saveResult.error, open: true };
+            return;
+          }
 
-        if (saveResult.error) {
+          // Now schedule the publish
+          const scheduleResult = await updateSchedule(this.basics.name, true);
+
+          if (scheduleResult.status !== 200) {
+            await this.clearScheduledPublish(this.basics.name, manifest, scheduleResult);
+            return;
+          }
+
+          this._message = {
+            heading: 'Scheduled',
+            message: 'Snapshot publish has been scheduled successfully.',
+            open: true,
+          };
+          this.loadManifest();
+        } finally {
           this._action = undefined;
-          this._message = { heading: 'Note', message: saveResult.error, open: true };
-          return;
         }
-
-        // Now schedule the publish
-        const scheduleResult = await updateSchedule(this.basics.name, true);
-        this._action = undefined;
-
-        if (scheduleResult.status !== 200) {
-          await this.clearScheduledPublish(this.basics.name, manifest, scheduleResult);
-          return;
-        }
-
-        this._message = {
-          heading: 'Scheduled',
-          message: 'Snapshot publish has been scheduled successfully.',
-          open: true,
-        };
-        this.loadManifest();
         return;
       }
       this._message = {
@@ -323,8 +343,8 @@ class NxSnapshot extends LitElement {
 
   async executeReview(state) {
     this._action = 'Saving';
-    const result = await reviewSnapshot(this.basics.name, state);
-    this._action = undefined;
+    const result = await reviewSnapshot(this.basics.name, state)
+      .finally(() => { this._action = undefined; });
     if (result.error) {
       this._message = { heading: 'Note', message: result.error, open: true };
       return;
@@ -351,13 +371,13 @@ class NxSnapshot extends LitElement {
     this._action = direction === 'fork'
       ? 'Syncing content into snapshot.'
       : 'Promoting content from snapshot.';
-    await copyManifest(this.basics.name, resources, direction, mode);
+    await copyManifest(this.basics.name, resources, direction, mode)
+      .finally(() => { this._action = undefined; });
     if (direction === 'fork') {
       const updated = { ...this._snapshotExists };
       resources.forEach((res) => { updated[res.path] = true; });
       this._snapshotExists = updated;
     }
-    this._action = undefined;
   }
 
   async handleCopyModeDialog(e) {
@@ -459,11 +479,11 @@ class NxSnapshot extends LitElement {
       ...this._manifest.resources.map((res) => res.aemPreview),
       ...selected.map((f) => `https://placeholder.com${f.path}`),
     ];
-    const result = await updatePaths(this.basics.name, currPaths, newHrefs);
+    const result = await updatePaths(this.basics.name, currPaths, newHrefs)
+      .finally(() => { this._action = undefined; });
     if (result.error) {
       this._message = { heading: 'Note', message: result.error, open: true };
     }
-    this._action = undefined;
     this._discoveredFragments = [];
     await this.loadManifest();
   }
@@ -707,7 +727,7 @@ class NxSnapshot extends LitElement {
 
   render() {
     return html`
-      <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._action ? 'is-saving' : ''}">
+      <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._action ? 'is-saving' : ''}" ?inert=${!!this._action}>
         ${this._action ? html`<div class="nx-snapshot-overlay">
           ${typeof this._action === 'string' ? html`<span>${this._action}</span>` : nothing}
           <svg class="nx-snapshot-spinner" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.exposure}"></use></svg>
