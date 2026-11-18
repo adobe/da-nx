@@ -105,7 +105,7 @@ describe('sheetRules resolveSheetRules', () => {
   };
 
   it('returns empty rules for an undefined config', () => {
-    expect(resolveSheetRules(undefined, '/a')).to.deep.equal({
+    expect(resolveSheetRules({ path: '/a' })).to.deep.equal({
       sheets: [],
       sheetToColumns: new Map(),
       universalColumns: [],
@@ -115,7 +115,7 @@ describe('sheetRules resolveSheetRules', () => {
 
   it('returns the global rules when no path rule matches', () => {
     const config = { ...base, dntPathRules: [{ path: '/other', sheet: '*', columns: '*' }] };
-    const result = resolveSheetRules(config, '/a.json');
+    const result = resolveSheetRules({ dntConfig: config, path: '/a.json' });
     expect(result.sheets).to.deep.equal(['global-tab']);
     expect(result.sheetToColumns).to.deep.equal(new Map([['data', ['sku']]]));
     expect(result.universalColumns).to.deep.equal(['id']);
@@ -127,34 +127,34 @@ describe('sheetRules resolveSheetRules', () => {
       ...base,
       dntPathRules: [{ path: '/a', sheet: 'data', columns: ['title'] }],
     };
-    resolveSheetRules(config, '/a.json');
+    resolveSheetRules({ dntConfig: config, path: '/a.json' });
     expect(config.dntSheetToColumns.get('data')).to.deep.equal(['sku']);
     expect(config.dntSheets).to.deep.equal(['global-tab']);
   });
 
   it('sets allSheets for a path rule with all tabs and all columns', () => {
     const config = { ...base, dntPathRules: [{ path: '/a', sheet: '*', columns: '*' }] };
-    expect(resolveSheetRules(config, '/a.json').allSheets).to.be.true;
+    expect(resolveSheetRules({ dntConfig: config, path: '/a.json' }).allSheets).to.be.true;
   });
 
   it('sets allSheets for a bare * tab with all columns', () => {
     const config = { ...base, dntSheets: ['*'] };
-    expect(resolveSheetRules(config).allSheets).to.be.true;
+    expect(resolveSheetRules({ dntConfig: config }).allSheets).to.be.true;
   });
 
   it('adds a named tab for a path rule with all columns', () => {
     const config = { ...base, dntPathRules: [{ path: '/a', sheet: 'other', columns: '*' }] };
-    expect(resolveSheetRules(config, '/a.json').sheets).to.deep.equal(['global-tab', 'other']);
+    expect(resolveSheetRules({ dntConfig: config, path: '/a.json' }).sheets).to.deep.equal(['global-tab', 'other']);
   });
 
   it('adds universal columns for a path rule with a column list on all tabs', () => {
     const config = { ...base, dntPathRules: [{ path: '/a', sheet: '*', columns: ['name'] }] };
-    expect(resolveSheetRules(config, '/a.json').universalColumns).to.deep.equal(['id', 'name']);
+    expect(resolveSheetRules({ dntConfig: config, path: '/a.json' }).universalColumns).to.deep.equal(['id', 'name']);
   });
 
   it('appends path columns to an existing global entry for the same tab', () => {
     const config = { ...base, dntPathRules: [{ path: '/a', sheet: 'data', columns: ['title'] }] };
-    expect(resolveSheetRules(config, '/a.json').sheetToColumns.get('data'))
+    expect(resolveSheetRules({ dntConfig: config, path: '/a.json' }).sheetToColumns.get('data'))
       .to.deep.equal(['sku', 'title']);
   });
 
@@ -167,12 +167,30 @@ describe('sheetRules resolveSheetRules', () => {
         { path: '/b', sheet: 'data', columns: ['nope'] },
       ],
     };
-    expect(resolveSheetRules(config, '/a.json').sheetToColumns.get('data'))
+    expect(resolveSheetRules({ dntConfig: config, path: '/a.json' }).sheetToColumns.get('data'))
       .to.deep.equal(['sku', 'title', 'desc']);
   });
 
   it('tolerates a config without dntPathRules', () => {
     const rest = { ...base, dntPathRules: undefined };
-    expect(resolveSheetRules(rest, '/a.json').sheets).to.deep.equal(['global-tab']);
+    expect(resolveSheetRules({ dntConfig: rest, path: '/a.json' }).sheets).to.deep.equal(['global-tab']);
+  });
+
+  it('maps path rules for the single tab name to default', () => {
+    const config = {
+      ...base,
+      dntPathRules: [
+        { path: '/a', sheet: 'data', columns: ['title'] },
+        { path: '/a', sheet: 'data', columns: '*' },
+      ],
+    };
+    const result = resolveSheetRules({ dntConfig: config, path: '/a.json', singleTabName: 'data' });
+    expect(result.sheetToColumns.get('default')).to.deep.equal(['title']);
+    expect(result.sheets).to.deep.equal(['global-tab', 'default']);
+  });
+
+  it('leaves global rules for the single tab name unchanged', () => {
+    const result = resolveSheetRules({ dntConfig: base, path: '/a.json', singleTabName: 'data' });
+    expect(result.sheetToColumns).to.deep.equal(new Map([['data', ['sku']]]));
   });
 });

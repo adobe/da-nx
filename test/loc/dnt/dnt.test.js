@@ -562,11 +562,17 @@ describe('dnt sheet document path rules', () => {
     expect(isDnt(html, 'other', 'sku')).to.be.false;
   });
 
-  it('matches single-tab sheets by default or data', async () => {
+  it('matches single-tab sheets by default or data in path rules', async () => {
     const path = '/products/prices.json';
     expect(isDnt(await run(single, cfg(['/products/prices:data', 'sku']), path), 'default', 'sku')).to.be.true;
     expect(isDnt(await run(single, cfg(['/products/prices:default', 'sku']), path), 'default', 'sku')).to.be.true;
-    expect(isDnt(await run(single, cfg(['data', 'sku']), path), 'default', 'sku')).to.be.true;
+  });
+
+  it('does not apply bare tab-name rules to single-tab sheets', async () => {
+    const path = '/products/prices.json';
+    expect(isDnt(await run(single, cfg(['data', 'sku']), path), 'default', 'sku')).to.be.false;
+    const whole = await run(single, cfg(['data', '*']), path);
+    expect(whole.querySelector('div[name="default"]').getAttribute('translate')).to.be.null;
   });
 
   it('matches a single-tab sheet by its :sheetname', async () => {

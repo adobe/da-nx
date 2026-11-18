@@ -30,13 +30,19 @@ const json2html = (json, dntConfig, path) => {
   // Support both sheetRule config formats (plain object and Map-like)
   const sheetRules = dntConfig?.sheetRules || dntConfig?.get?.('sheetRules');
 
-  // Extract column-based DNT info from config
+  const isMultiSheet = json[':type'] === 'multi-sheet';
+
+  // Path rules match a single-tab sheet by its `:sheetname` (DA's default is `data`).
   const {
     sheets: configSheets,
     sheetToColumns: configSheetToColumns,
     universalColumns: configUniversalColumns,
     allSheets,
-  } = resolveSheetRules(dntConfig, path);
+  } = resolveSheetRules({
+    dntConfig,
+    path,
+    singleTabName: isMultiSheet ? undefined : json[':sheetname'] || 'data',
+  });
   /**
    * Checks a cell value against `dnt-sheet-rules`, ignoring case.
    * @param {string} text - Cell value.
@@ -53,18 +59,16 @@ const json2html = (json, dntConfig, path) => {
       return (rule.condition === 'equals' && matchTexts.includes(value)) || (rule.condition === 'beginsWith' && matchTexts.some((matchText) => value.startsWith(matchText)));
     });
 
-  // Single-tab sheets match their `:sheetname` (DA's default is `data`) or the legacy `default`.
-  const createSheetDiv = (dataJson, name, dntInfo, ruleNames = [name]) => {
+  const createSheetDiv = (dataJson, name, dntInfo) => {
     let isDntAttributeSet = false;
     const { sheets, sheetToColumns, universalColumns } = dntInfo;
-    const matchesName = (list) => ruleNames.some((ruleName) => list.includes(ruleName));
     const { data } = dataJson;
     const div = document.createElement('div');
     const sheetAttrs = extractNonDataKeys(dataJson);
     div.setAttribute('sheet-attrs', sheetAttrs);
     div.setAttribute('name', name);
     div.setAttribute('data-type', 'sheet');
-    if (allSheets || matchesName(sheets)) {
+    if (allSheets || sheets.includes(name)) {
       setDntAttribute(div);
       isDntAttributeSet = true;
     }
@@ -86,7 +90,7 @@ const json2html = (json, dntConfig, path) => {
           if (!isDntAttributeSet
             && !isRowSetAsDnt
             && (universalColumns.includes(key)
-              || ruleNames.some((ruleName) => sheetToColumns.get(ruleName)?.includes(key))
+              || sheetToColumns.get(name)?.includes(key)
               || isTextInDntRules(text))
           ) {
             setDntAttribute(colDiv);
@@ -141,19 +145,14 @@ const json2html = (json, dntConfig, path) => {
 
   const jsonCopy = { ...json };
 
-  if (jsonCopy[':type'] === 'multi-sheet') {
+  if (isMultiSheet) {
     const dntInfo = getDntInfo(jsonCopy?.dnt);
     jsonCopy[':names'].sort().forEach((name) => {
       body.appendChild(createSheetDiv(jsonCopy[name], name, dntInfo));
       delete jsonCopy[name];
     });
   } else {
-    body.appendChild(createSheetDiv(
-      jsonCopy,
-      'default',
-      getDntInfo(),
-      ['default', jsonCopy[':sheetname'] || 'data'],
-    ));
+    body.appendChild(createSheetDiv(jsonCopy, 'default', getDntInfo()));
     delete jsonCopy.data;
   }
 

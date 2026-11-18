@@ -37,13 +37,16 @@ export function matchesPath(rulePath, docPath) {
 
 /**
  * Merges global sheet rules with the path rules that match one document.
- * @param {Object} dntConfig - Parsed config from `parseConfig`.
- * @param {string} [path] - Language-agnostic document path.
+ * @param {Object} params - Parameters.
+ * @param {Object} params.dntConfig - Parsed config from `parseConfig`.
+ * @param {string} [params.path] - Language-agnostic document path.
+ * @param {string} [params.singleTabName] - Tab name of a single-tab sheet. Path rules
+ *   naming it apply to the `default` tab; global rules are left unchanged.
  * @returns {{ sheets: string[], sheetToColumns: Map,
  *   universalColumns: string[], allSheets: boolean }} Effective rules;
  *   `allSheets` is true when every tab is DNT.
  */
-export function resolveSheetRules(dntConfig, path) {
+export function resolveSheetRules({ dntConfig, path, singleTabName } = {}) {
   const sheets = [...(dntConfig?.dntSheets || [])];
   const sheetToColumns = new Map(dntConfig?.dntSheetToColumns || []);
   const universalColumns = [...(dntConfig?.dntUniversalColumns || [])];
@@ -51,7 +54,8 @@ export function resolveSheetRules(dntConfig, path) {
 
   (dntConfig?.dntPathRules || [])
     .filter((rule) => matchesPath(rule.path, path))
-    .forEach(({ sheet, columns }) => {
+    .forEach(({ sheet: ruleSheet, columns }) => {
+      const sheet = singleTabName && ruleSheet === singleTabName ? 'default' : ruleSheet;
       if (columns === '*') {
         if (sheet === '*') allSheets = true;
         else sheets.push(sheet);
