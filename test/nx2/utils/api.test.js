@@ -994,7 +994,7 @@ describe('api.js', () => {
     } = {}) {
       window.fetch = async (url, opts = {}) => {
         calls.push({ url, method: opts.method || 'GET', headers: opts.headers });
-        const isAudit = url.endsWith('/.audit');
+        const isAudit = url.endsWith('/.history');
         if (!isAudit && !url.endsWith('/.versions')) throw new Error(`Unexpected request: ${url}`);
         return new Response(JSON.stringify(isAudit ? audit : snapshots), {
           status: isAudit ? auditStatus : snapshotStatus,
@@ -1046,7 +1046,7 @@ describe('api.js', () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const resp = await versions.list({ org: o, site: s, path: '/x.html' });
       const url = `${AEM_API}/${o}/sites/${s}/source/x.html`;
-      expect(calls.map((call) => call.url)).to.deep.equal([`${url}/.versions`, `${url}/.audit`]);
+      expect(calls.map((call) => call.url)).to.deep.equal([`${url}/.versions`, `${url}/.history`]);
       expect(await resp.json()).to.deep.equal([
         { ...version, ...activity },
         edit,
@@ -1062,7 +1062,7 @@ describe('api.js', () => {
       installListingFetch();
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const resp = await versions.list(`/${o}/${s}/x.html`);
-      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/source/x.html/.audit`);
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/source/x.html/.history`);
       expect(await resp.json()).to.deep.equal([]);
       expect(resp.truncated).to.equal(false);
     });

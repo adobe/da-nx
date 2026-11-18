@@ -532,7 +532,7 @@ export const versions = {
       const url = `${AEM_API}/${org}/sites/${site}/source${path}`;
       const [versionResp, auditResp] = await Promise.all([
         daFetch({ url: `${url}/.versions` }),
-        daFetch({ url: `${url}/.audit` }),
+        daFetch({ url: `${url}/.history` }),
       ]);
       if (!versionResp.ok) return versionResp;
       if (!auditResp.ok) return auditResp;
