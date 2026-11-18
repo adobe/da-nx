@@ -72,6 +72,7 @@ function handleLoad({ target }, panels) {
   const channel = new MessageChannel();
   const { port1, port2 } = channel;
   const connection = panels?.connect(port1);
+  let disconnected = false;
 
   port1.onmessage = (e) => {
     if (e.data.action === 'setTitle') {
@@ -80,18 +81,23 @@ function handleLoad({ target }, panels) {
     connection?.onMessage(e.data);
   };
 
-  const message = {
-    ready: true,
-    token: IMS_DETAILS.accessToken?.token,
-    email: IMS_DETAILS.email,
-    context: getParts(),
-    ...(panels && { capabilities: panels.capabilities }),
-  };
-
-  const timer = setTimeout(() => {
-    target.contentWindow.postMessage(message, '*', [port2]);
+  const timer = setTimeout(async () => {
+    try {
+      await panels?.ready();
+      if (disconnected || !target.isConnected) return;
+      target.contentWindow.postMessage({
+        ready: true,
+        token: IMS_DETAILS.accessToken?.token,
+        email: IMS_DETAILS.email,
+        context: getParts(),
+        ...(panels && { capabilities: panels.capabilities }),
+      }, '*', [port2]);
+    } catch (error) {
+      getConfig().log(error);
+    }
   }, 750);
   return () => {
+    disconnected = true;
     clearTimeout(timer);
     connection?.destroy();
     port1.close();
