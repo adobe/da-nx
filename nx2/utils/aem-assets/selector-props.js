@@ -10,7 +10,10 @@
  * governing permissions and limitations under the License.
  */
 
-import { getApprovedOnlyFilterProps } from './filter-schema.js';
+import { createApprovedOnlyFilterSchema, toFilterProps } from './filter-schema.js';
+
+/** dataTransfer type that carries the dragged assets (a JSON array) on drop. */
+export const ASSET_DRAG_DATA_TYPE = 'collectionviewdata';
 
 export function buildFeatureSet(isDmEnabled) {
   const features = ['upload', 'collections', 'detail-panel', 'advisor'];
@@ -37,8 +40,11 @@ export function buildAssetSelectorProps({
   imsToken,
   repoConfig,
   externalBrief,
+  filterSchema,
   onClose,
   handleSelection,
+  rail,
+  dragAndDrop,
 }) {
   return {
     imsToken,
@@ -49,8 +55,18 @@ export function buildAssetSelectorProps({
       && lastFolderPaths.has(repoConfig.repositoryId)
       && { path: lastFolderPaths.get(repoConfig.repositoryId) }),
     ...(externalBrief !== undefined && { externalBrief }),
-    ...getApprovedOnlyFilterProps(repoConfig.approvedOnly),
+    ...toFilterProps(
+      repoConfig.approvedOnly ? createApprovedOnlyFilterSchema() : [],
+      filterSchema,
+    ),
     ...(onClose && { onClose }),
-    handleSelection,
+    ...(handleSelection && { handleSelection }),
+    ...(rail === true && { rail: true }),
+    ...(dragAndDrop === true && {
+      acvConfig: {
+        dragOptions: { allowList: { '*': true } },
+        selectionType: 'multiple',
+      },
+    }),
   };
 }

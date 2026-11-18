@@ -3,6 +3,7 @@ import { getMetadata } from '../scripts/nx.js';
 const panelVisibilitySubscribers = new Set();
 const restoringPanelSections = new Set();
 const pendingPanelOpens = new Map();
+const panelSections = new Map();
 
 function getVisiblePanelSections() {
   return [...document.querySelectorAll('aside.panel[data-section]:not([hidden])')]
@@ -231,7 +232,8 @@ async function openPanel({
     showPanel(existing);
     return existing;
   }
-  if (pendingPanelOpens.has(position)) return pendingPanelOpens.get(position);
+  const pending = pendingPanelOpens.get(position);
+  if (pending && panelSections.get(pending.section) === pending.config) return pending.opening;
 
   const beforeMain = position === 'before';
   const restoring = wasPanelOpen(section);
@@ -239,14 +241,18 @@ async function openPanel({
     restoringPanelSections.add(section);
     notifyPanelVisibility();
   }
+  const pendingOpen = { section, config: panelSections.get(section) };
   try {
-    const opening = Promise.resolve(getContent?.()).then((content) => mountPanel({
-      width, beforeMain, content, section,
-    }));
-    pendingPanelOpens.set(position, opening);
-    return await opening;
+    pendingOpen.opening = Promise.resolve(getContent?.()).then((content) => {
+      if (panelSections.get(section) !== pendingOpen.config) return undefined;
+      return mountPanel({
+        width, beforeMain, content, section,
+      });
+    });
+    pendingPanelOpens.set(position, pendingOpen);
+    return await pendingOpen.opening;
   } finally {
-    pendingPanelOpens.delete(position);
+    if (pendingPanelOpens.get(position) === pendingOpen) pendingPanelOpens.delete(position);
     if (restoring) {
       restoringPanelSections.delete(section);
       notifyPanelVisibility();
@@ -254,7 +260,6 @@ async function openPanel({
   }
 }
 
-const panelSections = new Map();
 const panelSectionSubscribers = new Set();
 
 export function subscribePanelVisibility(callback) {
@@ -268,6 +273,16 @@ export function subscribePanelVisibility(callback) {
 export function registerPanelSection(name, config) {
   panelSections.set(name, config);
   panelSectionSubscribers.forEach((callback) => callback([...panelSections.keys()]));
+  return () => {
+    if (panelSections.get(name) !== config) return;
+    panelSections.delete(name);
+    const aside = document.querySelector(`aside.panel[data-section="${name}"]`);
+    if (aside) {
+      hidePanel(aside);
+      aside.remove();
+    }
+    panelSectionSubscribers.forEach((callback) => callback([...panelSections.keys()]));
+  };
 }
 
 export function subscribePanelSections(callback) {
@@ -290,6 +305,7 @@ async function showPanelSection(name, id, options) {
   const aside = await openPanel({
     position: config.position, width, getContent: config.getContent, section: name,
   });
+  if (!aside || panelSections.get(name) !== config) return undefined;
   await config.onShow?.(aside, id, options);
   return aside;
 }

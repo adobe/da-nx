@@ -50,12 +50,13 @@ export default class CoworkerChatController extends BaseChatController {
 
   async loadEpisodes() {
     this._episodes = await this._fetchEpisodes();
+    if (this._destroyed) return;
     const latest = this._episodes[0];
     const age = latest ? Date.now() - new Date(latest.updated_at).getTime() : NaN;
-    if (latest && !(age > STALE_EPISODE_MS)) {
+    if (!this._isolated && latest && !(age > STALE_EPISODE_MS)) {
       await this._loadEpisode(latest.id);
     } else {
-      this._staleEpisode = age > STALE_EPISODE_MS ? latest : undefined;
+      this._staleEpisode = !this._isolated && age > STALE_EPISODE_MS ? latest : undefined;
       this._update();
     }
   }
@@ -76,6 +77,7 @@ export default class CoworkerChatController extends BaseChatController {
       this._fetchEpisodeMessages(episodeId),
       this._fetchEpisodeContext(episodeId),
     ]);
+    if (this._destroyed || this._episodeId !== episodeId) return;
     this._messages = messages;
     this._pendingQuestion = pendingInteraction?.type === 'question' ? pendingInteraction : undefined;
     this._pendingPlanApproval = pendingInteraction?.type === 'plan' ? pendingInteraction : undefined;
