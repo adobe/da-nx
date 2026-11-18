@@ -54,6 +54,10 @@
   max-width: 560px;
 }
 
+.nx-editor-pane-with-preview nx-editor {
+  --nx-editor-padding-bottom: 16px;
+}
+
 nx-sidebar {
   position: sticky;
   top: var(--nx-scroll-offset-top, 0);

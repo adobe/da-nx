@@ -9,3 +9,4 @@ helix-importer-ui
 .idea
 .claude/settings.local.json
 PR-throwaways/
+.scout/

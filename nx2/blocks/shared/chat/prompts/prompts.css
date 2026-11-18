@@ -21,51 +21,9 @@
   padding: var(--s2-spacing-100) var(--s2-spacing-100) 0 var(--s2-spacing-100);
 }
 
-.prompts-search-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  color: var(--s2-gray-600);
-}
-
-.prompts-search-input {
+.prompts-header nx-search {
   flex: 1;
   min-width: 0;
-  border: none;
-  outline: none;
-  background: none;
-  font-family: inherit;
-  font-size: var(--s2-body-size-s);
-  color: var(--s2-gray-900);
-  padding: 0;
-
-  &::placeholder {
-    color: var(--s2-gray-600);
-  }
-
-  &::-webkit-search-cancel-button {
-    display: none;
-  }
-}
-
-.prompts-clear {
-  display: none;
-  flex-shrink: 0;
-  border: none;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  color: var(--s2-gray-600);
-
-  svg {
-    width: 18px;
-    height: 18px;
-    display: block;
-  }
-}
-
-.prompts-search-input:not(:placeholder-shown) + .prompts-clear {
-  display: block;
 }
 
 .prompts-list {

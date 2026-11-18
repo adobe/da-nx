@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
-import { restoreBlockIndices, findTextBlock } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
+import {
+  restoreBlockIndices, restoreImageIndices, syncImageIndices, applyImageVersionAck, findTextBlock,
+} from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 describe('findTextBlock', () => {
   function root(html) {
@@ -49,6 +51,79 @@ describe('restoreBlockIndices', () => {
     expect(block.getAttribute('data-block-variant')).to.equal('center');
   });
 
+  describe('image instrumentation', () => {
+    it('restores per-image positions after picture decoration, including duplicate URLs', () => {
+      const source = document.createElement('div');
+      source.innerHTML = '<main><p data-prose-index="1">'
+        + '<img src="/same.png" data-image-index="2" data-image-version="v1">'
+        + '<img src="/same.png" data-image-index="3" data-image-version="v1"></p></main>';
+      const live = document.createElement('div');
+      live.innerHTML = '<main><p data-prose-index="1">'
+        + '<picture><img src="/same.png"></picture>'
+        + '<picture><img src="/same.png"></picture></p></main>';
+
+      restoreImageIndices(source, live);
+
+      expect([...live.querySelectorAll('img')].map((img) => img.getAttribute('data-image-index')))
+        .to.deep.equal(['2', '3']);
+      expect([...live.querySelectorAll('img')].map((img) => img.getAttribute('data-image-version')))
+        .to.deep.equal(['v1', 'v1']);
+    });
+
+    it('does not guess indices when decoration adds an image to a content group', () => {
+      const source = document.createElement('div');
+      source.innerHTML = '<main><p data-prose-index="1"><img data-image-index="2"></p></main>';
+      const live = document.createElement('div');
+      live.innerHTML = '<main><p data-prose-index="1"><img><img></p></main>';
+
+      restoreImageIndices(source, live);
+
+      expect(live.querySelector('img[data-image-index]')).to.equal(null);
+    });
+
+    it('reindexes an edited image and shifts images following its editable block', () => {
+      const root = document.createElement('main');
+      root.innerHTML = '<div class="prosemirror-editor" data-image-version="v2"><img data-image-index="106"></div>'
+        + '<picture><img data-image-index="110"></picture>';
+      document.body.append(root);
+      const editorParent = root.querySelector('.prosemirror-editor');
+      const inside = editorParent.querySelector('img');
+      const after = root.querySelector('picture img');
+      const view = {
+        dom: editorParent,
+        posAtDOM: () => 7,
+        state: { doc: { nodeAt: (pos) => (pos === 7 ? { type: { name: 'image' } } : null) } },
+      };
+      try {
+        syncImageIndices(view, editorParent, 101, 10, 3);
+
+        expect(inside.getAttribute('data-image-index')).to.equal('107');
+        expect(inside.getAttribute('data-image-version')).to.equal('v2');
+        expect(after.getAttribute('data-image-index')).to.equal('113');
+      } finally {
+        root.remove();
+      }
+    });
+
+    it('applies the host version acknowledgement without rebuilding the editor', () => {
+      const root = document.createElement('main');
+      root.innerHTML = '<div class="prosemirror-editor" data-image-version="v1">'
+        + '<img data-image-index="2" data-image-version="v1"></div>'
+        + '<picture><img data-image-index="5" data-image-version="v1"></picture>';
+
+      const ctx = { pendingNodeUpdateId: 'edit-2' };
+      expect(applyImageVersionAck({ imageVersion: 'old', nodeUpdateId: 'edit-1' }, ctx, root)).to.be.false;
+      expect(applyImageVersionAck({ imageVersion: 'v2', nodeUpdateId: 'edit-2' }, ctx, root)).to.be.true;
+
+      expect(root.querySelector('.prosemirror-editor').getAttribute('data-image-version')).to.equal('v2');
+      expect([...root.querySelectorAll('img')].map((img) => img.getAttribute('data-image-version')))
+        .to.deep.equal(['v2', 'v2']);
+      expect(ctx.pendingNodeUpdateId).to.equal(null);
+      expect(applyImageVersionAck({ imageVersion: 'old', nodeUpdateId: 'edit-2' }, ctx, root)).to.be.false;
+      expect(root.querySelector('img').getAttribute('data-image-version')).to.equal('v2');
+    });
+  });
+
   it('clears a stale variant attribute when the source block has no variant', () => {
     const source = document.createElement('div');
     source.innerHTML = '<div class="card" data-block-index="3">c</div>';
@@ -60,5 +135,18 @@ describe('restoreBlockIndices', () => {
     const block = live.querySelector('.card');
     expect(block.getAttribute('data-block-index')).to.equal('3');
     expect(block.hasAttribute('data-block-variant')).to.equal(false);
+  });
+
+  it('only re-attaches indices to blocks that lost theirs', () => {
+    const source = document.createElement('div');
+    source.innerHTML = '<div class="cards" data-block-index="10">a</div>'
+      + '<div class="cards" data-block-index="30">b</div>';
+    const live = document.createElement('div');
+    live.innerHTML = '<div class="cards" data-block-index="30">b</div><div class="cards">a</div>';
+
+    restoreBlockIndices(source, live);
+
+    expect([...live.querySelectorAll('.cards')].map((el) => [el.textContent, el.dataset.blockIndex]))
+      .to.deep.equal([['b', '30'], ['a', '10']]);
   });
 });

@@ -1,5 +1,5 @@
 import { hashChange } from './utils.js';
-import { isCoworkerEnabled } from './ewFlags.js';
+import { getCoworkerConfig } from './ewFlags.js';
 
 export const CHAT_EVENT = {
   // Chat -> document: notifications chat dispatches when something happened.
@@ -15,23 +15,50 @@ export const CHAT_EVENT = {
 // of the org/site's `ew.coworker` flag. Anything else falls through to the flag.
 const AO_CHAT_KEY = 'nx-chat-ao';
 
-export async function useAoChat() {
+async function resolveAoChatConfig() {
   const query = new URLSearchParams(window.location.search).get(AO_CHAT_KEY);
-  if (query === 'true') return true;
 
   let state;
   const unsubscribe = hashChange.subscribe((s) => { state = s; });
   unsubscribe();
 
   const { org, site } = state ?? {};
-  if (!org || !site) return false;
-  return isCoworkerEnabled({ org, site });
+  const key = org && site ? `${org}/${site}` : null;
+  if (!org || !site) {
+    return {
+      useAoChat: query === 'true',
+      key,
+      altHarness: false,
+      activationKey: null,
+    };
+  }
+
+  const { enabled, altHarness, activationKey } = await getCoworkerConfig({ org, site });
+  return {
+    useAoChat: query === 'true' || enabled,
+    key,
+    altHarness,
+    activationKey,
+  };
+}
+
+export async function useAoChat() {
+  const { useAoChat: enabled } = await resolveAoChatConfig();
+  return enabled;
 }
 
 export async function loadChat() {
-  if (await useAoChat()) {
+  const {
+    useAoChat: enabled,
+    key,
+    altHarness,
+    activationKey,
+  } = await resolveAoChatConfig();
+  if (enabled) {
     await import('../blocks/chat-ao/chat-ao.js');
-    return document.createElement('nx-chat-ao');
+    const chat = document.createElement('nx-chat-ao');
+    chat.harnessConfig = { key, altHarness, activationKey };
+    return chat;
   }
   await import('../blocks/chat/chat.js');
   return document.createElement('nx-chat');

@@ -1,10 +1,9 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../utils/utils.js';
 import '../../picker/picker.js';
-import { getConfig } from '../../../../scripts/nx.js';
+import '../../search/search.js';
 
 const styles = await loadStyle(import.meta.url);
-const { codeBase } = getConfig();
 
 const ALL_CATEGORY = 'all';
 
@@ -65,19 +64,12 @@ class NxPrompts extends LitElement {
     this._search = e.target.value;
   }
 
-  _clearSearch() {
-    const input = this.shadowRoot.querySelector('.prompts-search-input');
-    if (input) input.value = '';
-    this._search = '';
-    input?.focus();
-  }
-
   _onCategoryChange(e) {
     this._category = e.detail.value;
   }
 
   focus() {
-    this.shadowRoot.querySelector('.prompts-search-input')?.focus();
+    this.shadowRoot.querySelector('nx-search')?.focus();
   }
 
   render() {
@@ -88,20 +80,12 @@ class NxPrompts extends LitElement {
       : `Search in ${this._category}`;
     return html`
       <div class="prompts-header">
-        <svg class="prompts-search-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-search-20-n.svg#icon"></use></svg>
-        <input
-          type="search"
-          name="prompt-search"
-          aria-label=${placeholder}
-          class="prompts-search-input"
+        <nx-search variant="quiet" size="m"
+          label=${placeholder}
           placeholder=${placeholder}
           .value=${this._search}
           @input=${this._onSearch}
-          autocomplete="off"
-        />
-        <button type="button" class="prompts-clear" aria-label="Clear search" @click=${this._clearSearch}>
-          <svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-close-20-n.svg#icon"></use></svg>
-        </button>
+        ></nx-search>
         <nx-picker
           size="m"
           .items=${this._categories}

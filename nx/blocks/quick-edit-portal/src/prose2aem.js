@@ -1,18 +1,7 @@
 /* eslint-disable import/prefer-default-export */
 import prose2aem from 'https://da.live/blocks/shared/prose2aem.js';
-
-const EDITABLES = [
-  { selector: 'h1', nodeName: 'H1' },
-  { selector: 'h2', nodeName: 'H2' },
-  { selector: 'h3', nodeName: 'H3' },
-  { selector: 'h4', nodeName: 'H4' },
-  { selector: 'h5', nodeName: 'H5' },
-  { selector: 'h6', nodeName: 'H6' },
-  { selector: 'p', nodeName: 'P' },
-  { selector: 'ol', nodeName: 'OL' },
-  { selector: 'ul', nodeName: 'UL' },
-];
-const EDITABLE_SELECTORS = EDITABLES.map((edit) => edit.selector).join(', ');
+import { getImageDocumentVersion } from '../../../../nx2/public/utils/quick-edit-images.js';
+import { EDITABLE_SELECTORS } from './editable-elements.js';
 
 function isOutermostWysiwygEditable(el) {
   if (!el?.matches?.(EDITABLE_SELECTORS)) return false;
@@ -72,6 +61,23 @@ export function getInstrumentedHTML(view) {
         // eslint-disable-next-line no-console
         console.warn('Could not find position for element:', e);
       }
+    }
+  });
+
+  const originalImages = view.dom.querySelectorAll('img');
+  const clonedImages = editorClone.querySelectorAll('img');
+  const imageVersion = getImageDocumentVersion(view.state.doc);
+  originalImages.forEach((img, index) => {
+    if (img.matches('.ProseMirror-separator, .ProseMirror-trailingBreak')) return;
+    const clonedImage = clonedImages[index];
+    if (!clonedImage) return;
+    try {
+      const pos = view.posAtDOM(img, 0);
+      clonedImage.setAttribute('data-image-index', pos);
+      clonedImage.setAttribute('data-image-version', imageVersion);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not index quick-edit image:', error);
     }
   });
 

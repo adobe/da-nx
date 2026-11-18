@@ -16,7 +16,15 @@ export const AO_WS_BASE = 'wss://agent-orchestrator-prod-va7.adobe.io';
 
 export const AO_HTTP_BASE = 'https://agent-orchestrator-prod-va7.adobe.io';
 
+// The CMA bridge (aem-sites-claudebridge) hosts the WebSocket data plane and
+// the skills REST plane for the alternate harness. See docs/chat-ao-alt-harness.md.
+export const CMA_BRIDGE_WS_BASE = 'wss://aem-sites-claudebridge-va6.adobe.io';
+
+export const CMA_BRIDGE_HTTP_BASE = 'https://aem-sites-claudebridge-va6.adobe.io';
+
 export const AO_MANIFEST_ID = 'experience-workspace';
+
+export const AO_COMPONENT_CATALOG_URL = 'https://experience.adobe.com/solutions/Adobe-dxue-coworker-ui-experience/assets/component-catalog.9d298bd1fdec9715.json';
 
 // Mirrors AO's own server-side allowlist
 export const AO_UPLOAD_EXTENSIONS = [
@@ -30,12 +38,6 @@ export const AO_UPLOAD_EXTENSIONS = [
 
 // AO's per-file size limit (filesystem/quotas.py's _SINGLE_FILE_LIMIT).
 export const AO_MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
-
-export const COWORKER_SKILLS_URL = 'https://experience.adobe.com/#/coworker/customizations';
-
-export const COWORKER_CHAT_URL = 'https://experience.adobe.com/#/coworker';
-
-export const ENTERPRISE_CONTEXT_URL = 'https://experience.adobe.com/#/experiencemanager/experience-context';
 
 export const ADD_MENU_ITEMS = [
   { section: 'Add' },

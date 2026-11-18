@@ -2,49 +2,9 @@
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
-
-function updateImageInDocument(originalSrc, newSrc) {
-  if (!window.view) return false;
-
-  const { state } = window.view;
-  const { tr } = state;
-  let updated = false;
-
-  // Traverse the document to find image nodes
-  state.doc.descendants((node, pos) => {
-    if (node.type.name === 'image') {
-      const currentSrc = node.attrs.src;
-
-      // Check if this is the image we're looking for
-      // Compare by exact match or by pathname
-      let isMatch = currentSrc === originalSrc;
-
-      if (!isMatch) {
-        try {
-          const currentUrl = new URL(currentSrc, window.location.href);
-          const originalUrl = new URL(originalSrc, window.location.href);
-          isMatch = currentUrl.pathname === originalUrl.pathname;
-        } catch {
-          // If URL parsing fails, try simple includes check
-          isMatch = currentSrc.includes(originalSrc) || originalSrc.includes(currentSrc);
-        }
-      }
-
-      if (isMatch) {
-        // Update the image node with new src
-        const newAttrs = { ...node.attrs, src: newSrc };
-        tr.setNodeMarkup(pos, null, newAttrs);
-        updated = true;
-      }
-    }
-  });
-
-  if (updated) {
-    window.view.dispatch(tr);
-  }
-
-  return updated;
-}
+import {
+  resolveImagePosition, updateImageInDocument,
+} from '../../../../nx2/public/utils/quick-edit-images.js';
 
 function dataUrlToBlob(dataUrl) {
   const [header, base64Data] = dataUrl.split(',');
@@ -65,14 +25,21 @@ function getPageName(currentPath) {
   return currentPath.replace(/^\//, '').replace(/\.html$/, '');
 }
 
-export async function handleImageReplace({ imageData, fileName, originalSrc }, ctx) {
-  // Suppress rerender for the entire duration of image replacement
-  ctx.suppressRerender = true;
-
+export async function handleImageReplace(payload, ctx) {
+  const {
+    imageData, fileName, proseIndex, originalSrc, requestId,
+  } = payload;
+  let view;
+  const reply = (result) => ctx.port.postMessage({
+    type: MESSAGE_TYPES.IMAGE_REPLACE,
+    payload: { ...result, proseIndex, originalSrc, requestId },
+  });
   try {
-    // eslint-disable-next-line no-console
-    console.log('handleImageReplace', fileName, originalSrc);
-    // Convert base64 to Blob
+    view = ctx.view;
+    if (!view) throw new Error('Image editor is unavailable. Please try again.');
+    const originalDoc = view.state.doc;
+    const imagePos = resolveImagePosition({ ...payload, doc: originalDoc });
+    const target = originalDoc.nodeAt(imagePos);
     const blob = dataUrlToBlob(imageData);
 
     // Get the page name for the media folder
@@ -90,34 +57,19 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
     const resp = await daFetch(uploadUrl, opts);
 
     if (!resp.ok) {
-      const error = `Upload failed with status ${resp.status}`;
-      ctx.port.postMessage({
-        type: MESSAGE_TYPES.IMAGE_REPLACE, payload: { error, originalSrc },
-      });
+      reply({ error: `Upload failed with status ${resp.status}` });
       return;
     }
 
     // Construct the new image URL (AEM delivery URL)
     const newSrc = `https://content.da.live/${ctx.owner}/${ctx.repo}${uploadPath}`;
 
-    // Update the ProseMirror document with the new image src
-    updateImageInDocument(originalSrc, newSrc);
-
-    // Send back the new URL to update the quick-edit view
-    ctx.port.postMessage({
-      type: MESSAGE_TYPES.IMAGE_REPLACE, payload: { newSrc, originalSrc },
-    });
+    if (ctx.view !== view) throw new Error('Image editor changed during the upload. Please try again.');
+    updateImageInDocument({ view, target, newSrc });
+    reply({ newSrc });
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error replacing image:', error);
-    ctx.port.postMessage({
-      type: MESSAGE_TYPES.IMAGE_REPLACE,
-      payload: { error: error.message, originalSrc },
-    });
-  } finally {
-    // Reset the suppress flag after a delay to catch any async callbacks
-    setTimeout(() => {
-      ctx.suppressRerender = false;
-    }, 500);
+    reply({ error: error.message });
   }
 }

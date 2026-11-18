@@ -137,13 +137,21 @@ describe('quick-edit selection overlay', () => {
     expect(overlay.children.length).to.equal(0);
   });
 
-  it('draws a box for a decoration-rebuilt image via the src fallback', () => {
+  it('does not guess an image by URL when an indexed image lost its marker', () => {
     document.body.innerHTML = '<main><div class="cards" data-block-index="80">'
       + '<picture><img src="/media_abc.png?width=750" style="width:100px;height:60px"></picture>'
       + '</div></main>';
     setSelectedNode({ anchorType: 'image', proseIndex: 81, src: './media_abc.png' });
     const overlay = document.getElementById('qe-selection-overlay');
-    expect(overlay.querySelector('.qe-selected-box')).to.not.equal(null);
+    expect(overlay?.querySelector('.qe-selected-box') ?? null).to.equal(null);
+  });
+
+  it('does not guess between identical unindexed images', () => {
+    document.body.innerHTML = '<main><picture><img src="/same.png"></picture>'
+      + '<picture><img src="/same.png"></picture></main>';
+    setSelectedNode({ anchorType: 'image', proseIndex: null, src: '/same.png' });
+    const overlay = document.getElementById('qe-selection-overlay');
+    expect(overlay?.querySelector('.qe-selected-box') ?? null).to.equal(null);
   });
 
   it('setSelectedNode ignores an index that resolves to no element', () => {
@@ -210,7 +218,7 @@ describe('quick-edit selection gestures', () => {
     const block = document.querySelector('[data-block-index="50"]');
     block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')
-      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      .click();
     expect(document.querySelector('#qe-selection-overlay .qe-hover-box')).to.equal(null);
     expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.equal(null);
   });
@@ -219,7 +227,7 @@ describe('quick-edit selection gestures', () => {
     const block = document.querySelector('[data-block-index="50"]');
     block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     const pill = document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover');
-    pill.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    pill.click();
     expect(posted).to.deep.include({
       type: 'node-select',
       payload: { node: { anchorType: 'table', proseIndex: 50 } },
@@ -317,7 +325,7 @@ describe('quick-edit selection gestures', () => {
     const blockB = document.querySelector('[data-block-index="60"]');
     blockB.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')
-      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      .click();
     expect(posted).to.deep.include({
       type: 'node-select',
       payload: { node: { anchorType: 'table', proseIndex: 60 } },
@@ -379,7 +387,7 @@ describe('quick-edit selection gestures', () => {
     const block = document.querySelector('[data-block-index="50"]');
     block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')
-      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      .click();
     expect(document.activeElement).to.not.equal(pm);
   });
 

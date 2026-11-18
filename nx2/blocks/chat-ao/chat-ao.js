@@ -13,11 +13,15 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
-import AoChatController from './ao-controller.js';
+import CoworkerChatController from './coworker-chat-controller.js';
+import CmaChatController from './cma-chat-controller.js';
+import { getCoworkerConfig } from '../../utils/ewFlags.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
+  COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
+} from './utils/coworker-nav.js';
+import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
-  COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
   ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
@@ -39,9 +43,11 @@ import '../shared/chat/prompts/prompts.js';
 import '../shared/chat/new-chat/new-chat.js';
 import './question-card/question-card.js';
 import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
+import { sampleRUM } from '../../deps/rum.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+const spinnerStyle = await loadStyle(new URL('../../styles/spinner.css', import.meta.url).href);
 const artifactStyle = await loadStyle(new URL('./artifacts/artifacts.css', import.meta.url).href);
 
 const { codeBase } = getConfig();
@@ -81,6 +87,10 @@ export default class NxChatAo extends LitElement {
     this._applyContext(value);
   }
 
+  set harnessConfig(value) {
+    this._applyHarnessConfig(value);
+  }
+
   async setPrompt(text, { autoSend = false } = {}) {
     await this.updateComplete;
     this._sendPrompt(text, { autoSend });
@@ -98,6 +108,14 @@ export default class NxChatAo extends LitElement {
     this._loadConfig();
   }
 
+  _applyHarnessConfig({ key = null, altHarness = false, activationKey = null } = {}) {
+    this._harnessConfigKey = key;
+    this._altHarness = !!altHarness;
+    this._activationKey = activationKey;
+    this._flagsReady = true;
+    this._initController();
+  }
+
   async _loadConfig() {
     const { org, site } = this._context ?? {};
     if (!org || !site) return;
@@ -106,6 +124,54 @@ export default class NxChatAo extends LitElement {
     this._configKey = key;
     const { prompts } = await loadSiteConfig(org, site);
     this._prompts = prompts ?? [];
+    if (this._harnessConfigKey !== key) {
+      // ew.altHarness selects the CMA bridge harness; its value is the
+      // activation key that authorizes/routes the chat socket to the bridge.
+      const { altHarness, activationKey } = await getCoworkerConfig({ org, site });
+      this._applyHarnessConfig({ key, altHarness, activationKey });
+      return;
+    }
+    this._initController();
+  }
+
+  _onControllerUpdate({
+    messages, thinking, streamingText, episodes, episodeId,
+    pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
+  }) {
+    this.messages = streamingText
+      ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
+      : messages;
+    this.thinking = thinking;
+    this.episodes = episodes;
+    this.episodeId = episodeId;
+    this.pendingQuestion = pendingQuestion;
+    this.pendingPlanApproval = pendingPlanApproval;
+    this.pendingPermission = pendingPermission;
+    this.loadingEpisode = loadingEpisode;
+    this.staleEpisode = staleEpisode;
+  }
+
+  // The controller is created once the ew.altHarness flag is known, so the
+  // correct harness subclass (Coworker REST history vs CMA bridge) is chosen up
+  // front. Idempotent; recreates only if the harness actually changes. See
+  // docs/chat-ao-controller-decoupling.md.
+  _initController() {
+    if (!this.isConnected || !this._flagsReady || !this._context?.org || !this._context?.site) {
+      return;
+    }
+    const Controller = this._altHarness ? CmaChatController : CoworkerChatController;
+    if (this._controller instanceof Controller) {
+      this._controller.setActivationKey?.(this._activationKey);
+      return;
+    }
+    this._controller?.destroy();
+    this._controller = new Controller({
+      onUpdate: (state) => this._onControllerUpdate(state),
+      ...(this._altHarness ? { activationKey: this._activationKey } : {}),
+    });
+    if (this._context) this._controller.setContext(this._context);
+    this._controller.loadEpisodes();
+    this._controller.loadSkills();
   }
 
   _closePanel() {
@@ -192,28 +258,9 @@ export default class NxChatAo extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     fetchResolvedManifestId();
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
-    this._controller = new AoChatController({
-      onUpdate: ({
-        messages, thinking, streamingText, episodes, episodeId,
-        pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
-      }) => {
-        this.messages = streamingText
-          ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
-          : messages;
-        this.thinking = thinking;
-        this.episodes = episodes;
-        this.episodeId = episodeId;
-        this.pendingQuestion = pendingQuestion;
-        this.pendingPlanApproval = pendingPlanApproval;
-        this.pendingPermission = pendingPermission;
-        this.loadingEpisode = loadingEpisode;
-        this.staleEpisode = staleEpisode;
-      },
-    });
-    if (this._context) this._controller.setContext(this._context);
-    this._controller.loadEpisodes();
-    this._controller.loadSkills();
+    this._loadCoworkerNav();
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle, artifactStyle];
+    this._initController();
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
@@ -312,6 +359,7 @@ export default class NxChatAo extends LitElement {
     const items = pills?.items ?? [];
     const attachments = items.filter((i) => i.dataBase64);
     const context = items.filter((i) => !i.dataBase64);
+    sampleRUM('click', { source: 'chat-submit', target: 'button.chat-send.harness-coworker' });
     this._slashMenu.close();
     this._controller.sendMessage(text, context, attachments);
     input.value = '';
@@ -336,9 +384,27 @@ export default class NxChatAo extends LitElement {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
-    if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
-    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
-    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) window.open(ENTERPRISE_CONTEXT_URL, '_blank', 'noopener,noreferrer');
+    if (id === MENU_OPTIONS.MANAGE_SKILLS) this._openCoworker(COWORKER_SKILLS_PATH);
+    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) this._openCoworker(this.episodeId);
+    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) this._openCoworker(ENTERPRISE_CONTEXT_PATH);
+  }
+
+  async _loadCoworkerNav() {
+    this._coworkerNav = undefined;
+    try {
+      this._coworkerNav = await loadCoworkerNav();
+    } catch (error) {
+      showToast({ text: error.message, variant: 'error' });
+    }
+  }
+
+  _openCoworker(path) {
+    try {
+      const href = this._coworkerNav?.(path) ?? getCoworkerHref({ path });
+      window.open(href, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      showToast({ text: error.message, variant: 'error' });
+    }
   }
 
   _openConfigPage() {
@@ -394,9 +460,8 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" class="nx-action-btn-quiet" @click=${this._handleNewSession}>
-            ${icon('add')}
-            <span>New chat</span>
+          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon" @click=${this._handleNewSession}>
+            ${icon('newChat')}
           </button>
           <button
             class="nx-action-btn-icon"
@@ -415,9 +480,9 @@ export default class NxChatAo extends LitElement {
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
               .lastSession=${this.staleEpisode ? {
-                preview: this.staleEpisode.title || 'Your previous conversation',
-                updatedAt: this.staleEpisode.updated_at,
-              } : undefined}
+              preview: this.staleEpisode.title || 'Your previous conversation',
+              updatedAt: this.staleEpisode.updated_at,
+            } : undefined}
               .onContinue=${() => this._continueStaleEpisode()}
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
@@ -484,14 +549,16 @@ export default class NxChatAo extends LitElement {
             hidden
             @change=${this._onFileInputChange}
           />
-          <textarea
-            class="chat-input"
-            placeholder="Ask anything, or type / for skills..."
-            ?disabled=${this._blocked}
-            @input=${this._handleInput}
-            @keydown=${this._handleKeydown}
-            @blur=${this._slashMenu.onBlur}
-          ></textarea>
+          <div class="chat-input-wrap ${this._altHarness ? '' : 'coworker-chat'}">
+            <textarea
+              class="chat-input"
+              placeholder="Ask anything, or type / for skills..."
+              ?disabled=${this._blocked}
+              @input=${this._handleInput}
+              @keydown=${this._handleKeydown}
+              @blur=${this._slashMenu.onBlur}
+            ></textarea>
+          </div>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
             <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
@@ -516,7 +583,7 @@ export default class NxChatAo extends LitElement {
                 ?hidden=${!this._blocked}
                 @click=${this._submit}
               > ${icon('stop')}</button>
-              <button type="submit" class="chat-send nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
+              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
                 ${icon('send')}
               </button>
             </div>
@@ -524,7 +591,7 @@ export default class NxChatAo extends LitElement {
         </form>
       </div>
       <p class="chat-disclaimer">
-        Responses are generated using AI, and may be inaccurate.
+        Responses are generated using AI, and may be inaccurate. Check before using. 
         <a href="${ADOBE_AI_GUIDELINES_URL}" target="_blank" rel="noopener noreferrer">AI User Guidelines</a>
       </p>
     `;

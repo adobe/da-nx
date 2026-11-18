@@ -1,0 +1,15 @@
+.wn-trigger-icon {
+  position: relative;
+  display: flex;
+}
+
+.wn-trigger-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--s2-green-900);
+  border: 1px solid var(--s2-gray-25);
+}

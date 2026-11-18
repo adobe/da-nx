@@ -1,5 +1,5 @@
 import {
-  findBlock, findImageAtProseIndex, findTextBlock, pictureSrc, srcPathsMatch, OVERLAY_SELECTOR,
+  findBlock, findTextBlock, pictureSrc, srcPathsMatch, OVERLAY_SELECTOR,
 } from './dom-index.js';
 import { parseIndex, positionBox } from './utils.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
@@ -75,8 +75,9 @@ function findImageByIndex(proseIndex, root = document) {
 function findPictureBySrc(src, proseIndex, root = document) {
   if (!src) return null;
   const scope = (proseIndex != null && findBlock(proseIndex, root)) || root;
-  return [...scope.querySelectorAll('picture')]
-    .find((pic) => srcPathsMatch(pictureSrc(pic), src)) || null;
+  const matches = [...scope.querySelectorAll('picture')]
+    .filter((pic) => srcPathsMatch(pictureSrc(pic), src));
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function findContentByIndex(proseIndex, root = document) {
@@ -93,9 +94,8 @@ function resolveSelectionElement(node, root) {
     return blockIndex === node.proseIndex ? block : null;
   }
   if (node.anchorType === 'image') {
-    return findImageByIndex(node.proseIndex, root)
-      || findImageAtProseIndex(node.proseIndex, root)
-      || findPictureBySrc(node.src, node.proseIndex, root);
+    if (node.proseIndex != null) return findImageByIndex(node.proseIndex, root);
+    return findPictureBySrc(node.src, node.blockIndex, root);
   }
   if (node.anchorType === 'content') {
     return findContentByIndex(node.proseIndex, root);
@@ -193,13 +193,9 @@ export function setupNodeSelection(ctx) {
     const t = e.target;
     const pill = t.closest?.('.qe-selected-pill.is-hover');
     if (pill) {
+      // Keep the pressed target alive until click, including for click forwarding.
       e.preventDefault();
       e.stopPropagation();
-      const node = blockSelectPayload(pill);
-      if (!node) return;
-      blurActiveEditor();
-      clearHoverPill();
-      activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
       return;
     }
 
@@ -235,6 +231,19 @@ export function setupNodeSelection(ctx) {
   }, true);
 
   document.addEventListener('click', (e) => {
+    const pill = e.target.closest?.('.qe-selected-pill.is-hover');
+    if (pill) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const node = blockSelectPayload(pill);
+      if (!node) return;
+      blurActiveEditor();
+      clearHoverPill();
+      activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
+      return;
+    }
+
     const picture = e.target.closest?.('picture');
     if (!picture || activeCtx?.nodeSelectDragging) return;
     const node = imageSelectPayload(picture);

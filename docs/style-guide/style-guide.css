@@ -59,6 +59,10 @@ body {
   color: var(--s2-blue-900);
 }
 
+.sg-example > p {
+  padding-left: 10px;
+}
+
 .sg-note {
   margin: 0;
   padding: var(--s2-spacing-100) var(--s2-spacing-300);
@@ -88,6 +92,10 @@ body {
 
 .sg-demo + pre {
   padding-left: 10px;
+}
+
+.sg-picker-container {
+  width: min(100%, 240px);
 }
 
 /* form.css references icons at a root-relative path that consuming sites are

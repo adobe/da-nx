@@ -1,5 +1,6 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { isRenderedBlock } from './rerender-scope.js';
 
 const DA_LIVE_PREVIEW_ENVS = {
   local: 'localhost:8000',
@@ -165,6 +166,8 @@ export function findCommonEditableAncestor(view, changes, prevState) {
       // Walk up the tree to find an editable node
       for (let { depth } = $pos; depth > 0; depth -= 1) {
         const node = $pos.node(depth);
+        if (node.type.name === 'table'
+          && (!isRenderedBlock(node) || $pos.index(depth) === 0)) return null;
         if (EDITABLE_TYPES.includes(node.type.name)) {
           editableAncestor = {
             node,

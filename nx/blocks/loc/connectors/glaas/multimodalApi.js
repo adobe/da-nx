@@ -204,8 +204,17 @@ function canonicalImageKey(src) {
   return siteRelativePathFromImageUrl(src).replace(/^\/translated-images\/[^/]+/, '');
 }
 
-// Adopts modified's (regional) image src onto original (langstore) wherever they're the same
-// image, so an unselected image's untranslated src doesn't look like a reverted change.
+function isTranslatedImagePath(src) {
+  return /^\/translated-images\//.test(siteRelativePathFromImageUrl(src));
+}
+
+function mirrorSrcset(img, src) {
+  img.closest('picture')?.querySelectorAll('source[srcset]')
+    .forEach((source) => source.setAttribute('srcset', src));
+}
+
+// Reconciles same-image src differences to avoid merge noise; a fresh translation on original
+// propagates onto modified instead of being reverted.
 export function normalizeImages(original, modified) {
   const bySrc = new Map();
   modified.querySelectorAll('img[src]').forEach((img) => {
@@ -213,11 +222,21 @@ export function normalizeImages(original, modified) {
   });
 
   original.querySelectorAll('img[src]').forEach((img) => {
-    const match = bySrc.get(canonicalImageKey(img.src));
+    const key = canonicalImageKey(img.src);
+    const match = bySrc.get(key);
     if (!match || match === img.src) return;
+
+    if (isTranslatedImagePath(img.src)) {
+      modified.querySelectorAll('img[src]').forEach((modifiedImg) => {
+        if (canonicalImageKey(modifiedImg.src) !== key) return;
+        modifiedImg.src = img.src;
+        mirrorSrcset(modifiedImg, img.src);
+      });
+      return;
+    }
+
     img.src = match;
-    img.closest('picture')?.querySelectorAll('source[srcset]')
-      .forEach((source) => source.setAttribute('srcset', match));
+    mirrorSrcset(img, match);
   });
 }
 
