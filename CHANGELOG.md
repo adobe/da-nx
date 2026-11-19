@@ -1,3 +1,10 @@
+# [1.58.0](https://github.com/adobe/da-nx/compare/v1.57.2...v1.58.0) (2026-11-19)
+
+
+### Features
+
+* **cards:** rework of /app to the new "tools" ([#978](https://github.com/adobe/da-nx/issues/978)) ([dd67797](https://github.com/adobe/da-nx/commit/dd6779732cf84523b0b90c1ae2ca11ca16cfccb5)), closes [#E5F0FE](https://github.com/adobe/da-nx/issues/E5F0FE)
+
 ## [1.57.2](https://github.com/adobe/da-nx/compare/v1.57.1...v1.57.2) (2026-11-19)
 
 
