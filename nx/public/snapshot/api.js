@@ -107,7 +107,10 @@ export function createSnapshotApi({
       const resp = await fetch(jobHref);
       if (!resp.ok) return formatError(resp);
       const job = await resp.json();
-      if (job.state === 'stopped') return { success: true };
+      if (job.state === 'stopped') {
+        if (job.cancelled || job.error) return { error: job.error || 'The job was cancelled', status: 500 };
+        return { success: true };
+      }
       await new Promise((resolve) => { setTimeout(resolve, pollInterval); });
     }
   };
@@ -260,15 +263,18 @@ export function createSnapshotApi({
     const [url] = await copyResources({
       name, resources: formatResources(name, [{ path }]), direction, mode,
     });
-    return url ? { status: url.status, error: url.error } : { error: 'Invalid path', status: 400 };
+    if (!url) return { error: 'Invalid path', status: 400 };
+    if (url.status === 'success') return { status: url.status };
+    return { status: 'error', error: url.error || 'The page could not be copied' };
   };
 
   const hasSnapshotSource = async ({ name, path }) => {
     try {
       const resp = await src.getMetadata(`/${org}/${site}/.snapshots/${name}${toSourcePath(path)}`);
-      return resp.ok;
+      if (resp.ok) return true;
+      return resp.status === 404 ? false : null;
     } catch {
-      return false;
+      return null;
     }
   };
 

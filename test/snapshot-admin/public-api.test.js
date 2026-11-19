@@ -89,10 +89,35 @@ describe('Public snapshot API', () => {
     expect(await defaults.hasSnapshotSource({ name: 's1', path: '/a' })).to.equal(true);
     expect(fetch.args[0]).to.deep.equal([`${DA}/source/org/site/.snapshots/s1/a.html`, { method: 'HEAD' }]);
 
-    const getMetadata = sinon.stub().resolves({ ok: false });
+    const getMetadata = sinon.stub().resolves({ ok: false, status: 404 });
     const custom = create(async () => new Response(''), { source: { getMetadata } });
     expect(await custom.hasSnapshotSource({ name: 's1', path: '/b.json' })).to.equal(false);
     expect(getMetadata.calledOnceWithExactly('/org/site/.snapshots/s1/b.json')).to.equal(true);
+  });
+
+  it('reports an unknown snapshot source when the check fails', async () => {
+    const failing = create(async () => new Response('', { status: 500 }));
+    expect(await failing.hasSnapshotSource({ name: 's1', path: '/a' })).to.equal(null);
+    const offline = create(async () => { throw new TypeError('Failed to fetch'); });
+    expect(await offline.hasSnapshotSource({ name: 's1', path: '/a' })).to.equal(null);
+  });
+
+  it('returns an error when a bulk job stops with an error or is cancelled', async () => {
+    const jobs = [{ state: 'stopped', error: 'boom' }, { state: 'stopped', cancelled: true }];
+    const api = create(async (url) => {
+      if (url === `${BASE}/s1/*`) return json({ links: { self: 'https://job' } }, 202);
+      return json(jobs.shift());
+    });
+    expect((await api.addPaths({ name: 's1', paths: ['/a'] })).error).to.equal('boom');
+    expect((await api.addPaths({ name: 's1', paths: ['/a'] })).error).to.be.a('string');
+  });
+
+  it('returns an error message when a single page copy fails', async () => {
+    const get = sinon.stub().resolves(new Response('', { status: 404 }));
+    const api = create(async () => new Response('', { status: 201 }), { source: { get } });
+    const result = await api.copyPage({ name: 's1', path: '/data.json', direction: 'fork' });
+    expect(result.status).to.equal('error');
+    expect(result.error).to.be.a('string');
   });
 
   it('copies a single page and reports its status', async () => {

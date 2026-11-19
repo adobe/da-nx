@@ -34,7 +34,7 @@ All methods take a single object argument. Failures return `{ error, status }`; 
 | `deleteSnapshot({ name, paths })` | `{ success }`. Also removes the DA `.snapshots/{name}` folder. |
 | `copyResources({ name, resources, direction, mode })` | copied urls, each with the resource `path` and a `status` (`success` or `error`). Never throws; a failed copy does not stop the others. `direction`: `fork` (main → snapshot, "Sync") or `promote` (snapshot → main). `mode`: `merge` (default) or `overwrite`. |
 | `copyPage({ name, path, direction, mode })` | `{ status, error }` for one page; same options as `copyResources` |
-| `hasSnapshotSource({ name, path })` | whether the DA snapshot copy of `path` exists (`/x/` checks `/x/index.html`) |
+| `hasSnapshotSource({ name, path })` | whether the DA snapshot copy of `path` exists (`/x/` checks `/x/index.html`): `true`, `false` (404), or `null` if it couldn't be checked |
 | `updateSchedule({ name, approved, userId })` | `{ status, text }` from the snapshot scheduler |
 | `isRegistered()` | whether the site is registered with the scheduler |
 | `getPublishPermission({ path })` | whether the user can publish |
