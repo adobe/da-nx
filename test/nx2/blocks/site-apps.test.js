@@ -37,7 +37,7 @@ describe('site apps config routing', () => {
 
     await init(block);
 
-    expect(block.querySelector('h3').textContent).to.equal('Test app');
+    expect(block.querySelector('nx-action-card').heading).to.equal('Test app');
     expect(calls.map((call) => call.url)).to.deep.equal([
       `${HLX_ADMIN}/ping/${org}/${site}`,
       `${DA_ADMIN}/config/${org}/${site}/`,
@@ -52,7 +52,7 @@ describe('site apps config routing', () => {
 
     await init(block);
 
-    expect(block.querySelector('h3').textContent).to.equal('Test app');
+    expect(block.querySelector('nx-action-card').heading).to.equal('Test app');
     expect(calls.map((call) => call.url)).to.deep.equal([
       `${HLX_ADMIN}/ping/${org}/${site}`,
       `${AEM_API}/${org}/sites/${site}/config/editor/da.json`,

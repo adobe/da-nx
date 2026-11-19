@@ -37,7 +37,13 @@ class NxLocActions extends LitElement {
 
   renderMessage() {
     if (!this.message) return nothing;
-    return html`<p class="message type-${this.message.type || 'info'}">${this.message.text}</p>`;
+    const { type = 'info', text, items } = this.message;
+    if (!items?.length) return html`<p class="message type-${type}">${text}</p>`;
+    return html`
+      <div class="message has-items type-${type}">
+        <p>${text}</p>
+        <ul>${items.map((item) => html`<li>${item}</li>`)}</ul>
+      </div>`;
   }
 
   render() {

@@ -143,6 +143,23 @@ export async function deleteSnapshotFiles(name, paths = ['/*']) {
   return { success: true };
 }
 
+async function deleteSchedule(name) {
+  try {
+    const { accessToken } = await loadIms();
+    // daFetch does not send the IMS token to the scheduler, but its DELETE route needs it.
+    const headers = { Authorization: `Bearer ${accessToken?.token}` };
+    const url = `${SNAPSHOT_SCHEDULER_URL}/schedule/snapshot/${org}/${site}/${name}`;
+    const resp = await daFetch({ url, opts: { method: 'DELETE', headers } });
+    if (!resp.ok && resp.status !== 404) {
+      // eslint-disable-next-line no-console
+      console.warn(`Could not remove schedule for snapshot ${name}. Status: ${resp.status}`);
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn(`Could not remove schedule for snapshot ${name}`, error);
+  }
+}
+
 export async function deleteSnapshot(name, paths = []) {
   const result = await deleteSnapshotFiles(name, paths);
   if (!result.success) return result;
@@ -154,6 +171,8 @@ export async function deleteSnapshot(name, paths = []) {
   const opts = { method: 'DELETE' };
   const resp = await daFetch({ url: `${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`, opts });
   if (!resp.ok) return formatError(resp);
+
+  await deleteSchedule(name);
   return { success: true };
 }
 
@@ -276,9 +295,12 @@ export async function updateSchedule(snapshotId, approved = false) {
     userId: imsProfile?.email,
   };
   const headers = { 'content-type': 'application/json' };
-  const resp = await daFetch({ url: adminURL, opts: { method: 'POST', headers, body: JSON.stringify(body) } });
-  const result = resp.headers.get('X-Error');
-  return { status: resp.status, text: result };
+  try {
+    const resp = await daFetch({ url: adminURL, opts: { method: 'POST', headers, body: JSON.stringify(body) } });
+    return { status: resp.status, text: resp.headers?.get('X-Error') };
+  } catch {
+    return { status: 0 };
+  }
 }
 
 export async function getUserPublishPermission(path = '/') {
