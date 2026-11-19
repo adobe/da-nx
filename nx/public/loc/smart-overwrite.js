@@ -71,12 +71,12 @@ async function copySource({
 }
 
 async function mergeReview({
-  source, dest, metadataEl, site, config, sourceHashes,
+  source, dest, metadataEl, site, config, sourceHashes, base,
 }) {
   const reviewed = getElementMetadata(metadataEl);
   const accepted = reviewed.acceptedhashes?.text?.split(',') || [];
   const rejected = getRejected(metadataEl);
-  const diffed = await regionalDiff(source, dest, accepted, rejected, { site, config });
+  const diffed = await regionalDiff(source, dest, accepted, rejected, { site, config, base });
   return {
     html: diffed.innerHTML, skipped: 0, sourceHashes, review: !!diffed.querySelector(LOC_MARKERS),
   };
@@ -84,7 +84,7 @@ async function mergeReview({
 
 // No valid baseline yet: today's merge, so the author reviews every difference once.
 async function firstRollout({
-  source, dest, destHtml, destMarked, metadataEl, site, config,
+  source, dest, destHtml, destMarked, metadataEl, site, config, base,
 }) {
   const sourceHashes = await getBlockHashes({ doc: source, site, config });
   if (!destMarked) {
@@ -94,7 +94,7 @@ async function firstRollout({
     }
   }
   return mergeReview({
-    source, dest, metadataEl, site, config, sourceHashes,
+    source, dest, metadataEl, site, config, sourceHashes, base,
   });
 }
 
@@ -126,7 +126,7 @@ async function smartRollout({
     });
   }
   const merged = await firstRollout({
-    source, dest, destHtml, destMarked, metadataEl, site, config,
+    source, dest, destHtml, destMarked, metadataEl, site, config, base: base || undefined,
   });
   return { ...merged, daMetadata };
 }

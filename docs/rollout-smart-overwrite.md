@@ -247,6 +247,22 @@ these.
   marked Local again, since keeping the local side isn't recorded. Pending upstream changes keep showing until the author resolves them and are never
   dropped; once the markers are gone, the next smart rollout uses the baseline. Markers include the
   `da-diff-added` attribute and the `<da-diff-added>` element that list items wrap their added content in.
+- Base-aware review: when that review runs and a baseline exists, each marked block also carries
+  `data-diff-kind`, so the editor can tell who changed it. The tags stay the same, so an editor that ignores the
+  attribute renders as before. Without a baseline, no kind is written.
+
+  | `data-diff-kind` | Meaning | Sits on |
+  |---|---|---|
+  | `incoming` | Upstream added a block | `<da-diff-deleted>` |
+  | `removed-upstream` | Upstream removed a block the page still has | the page's block |
+  | `local-removed` | The page deleted a block upstream still has | `<da-diff-deleted>` |
+  | `local` | Only the page added a block | the page's block |
+  | `conflict` | Both sides changed one block | both elements of the pair |
+  | `upstream-changed` | Only upstream changed a block | both elements of the pair |
+  | `local-changed` | Only the page changed a block | both elements of the pair |
+
+  Kinds apply to single blocks only; block groups and list items stay unmarked. The editor may drop the attribute
+  when it saves the page, and a later rollout writes it again.
 
 - No valid baseline yet (no sync point set and never rolled out on this site, or a baseline that is malformed or
   recorded for a different path):

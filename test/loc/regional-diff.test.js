@@ -925,3 +925,55 @@ describe('regionalDiff keeps blocks in their own section', () => {
     ]);
   });
 });
+
+describe('regionalDiff with a base', () => {
+  const toDoc = (mainHtml) => {
+    const doc = document.implementation.createHTMLDocument();
+    doc.body.innerHTML = `<main><div>${mainHtml}</div></main>`;
+    return doc;
+  };
+  const config = { config: { data: [] } };
+  const run = async ({ base, source, page }) => {
+    const baseHashes = await getBlockHashes({ doc: toDoc(base), site: 'site', config });
+    return regionalDiff(toDoc(source), toDoc(page), [], [], { site: 'site', config, base: baseHashes });
+  };
+
+  it('marks a block upstream added as incoming', async () => {
+    const main = await run({ base: '<p>One</p>', source: '<p>One</p><p>New</p>', page: '<p>One</p>' });
+    expect(main.querySelector('da-diff-deleted[data-diff-kind="incoming"] p').textContent).to.equal('New');
+  });
+
+  it('marks a block upstream removed as removed-upstream', async () => {
+    const main = await run({ base: '<p>One</p><p>Old</p>', source: '<p>One</p>', page: '<p>One</p><p>Old</p>' });
+    expect(main.querySelector('p[da-diff-added][data-diff-kind="removed-upstream"]').textContent).to.equal('Old');
+  });
+
+  it('marks a block the page removed as local-removed', async () => {
+    const main = await run({ base: '<p>One</p><p>Two</p>', source: '<p>One</p><p>Two</p>', page: '<p>One</p>' });
+    expect(main.querySelector('da-diff-deleted[data-diff-kind="local-removed"] p').textContent).to.equal('Two');
+  });
+
+  it('marks a block both sides changed as conflict', async () => {
+    const main = await run({ base: '<p>Base</p>', source: '<p>Up</p>', page: '<p>Mine</p>' });
+    expect(main.querySelector('da-diff-deleted[data-diff-kind="conflict"]')).to.exist;
+    expect(main.querySelector('p[da-diff-added][data-diff-kind="conflict"]').textContent).to.equal('Mine');
+  });
+
+  it('marks one block both sides changed apart as upstream-changed or local-changed', async () => {
+    const upstream = await run({ base: '<p>Base</p>', source: '<p>Up</p>', page: '<p>Base</p>' });
+    expect(upstream.querySelector('da-diff-deleted').getAttribute('data-diff-kind')).to.equal('upstream-changed');
+    expect(upstream.querySelector('p[da-diff-added]').getAttribute('data-diff-kind')).to.equal('upstream-changed');
+    const local = await run({ base: '<p>Base</p>', source: '<p>Base</p>', page: '<p>Mine</p>' });
+    expect(local.querySelector('da-diff-deleted').getAttribute('data-diff-kind')).to.equal('local-changed');
+  });
+
+  it('marks a block only the page added as local', async () => {
+    const main = await run({ base: '<p>One</p>', source: '<p>One</p>', page: '<p>One</p><p>Mine</p>' });
+    expect(main.querySelector('p[da-diff-added]').getAttribute('data-diff-kind')).to.equal('local');
+  });
+
+  it('adds no kind without a base', async () => {
+    const main = await regionalDiff(toDoc('<p>A</p>'), toDoc('<p>B</p>'), [], [], { site: 'site', config });
+    expect(main.querySelector('[data-diff-kind]')).to.equal(null);
+  });
+});

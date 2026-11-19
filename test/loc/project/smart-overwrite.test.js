@@ -53,7 +53,7 @@ describe('smartOverwriteCopy', () => {
       if (opts.method === 'POST' && url.includes('/source/')) postedTo.push(url);
       if (opts.method === 'POST' && url.includes(`/source${destPath}`)) {
         if (saveThrows) throw new Error('network');
-        saved = await opts.body.get('data').text();
+        saved = (await opts.body.get('data').text()).replace(/ data-diff-kind="[^"]*"/g, '');
         return { ok: saveOk, status: saveOk ? 200 : 500, headers, json: async () => ({}), text: async () => '' };
       }
       if (opts.method && opts.method !== 'GET') {

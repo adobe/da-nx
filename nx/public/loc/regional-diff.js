@@ -8,6 +8,7 @@ const DELETED_TAG = 'da-diff-deleted';
 // Matches what the editor saves, so a preview before the page is opened leaves upstream blocks out.
 const DELETED_OPEN = `<${DELETED_TAG} data-mdast="ignore">`;
 const SAME = 'same';
+const KIND_ATTR = 'data-diff-kind';
 
 const HLX_AEM_URL_REGEX = /\.hlx\.page\/|\.hlx\.live\/|\.aem\.page\//g;
 
@@ -376,8 +377,9 @@ function htmldiff(originalDOM, modifiedDOM) {
   return diffArr;
 }
 
-function wrapElement(targetElement, wrapperElementTag) {
+function wrapElement(targetElement, wrapperElementTag, kind) {
   const wrapperElement = createWrapper(wrapperElementTag);
+  if (kind) wrapperElement.setAttribute(KIND_ATTR, kind);
   wrapperElement.appendChild(targetElement);
   return wrapperElement;
 }
@@ -435,6 +437,35 @@ function appendSingleDiffedBlockGroupHtml({ htmlText, type, blockGroup }) {
   blockGroup[0]?.setAttribute(ADDED_TAG, '');
   const inner = getGroupInnerHtml(blockGroup, diffSep);
   return `${htmlText}${inner}`;
+}
+
+// A removed block next to an added one is one block that changed, not two separate edits.
+const PAIR_KINDS = {
+  'incoming,local': 'conflict',
+  'local-removed,local': 'local-changed',
+  'incoming,removed-upstream': 'upstream-changed',
+};
+
+const isOwnBlock = (item) => !Array.isArray(item?.block) && !item?.block?.isSection;
+
+// Without a base, DELETED means "only upstream" and ADDED means "only the page". The base tells
+// who changed it: upstream added (incoming), upstream removed, the page removed, or both changed.
+function classifyDiff(diff, base) {
+  const inBase = new Set(base);
+  const smartHash = (item) => hashBlock(item.block, { smart: true }).substring(0, HASH_LENGTH);
+  const kinds = diff.map((item) => {
+    if (!isOwnBlock(item) || item.type === SAME) return undefined;
+    const known = inBase.has(smartHash(item));
+    if (item.type === DELETED) return known ? 'local-removed' : 'incoming';
+    return known ? 'removed-upstream' : 'local';
+  });
+  return diff.map((item, idx) => {
+    const pair = item.type === DELETED
+      ? [kinds[idx], kinds[idx + 1]]
+      : [kinds[idx - 1], kinds[idx]];
+    const kind = PAIR_KINDS[pair.join()] || kinds[idx];
+    return kind ? { ...item, kind } : item;
+  });
 }
 
 function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes = []) {
@@ -498,6 +529,7 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
     if (item.type === ADDED) {
       if (!acceptedHashes.includes(hash)) {
         modifiedBlock.setAttribute(ADDED_TAG, '');
+        if (item.kind) modifiedBlock.setAttribute(KIND_ATTR, item.kind);
       }
     } else if (item.type === DELETED) {
       if (rejectedHashes.includes(hash)) {
@@ -505,7 +537,7 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
         continue;
       }
       if (!acceptedHashes.includes(hash)) {
-        modifiedBlock = wrapElement(item.block, DELETED_TAG);
+        modifiedBlock = wrapElement(item.block, DELETED_TAG, item.kind);
       }
     }
     htmlText += modifiedBlock.outerHTML;
@@ -682,7 +714,7 @@ export async function regionalDiff(
   modified,
   acceptedHashes,
   rejectedHashes,
-  { normalizeImages, site, config } = {},
+  { normalizeImages, site, config, base } = {},
 ) {
   const equivalentSites = getEquivalentSites(config);
 
@@ -690,7 +722,8 @@ export async function regionalDiff(
   const normalizedModified = await normalizeLinks(modified, site, equivalentSites);
   // optional connector hook
   if (normalizeImages) normalizeImages(normalizedOriginal, normalizedModified);
-  const diff = htmldiff(normalizedOriginal, normalizedModified);
+  const rawDiff = htmldiff(normalizedOriginal, normalizedModified);
+  const diff = base?.length ? classifyDiff(rawDiff, base) : rawDiff;
   const output = buildHtmlFromDiff(diff, normalizedModified, acceptedHashes, rejectedHashes);
   return output.body.querySelector('main');
 }
