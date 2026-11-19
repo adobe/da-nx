@@ -10,7 +10,9 @@ class NxTooltip extends LitElement {
     placement: { type: String, reflect: true },
   };
 
-  get _supported() { return typeof this.showPopover === 'function'; }
+  get _supported() {
+    return typeof this.showPopover === 'function' && CSS.supports('position-area: top');
+  }
 
   get open() { return this._supported && this.matches(':popover-open'); }
 
@@ -19,7 +21,7 @@ class NxTooltip extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
     this.id ||= `nx-tooltip-${crypto.randomUUID()}`;
     this.role = 'tooltip';
-    this.popover = 'manual';
+    this.popover = 'hint';
     this.updateComplete.then(() => {
       if (this.isConnected) this._bindTrigger();
     });

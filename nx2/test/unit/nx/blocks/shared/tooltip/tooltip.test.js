@@ -55,6 +55,18 @@ describe('nx-tooltip', () => {
     expect(() => tooltip.close()).not.to.throw();
   });
 
+  it('stays hidden when CSS anchor positioning is unavailable', async () => {
+    const supports = CSS.supports.bind(CSS);
+    sinon.stub(CSS, 'supports').callsFake((...args) => (
+      args[0] === 'position-area: top' ? false : supports(...args)));
+    const { trigger, tooltip } = await fixture();
+    trigger.focus();
+    pointer(trigger, 'pointerenter');
+    await clock.tickAsync(500);
+    expect(tooltip.open).to.be.false;
+    expect(trigger.hasAttribute('aria-describedby')).to.be.false;
+  });
+
   it('associates the tooltip without replacing the trigger name or existing descriptions', async () => {
     const { trigger, tooltip } = await fixture();
     tooltip.remove();

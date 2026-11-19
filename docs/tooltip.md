@@ -15,7 +15,8 @@ import '/nx2/blocks/shared/tooltip/tooltip.js';
 ```
 
 Place the tooltip after its trigger, in the same document or shadow root.
-Tooltips stay hidden in browsers without native popover support.
+Tooltips stay hidden in browsers without native popover and CSS anchor positioning
+support.
 
 ## Options
 
