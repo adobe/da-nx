@@ -9,6 +9,11 @@ p {
   margin: 0 0 8px;
 }
 
+h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
 .summary {
   font-weight: 700;
 }
@@ -43,6 +48,21 @@ p {
 
 .row-details {
   min-width: 0;
+}
+
+.video-thumb {
+  display: grid;
+  place-items: center;
+}
+
+.video-thumb svg {
+  width: 24px;
+  height: 24px;
+  fill: currentcolor;
+}
+
+.row-alt a {
+  color: inherit;
 }
 
 .row-alt {

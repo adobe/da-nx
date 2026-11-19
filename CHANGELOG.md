@@ -1,3 +1,36 @@
+## [1.57.1](https://github.com/adobe/da-nx/compare/v1.57.0...v1.57.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **loc:** keep smart overwrite moves out of page-only content ([938ba40](https://github.com/adobe/da-nx/commit/938ba405a26725c3f8202d0e43f2844a7affdc1f))
+
+# [1.57.0](https://github.com/adobe/da-nx/compare/v1.56.0...v1.57.0) (2026-11-18)
+
+
+### Features
+
+* **loc:** scope sheet translation exclusions by document path ([#987](https://github.com/adobe/da-nx/issues/987)) ([9b5be1d](https://github.com/adobe/da-nx/commit/9b5be1d2bc6cb5d8428178e2dedf087c8be3b890))
+
+# [1.56.0](https://github.com/adobe/da-nx/compare/v1.55.0...v1.56.0) (2026-11-18)
+
+
+### Bug Fixes
+
+* **loc:** ignore recovered Trados task failures in status checks ([#1002](https://github.com/adobe/da-nx/issues/1002)) ([eae249e](https://github.com/adobe/da-nx/commit/eae249ec146a0833adfcde5c2e512b943cc05eba))
+
+
+### Features
+
+* **loc:** validate translate config at project start ([#955](https://github.com/adobe/da-nx/issues/955)) ([b46e3b3](https://github.com/adobe/da-nx/commit/b46e3b3472e1a76c2bd7470912f83f75c3f9e9aa))
+
+# [1.55.0](https://github.com/adobe/da-nx/compare/v1.54.3...v1.55.0) (2026-11-18)
+
+
+### Features
+
+* **glaas:** integrate video caption localization and delivery tracking ([#1020](https://github.com/adobe/da-nx/issues/1020)) ([1bbe94c](https://github.com/adobe/da-nx/commit/1bbe94cf1989e9691bfa41fa0cd45213d5867a8a))
+
 ## [1.54.3](https://github.com/adobe/da-nx/compare/v1.54.2...v1.54.3) (2026-11-18)
 
 
