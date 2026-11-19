@@ -144,6 +144,32 @@ export const hashChange = (() => {
   };
 })();
 
+// Hosts whose tools work on the current site and take its path as hash (`#/org/site`).
+const SITE_HASH_HOSTS = ['da.live', 'author.aem.live'];
+
+const parseUrl = (href) => {
+  try {
+    return new URL(href, window.location.href);
+  } catch {
+    return undefined;
+  }
+};
+
+// True for links on this site (incl. relative), da.live or author.aem.live.
+export const acceptsSiteHash = (href) => {
+  const url = parseUrl(href);
+  if (!url) return false;
+  return url.origin === window.location.origin || SITE_HASH_HOSTS.includes(url.hostname);
+};
+
+// Sets the site path (`fullpath` from hashChange, e.g. `/org/site`) as the url hash.
+export const withSiteHash = ({ href, fullpath }) => {
+  const url = parseUrl(href);
+  if (!fullpath || !url) return href;
+  url.hash = fullpath;
+  return url.href;
+};
+
 export const loadPageStyle = (href) => new Promise((resolve) => {
   if (!document.querySelector(`head > link[href="${href}"]`)) {
     const link = document.createElement('link');

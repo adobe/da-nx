@@ -1,3 +1,20 @@
+# [1.58.0](https://github.com/adobe/da-nx/compare/v1.57.2...v1.58.0) (2026-11-19)
+
+
+### Features
+
+* **cards:** rework of /app to the new "tools" ([#978](https://github.com/adobe/da-nx/issues/978)) ([dd67797](https://github.com/adobe/da-nx/commit/dd6779732cf84523b0b90c1ae2ca11ca16cfccb5)), closes [#E5F0FE](https://github.com/adobe/da-nx/issues/E5F0FE)
+
+## [1.57.2](https://github.com/adobe/da-nx/compare/v1.57.1...v1.57.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* **snapshot-admin:** keep panel busy through scheduling and rollback ([f4f9bed](https://github.com/adobe/da-nx/commit/f4f9bed956b9c6c07c931e8f7b19dafc494ae6c5))
+* **snapshot-admin:** remove schedule on delete and surface scheduling errors ([83ed01d](https://github.com/adobe/da-nx/commit/83ed01d3fc2f8275a4ef447c3f730a6067bcc0d8))
+* **snapshot-admin:** reset scheduler input and simplify delete message ([3928f47](https://github.com/adobe/da-nx/commit/3928f47f9aae3ea3bafaa606a8be0c954035295a))
+* **versions:** include hlx6 audit history ([#1014](https://github.com/adobe/da-nx/issues/1014)) ([87d4b30](https://github.com/adobe/da-nx/commit/87d4b303d72b0069bcf41bb5c65ab4b447821f33)), closes [adobe/helix-api-service#550](https://github.com/adobe/helix-api-service/issues/550) [adobe/helix-api-service#556](https://github.com/adobe/helix-api-service/issues/556) [adobe/da-live#1450](https://github.com/adobe/da-live/issues/1450)
+
 ## [1.57.1](https://github.com/adobe/da-nx/compare/v1.57.0...v1.57.1) (2026-11-18)
 
 
