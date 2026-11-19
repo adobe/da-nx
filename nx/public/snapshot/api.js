@@ -55,6 +55,14 @@ function formatError(resp) {
   return { error: `Unknown error. Status: ${resp.status}`, status: resp.status };
 }
 
+const guard = (fn) => async (args) => {
+  try {
+    return await fn(args);
+  } catch (e) {
+    return { error: e?.message || 'Network error', status: 0 };
+  }
+};
+
 const getFirstSheet = (json) => {
   if (json[':type'] !== 'multi-sheet') return json.data;
   return json[Object.keys(json)[0]]?.data;
@@ -94,12 +102,12 @@ export function createSnapshotApi({
     daSnapshotEdit: `https://da.live/edit#/${org}/${site}/.snapshots/${name}${res.path}`,
   }));
 
-  const pollJob = async (jobUrl) => {
+  const pollJob = async (jobHref) => {
     while (true) {
-      const resp = await fetch(jobUrl);
-      if (!resp.ok) return;
+      const resp = await fetch(jobHref);
+      if (!resp.ok) return formatError(resp);
       const job = await resp.json();
-      if (job.state === 'stopped') return;
+      if (job.state === 'stopped') return { success: true };
       await new Promise((resolve) => { setTimeout(resolve, pollInterval); });
     }
   };
@@ -114,7 +122,7 @@ export function createSnapshotApi({
     if (!resp.ok && !(body.delete && resp.status === 404)) return formatError(resp);
     if (resp.status === 202) {
       const { links } = await resp.json();
-      if (links?.self) await pollJob(links.self);
+      if (links?.self) return pollJob(links.self);
     }
     return { success: true };
   };
@@ -171,7 +179,8 @@ export function createSnapshotApi({
   const deleteSnapshot = async ({ name, paths = [] }) => {
     const result = await removePaths({ name, paths });
     if (!result.success) return result;
-    src.delete(`/${org}/${site}/.snapshots/${name}`);
+    const srcResp = await src.delete(`/${org}/${site}/.snapshots/${name}`);
+    if (!srcResp.ok && srcResp.status !== 404) return formatError(srcResp);
     const resp = await fetch(`${base}/${name}`, { method: 'DELETE' });
     if (!resp.ok) return formatError(resp);
     return { success: true };
@@ -212,6 +221,15 @@ export function createSnapshotApi({
       await copy.mergeCopy(url, `Snapshot ${direction}`, labels);
     };
 
+    const safeCopyUrl = async (url) => {
+      try {
+        await copyUrl(url);
+      } catch (e) {
+        url.status = 'error';
+        url.error = e?.message;
+      }
+    };
+
     const urls = resources.reduce((acc, res) => {
       try {
         const url = new URL(res.aemPreview);
@@ -220,6 +238,7 @@ export function createSnapshotApi({
         const fork = `/${org}/${site}/.snapshots/${name}${extPath}`;
         url.source = direction === 'fork' ? main : fork;
         url.destination = direction === 'fork' ? fork : main;
+        url.path = res.path;
         acc.push(url);
       } catch {
         // eslint-disable-next-line no-console
@@ -228,7 +247,7 @@ export function createSnapshotApi({
       return acc;
     }, []);
 
-    await runLimited(urls, 50, copyUrl);
+    await runLimited(urls, 50, safeCopyUrl);
     return urls;
   };
 
@@ -306,18 +325,18 @@ export function createSnapshotApi({
   };
 
   return {
-    list,
-    getManifest,
-    saveManifest,
-    review,
-    addPaths,
-    removePaths,
-    updatePaths,
-    deleteSnapshot,
+    list: guard(list),
+    getManifest: guard(getManifest),
+    saveManifest: guard(saveManifest),
+    review: guard(review),
+    addPaths: guard(addPaths),
+    removePaths: guard(removePaths),
+    updatePaths: guard(updatePaths),
+    deleteSnapshot: guard(deleteSnapshot),
     copyResources,
     hasSnapshotSource,
-    copyPage,
-    updateSchedule,
+    copyPage: guard(copyPage),
+    updateSchedule: guard(updateSchedule),
     isRegistered,
     getPublishPermission,
     getLaunchPermission,

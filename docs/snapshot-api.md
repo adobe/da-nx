@@ -22,7 +22,7 @@ const { snapshots, error } = await api.list();
 
 ## Methods
 
-All methods take a single object argument. Failures return `{ error, status }`.
+All methods take a single object argument. Failures return `{ error, status }`; network failures use `status: 0`. Bulk path changes wait for the admin job and return its error if polling fails.
 
 | Method | Returns |
 | --- | --- |
@@ -32,7 +32,7 @@ All methods take a single object argument. Failures return `{ error, status }`.
 | `addPaths({ name, paths })` / `removePaths({ name, paths })` | `{ success }`. Waits for async bulk jobs. |
 | `updatePaths({ name, currPaths, hrefs })` | formatted resources for `hrefs` (adds/removes the difference) |
 | `deleteSnapshot({ name, paths })` | `{ success }`. Also removes the DA `.snapshots/{name}` folder. |
-| `copyResources({ name, resources, direction, mode })` | copied urls with `status`. `direction`: `fork` (main → snapshot, "Sync") or `promote` (snapshot → main). `mode`: `merge` (default) or `overwrite`. |
+| `copyResources({ name, resources, direction, mode })` | copied urls, each with the resource `path` and a `status` (`success` or `error`). Never throws; a failed copy does not stop the others. `direction`: `fork` (main → snapshot, "Sync") or `promote` (snapshot → main). `mode`: `merge` (default) or `overwrite`. |
 | `copyPage({ name, path, direction, mode })` | `{ status, error }` for one page; same options as `copyResources` |
 | `hasSnapshotSource({ name, path })` | whether the DA snapshot copy of `path` exists (`/x/` checks `/x/index.html`) |
 | `updateSchedule({ name, approved, userId })` | `{ status, text }` from the snapshot scheduler |

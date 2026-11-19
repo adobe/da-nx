@@ -55,6 +55,35 @@ describe('Public snapshot API', () => {
     expect(fetch.args.filter(([url]) => url === 'https://job')).to.have.length(2);
   });
 
+  it('returns the polling error when a bulk job cannot be read', async () => {
+    const api = create(async (url) => {
+      if (url === `${BASE}/s1/*`) return json({ links: { self: 'https://job' } }, 202);
+      return new Response('', { status: 500 });
+    });
+    const result = await api.addPaths({ name: 's1', paths: ['/a'] });
+    expect(result.status).to.equal(500);
+    expect(result.error).to.be.a('string');
+  });
+
+  it('returns an error when the snapshot source cannot be deleted', async () => {
+    const api = create(async (url, opts) => {
+      if (url.includes('/source/') && opts?.method === 'DELETE') return new Response('', { status: 500 });
+      return new Response('', { status: 200 });
+    });
+    const result = await api.deleteSnapshot({ name: 's1' });
+    expect(result.status).to.equal(500);
+    expect(fetch.args.some(([url, opts]) => url === `${BASE}/s1` && opts?.method === 'DELETE')).to.equal(false);
+  });
+
+  it('returns an error shape instead of throwing on network failure', async () => {
+    const api = create(async () => { throw new TypeError('Failed to fetch'); });
+    expect(await api.list()).to.deep.equal({ error: 'Failed to fetch', status: 0 });
+    const [url] = await api.copyResources({
+      name: 's1', resources: [{ path: '/a.json', aemPreview: 'https://main--site--org.aem.page/a.json' }], direction: 'fork',
+    });
+    expect(url).to.include({ path: '/a.json', status: 'error' });
+  });
+
   it('uses the DA source adapter by default and the supplied source when given', async () => {
     const defaults = create(async () => new Response('', { status: 200 }));
     expect(await defaults.hasSnapshotSource({ name: 's1', path: '/a' })).to.equal(true);

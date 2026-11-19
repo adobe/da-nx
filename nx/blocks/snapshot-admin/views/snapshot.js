@@ -1,6 +1,7 @@
 import { html, LitElement, nothing } from 'da-lit';
 import getStyle from '../../../../nx2/public/utils/styles.js';
 import { getConfig } from '../../../../nx2/scripts/nx.js';
+import { loadHrefSvg } from '../../../../nx2/utils/svg.js';
 import {
   deleteSnapshot,
   fetchManifest,
@@ -20,11 +21,24 @@ import { findFragments } from '../utils/fragments.js';
 const toast = async (opts) => (await import('../../../../nx2/blocks/shared/toast/toast.js')).showToast(opts);
 
 const { codeBase } = getConfig();
-const [buttons, form, style] = await Promise.all([
+const s2Icon = (name) => new URL(`../../../../nx2/public/icons/S2_Icon_${name}_20_N.svg`, import.meta.url).href;
+
+const [buttons, form, style, arrowDownSvg, arrowUpSvg] = await Promise.all([
   getStyle(new URL('../../../../nx2/styles/buttons.css', import.meta.url).href),
   getStyle(new URL('../../../../nx2/styles/form.css', import.meta.url).href),
   getStyle(import.meta.url),
+  loadHrefSvg(s2Icon('ArrowDown')),
+  loadHrefSvg(s2Icon('ArrowUp')),
 ]);
+
+// Clone per use: one SVG node can only sit in one place in the DOM
+const inlineIcon = (svg) => {
+  if (!svg) return nothing;
+  const el = svg.cloneNode(true);
+  el.classList.add('icon');
+  el.setAttribute('aria-hidden', 'true');
+  return el;
+};
 
 const icon = (name) => `${codeBase}/img/icons/s2-icon-${name}-20-n.svg#icon`;
 
@@ -34,9 +48,6 @@ const ICONS = {
   link: icon('link'),
   exposure: icon('exposure'),
 };
-
-const ARROW_DOWN = html`<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v12m0 0l-5-5m5 5l5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const ARROW_UP = html`<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 17V5m0 0l-5 5m5-5l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 const SYNC_TIP = 'Sync from main content';
 const PROMOTE_TIP = 'Promote to main content';
@@ -115,7 +126,7 @@ class NxSnapshot extends LitElement {
       .filter((res) => this._snapshotExists[res.path] === undefined);
     pending.forEach(async ({ path }) => {
       this._snapshotExists = { ...this._snapshotExists, [path]: null };
-      const exists = await queueSourceCheck(name, path).catch(() => false);
+      const exists = await queueSourceCheck({ name, path }).catch(() => false);
       this._snapshotExists = { ...this._snapshotExists, [path]: exists };
     });
   }
@@ -222,7 +233,7 @@ class NxSnapshot extends LitElement {
     if (scheduleResult.status !== 200) {
       this._message = {
         heading: 'Schedule Error',
-        message: scheduleResult.headers.get('X-Error') || 'Failed to schedule publish',
+        message: scheduleResult.text || 'Failed to schedule publish',
         open: true,
       };
     }
@@ -373,13 +384,25 @@ class NxSnapshot extends LitElement {
     this._action = direction === 'fork'
       ? 'Syncing content into snapshot.'
       : 'Promoting content from snapshot.';
-    await copyManifest(this.basics.name, resources, direction, mode);
-    if (direction === 'fork') {
-      const updated = { ...this._snapshotExists };
-      resources.forEach((res) => { updated[res.path] = true; });
-      this._snapshotExists = updated;
+    try {
+      const urls = await copyManifest(this.basics.name, resources, direction, mode);
+      const copied = new Set(urls.filter((url) => url.status === 'success').map((url) => url.path));
+      if (direction === 'fork' && copied.size) {
+        const updated = { ...this._snapshotExists };
+        copied.forEach((path) => { updated[path] = true; });
+        this._snapshotExists = updated;
+      }
+      const failed = resources.filter((res) => !copied.has(res.path)).length;
+      if (failed) {
+        this._message = {
+          heading: 'Note',
+          message: `${failed} of ${resources.length} page${resources.length === 1 ? '' : 's'} could not be ${direction === 'fork' ? 'synced' : 'promoted'}.`,
+          open: true,
+        };
+      }
+    } finally {
+      this._action = undefined;
     }
-    this._action = undefined;
   }
 
   async handleCopyModeDialog(e) {
@@ -397,7 +420,7 @@ class NxSnapshot extends LitElement {
   }
 
   handleCopySingleUrl(res, direction) {
-    if (direction === 'fork' && !this._snapshotExists[res.path]) {
+    if (direction === 'fork' && this._snapshotExists[res.path] === false) {
       this.executeCopy([res], direction, 'overwrite');
       return;
     }
@@ -570,13 +593,13 @@ class NxSnapshot extends LitElement {
     return html`
       <span class="nx-url-actions">
         <button class="nx-action-btn nx-btn-sm" data-tooltip=${SYNC_TIP} @click=${() => this.handleCopySingleUrl(res, 'fork')}>
-          ${ARROW_DOWN} Sync
+          ${inlineIcon(arrowDownSvg)} Sync
         </button>
         <button class="nx-action-btn nx-btn-sm"
           data-tooltip=${snapshotExists ? PROMOTE_TIP : 'Sync this page first'}
           ?disabled=${!snapshotExists}
           @click=${() => this.handleCopySingleUrl(res, 'promote')}>
-          ${ARROW_UP} Promote
+          ${inlineIcon(arrowUpSvg)} Promote
         </button>
       </span>
     `;
@@ -680,10 +703,10 @@ class NxSnapshot extends LitElement {
         <div class="nx-launch-action-group">
           ${this._launchEnabled ? html`
             <button class="nx-action-btn" data-tooltip=${SYNC_TIP} @click=${() => this.handleCopyUrls('fork')}>
-              ${ARROW_DOWN} Sync all pages
+              ${inlineIcon(arrowDownSvg)} Sync all pages
             </button>
             <button class="nx-action-btn" data-tooltip=${PROMOTE_TIP} @click=${() => this.handleCopyUrls('promote')}>
-              ${ARROW_UP} Promote all pages
+              ${inlineIcon(arrowUpSvg)} Promote all pages
             </button>
           ` : html`
             <button class="nx-action-btn" @click=${this.handleEnableLaunch}>Enable Launch for this snapshot</button>

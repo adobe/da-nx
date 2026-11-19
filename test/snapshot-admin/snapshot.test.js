@@ -111,6 +111,19 @@ describe('NxSnapshot', () => {
       expect(el._message).to.not.be.undefined;
       expect(el._message.message).to.include('name');
     });
+
+    it('Shows the scheduler error when scheduling fails', async () => {
+      setupFetchMock(originalFetch, {
+        'helix-snapshot-scheduler': () => new Response('', { status: 500, headers: new Headers({ 'X-Error': 'Scheduler down' }) }),
+      });
+      const el = await createElement();
+      const future = new Date(Date.now() + 3600000).toISOString();
+      el.getValue = (sel) => (sel.includes('scheduler') ? future : undefined);
+      el.getUpdatedManifest = () => ({});
+      el.handleEditUrls = async () => {};
+      await el.handleSave();
+      expect(el._message).to.include({ heading: 'Schedule Error', message: 'Scheduler down' });
+    });
   });
 
   // --- Getters ---
@@ -510,27 +523,41 @@ describe('NxSnapshot', () => {
       expect(el._action).to.be.undefined;
     });
 
+    const copyFetch = (failPath) => setupFetchMock(originalFetch, {
+      '/source/': (urlStr, opts) => {
+        if (opts?.method === 'POST') return new Response('', { status: 200 });
+        if (failPath && urlStr.includes(failPath)) return new Response('', { status: 500 });
+        return new Response('{}', { status: 200, headers: new Headers({ 'content-type': 'application/json' }) });
+      },
+    });
+    const jsonRes = (path) => ({ path, aemPreview: `https://main--site--org.aem.page${path}` });
+
     it('Marks snapshot exists after fork sync completes', async () => {
+      copyFetch();
       const el = await createElement();
-      // Simulate post-copy state update directly (copyManifest requires full DA stack)
-      const resources = [{ path: '/page1' }, { path: '/page2' }];
       el._snapshotExists = {};
-      const updated = { ...el._snapshotExists };
-      resources.forEach((res) => { updated[res.path] = true; });
-      el._snapshotExists = updated;
-      expect(el._snapshotExists['/page1']).to.equal(true);
-      expect(el._snapshotExists['/page2']).to.equal(true);
+      await el.executeCopy([jsonRes('/a.json'), jsonRes('/b.json')], 'fork', 'overwrite');
+      expect(el._snapshotExists).to.deep.equal({ '/a.json': true, '/b.json': true });
+      expect(el._action).to.be.undefined;
+      expect(el._message).to.be.undefined;
+    });
+
+    it('Only marks pages that copied and reports failures', async () => {
+      copyFetch('/b.json');
+      const el = await createElement();
+      el._snapshotExists = {};
+      await el.executeCopy([jsonRes('/a.json'), jsonRes('/b.json')], 'fork', 'overwrite');
+      expect(el._snapshotExists).to.deep.equal({ '/a.json': true });
+      expect(el._message.message).to.equal('1 of 2 pages could not be synced.');
+      expect(el._action).to.be.undefined;
     });
 
     it('Does not mark snapshot exists for promote direction', async () => {
+      copyFetch();
       const el = await createElement();
-      // Promote direction should not update _snapshotExists
       el._snapshotExists = {};
-      const direction = 'promote';
-      if (direction === 'fork') {
-        el._snapshotExists = { '/page1': true };
-      }
-      expect(el._snapshotExists['/page1']).to.be.undefined;
+      await el.executeCopy([jsonRes('/a.json')], 'promote', 'overwrite');
+      expect(el._snapshotExists).to.deep.equal({});
     });
   });
 
@@ -548,13 +575,27 @@ describe('NxSnapshot', () => {
     it('Auto-overwrites fork when snapshot does not exist', async () => {
       const el = await createElement();
       const res = { path: '/page1', aemPreview: 'https://main--site--org.aem.page/page1' };
-      el._snapshotExists = {};
+      el._snapshotExists = { '/page1': false };
       // Stub executeCopy to avoid actual copy operations
       let executedMode;
       el.executeCopy = async (resources, direction, mode) => { executedMode = mode; };
       el.handleCopySingleUrl(res, 'fork');
       expect(el._copyModeDetails).to.be.undefined;
       expect(executedMode).to.equal('overwrite');
+    });
+
+    it('Asks before syncing while the existence check is pending', async () => {
+      const el = await createElement();
+      const res = { path: '/page1', aemPreview: 'https://main--site--org.aem.page/page1' };
+      let executed = false;
+      el.executeCopy = async () => { executed = true; };
+      [undefined, null].forEach((state) => {
+        el._snapshotExists = { '/page1': state };
+        el.handleCopySingleUrl(res, 'fork');
+        expect(el._copyModeDetails).to.not.be.undefined;
+        el._copyModeDetails = undefined;
+      });
+      expect(executed).to.equal(false);
     });
 
     it('Opens copy mode dialog for fork when snapshot exists', async () => {

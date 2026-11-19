@@ -52,7 +52,7 @@ const prefetchQueue = createQueue(4);
 
 export const queueManifest = (name) => prefetchQueue(() => fetchManifest(name));
 
-export const queueSourceCheck = (name, path) => prefetchQueue(
+export const queueSourceCheck = ({ name, path }) => prefetchQueue(
   () => api.hasSnapshotSource({ name, path }),
 );
 
@@ -72,11 +72,9 @@ export const deleteSnapshot = (name, paths) => api.deleteSnapshot({ name, paths 
 
 export const updatePaths = (name, currPaths, hrefs) => api.updatePaths({ name, currPaths, hrefs });
 
-export async function copyManifest(name, resources, direction, mode) {
-  await api.copyResources({
-    name, resources, direction, mode,
-  });
-}
+export const copyManifest = (name, resources, direction, mode) => api.copyResources({
+  name, resources, direction, mode,
+});
 
 export async function updateSchedule(name, approved = false) {
   const imsProfile = await loadIms();
