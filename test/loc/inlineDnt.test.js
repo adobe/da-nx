@@ -170,4 +170,64 @@ const tokens = (doc) => [...doc.querySelectorAll('.dnt-text')]
       }
     });
   });
+
+  describe('inline spreadsheet DNT with document-path exclusions', () => {
+    const inlineConfig = {
+      ...config([rule('between({, })')]),
+      dnt: {
+        data: [{ 'dnt-sheet': '/placeholders/shared:messages', 'dnt-columns': 'Key' }],
+      },
+    };
+    const prepare = async (json, siteConfig, path) => {
+      const html = await standard.addDnt(JSON.stringify(json), siteConfig, { fileType: 'json', path });
+      return parse(html);
+    };
+
+    it('keeps path-excluded columns untouched while protecting tokens in other cells', async () => {
+      const json = {
+        ':type': 'multi-sheet',
+        ':names': ['messages', 'other'],
+        messages: sheet(['Items {count}']),
+        other: sheet(['Hello {name}']),
+      };
+      json.messages.data[0].Key = '{identifier}';
+      const matched = await prepare(json, inlineConfig, '/placeholders/shared.json');
+      expect(matched.querySelector('[name="messages"] [key="Key"]').getAttribute('translate')).to.equal('no');
+      expect(tokens(matched)).to.deep.equal(['{count}', '{name}']);
+      const unmatched = await prepare(json, inlineConfig, '/placeholders/other.json');
+      expect(tokens(unmatched)).to.deep.equal(['{identifier}', '{count}', '{name}']);
+    });
+
+    it('lets whole-tab and whole-document exclusions take precedence over inline protection', async () => {
+      const json = {
+        ':type': 'multi-sheet',
+        ':names': ['messages', 'other'],
+        messages: sheet(['Items {count}']),
+        other: sheet(['Hello {name}']),
+      };
+      const exclude = (ref) => ({
+        ...inlineConfig,
+        dnt: { data: [{ 'dnt-sheet': ref, 'dnt-columns': '*' }] },
+      });
+      const tab = await prepare(json, exclude('/placeholders/shared:messages'), '/placeholders/shared.json');
+      expect(tab.querySelector('[name="messages"]').getAttribute('translate')).to.equal('no');
+      expect(tokens(tab)).to.deep.equal(['{name}']);
+      const all = await prepare(json, exclude('/placeholders/shared'), '/placeholders/shared.json');
+      expect(all.querySelector('[name="messages"]').getAttribute('translate')).to.equal('no');
+      expect(all.querySelector('[name="other"]').getAttribute('translate')).to.equal('no');
+      expect(tokens(all)).to.deep.equal([]);
+    });
+
+    it('resolves named single-tab exclusions without disabling inline protection in other columns', async () => {
+      const json = { ...sheet(['Items {count}']), ':sheetname': 'messages' };
+      json.data[0].Key = '{identifier}';
+      const doc = await prepare(json, inlineConfig, '/placeholders/shared.json');
+      expect(doc.querySelector('[name="default"] [key="Key"]').getAttribute('translate')).to.equal('no');
+      expect(tokens(doc)).to.deep.equal(['{count}']);
+      const result = await standard.removeDnt({
+        html: doc.documentElement.outerHTML, org: 'org', site: 'site', ext: 'json',
+      });
+      expect(JSON.parse(result)).to.deep.equal(json);
+    });
+  });
 });

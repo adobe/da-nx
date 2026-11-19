@@ -1,3 +1,5 @@
+import { resolveSheetRules } from './sheetRules.js';
+
 /*
   This is a simple JSON to HTML converter that is used to convert the JSON data
   to HTML for translation. The HTML format can then be modified by the different
@@ -5,6 +7,8 @@
   so no transformation is needed for that service.
 */
 import { addInlineDnt, parseInlineRule } from './inlineDnt.js';
+
+const SYSTEM_COLUMNS = [':translate', ':rollout', ':uid', ':regional'];
 
 const setDntAttribute = (el) => {
   el.setAttribute('translate', 'no');
@@ -16,24 +20,47 @@ const extractNonDataKeys = (obj) => {
   return JSON.stringify(nonDataKeys); // Serialize the remaining keys
 };
 
-const json2html = (json, dntConfig) => {
+/**
+ * Converts sheet JSON to HTML, marking do-not-translate tabs, columns and rows.
+ * @param {Object} json - Sheet JSON (single or multi-sheet).
+ * @param {Object} dntConfig - Parsed DNT config.
+ * @param {string} [path] - Language-agnostic document path for `/path` rules.
+ * @returns {string} HTML string.
+ */
+const json2html = (json, dntConfig, path) => {
   // Support both sheetRule config formats (plain object and Map-like)
   const sheetRules = dntConfig?.sheetRules || dntConfig?.get?.('sheetRules');
 
-  // Extract column-based DNT info from config
-  const configSheets = dntConfig?.dntSheets || [];
-  const configSheetToColumns = dntConfig?.dntSheetToColumns || new Map();
-  const configUniversalColumns = dntConfig?.dntUniversalColumns || [];
   const inlineRules = sheetRules?.filter((rule) => rule.action === 'dnt-inline')
     .map((rule) => parseInlineRule(rule)) || [];
+  const isMultiSheet = json[':type'] === 'multi-sheet';
+
+  // Path rules match a single-tab sheet by its `:sheetname` (DA's default is `data`).
+  const {
+    sheets: configSheets,
+    sheetToColumns: configSheetToColumns,
+    universalColumns: configUniversalColumns,
+    allSheets,
+  } = resolveSheetRules({
+    dntConfig,
+    path,
+    singleTabName: isMultiSheet ? undefined : json[':sheetname'] || 'data',
+  });
+  /**
+   * Checks a cell value against `dnt-sheet-rules`, ignoring case.
+   * @param {string} text - Cell value.
+   * @returns {boolean} True when any rule matches.
+   */
   const isTextInDntRules = (text) => sheetRules && sheetRules
     .some((rule) => {
       if (rule.action === 'dnt-inline') return false;
       if (rule.condition === 'exists') {
         return true;
       }
+      // Rule values are lowercased in `extractPattern`.
+      const value = String(text).toLowerCase();
       const matchTexts = rule.match;
-      return (rule.condition === 'equals' && matchTexts.includes(text)) || (rule.condition === 'beginsWith' && matchTexts.some((matchText) => text.startsWith(matchText)));
+      return (rule.condition === 'equals' && matchTexts.includes(value)) || (rule.condition === 'beginsWith' && matchTexts.some((matchText) => value.startsWith(matchText)));
     });
 
   const createSheetDiv = (dataJson, name, dntInfo) => {
@@ -45,7 +72,7 @@ const json2html = (json, dntConfig) => {
     div.setAttribute('sheet-attrs', sheetAttrs);
     div.setAttribute('name', name);
     div.setAttribute('data-type', 'sheet');
-    if (sheets.includes(name)) {
+    if (allSheets || sheets.includes(name)) {
       setDntAttribute(div);
       isDntAttributeSet = true;
     }
@@ -67,7 +94,7 @@ const json2html = (json, dntConfig) => {
           if (!isDntAttributeSet
             && !isRowSetAsDnt
             && (universalColumns.includes(key)
-              || (sheetToColumns.has(name) && sheetToColumns.get(name).includes(key))
+              || sheetToColumns.get(name)?.includes(key)
               || isTextInDntRules(text))
           ) {
             setDntAttribute(colDiv);
@@ -94,12 +121,11 @@ const json2html = (json, dntConfig) => {
     const dntInfo = {
       sheets: [...configSheets],
       sheetToColumns: new Map(configSheetToColumns),
-      universalColumns: [...configUniversalColumns],
+      universalColumns: [...SYSTEM_COLUMNS, ...configUniversalColumns],
     };
     const { data } = dntJson || {};
     if (data?.length > 0) {
       dntInfo.sheets.push('dnt', 'non-default');
-      dntInfo.universalColumns.push(...[':translate', ':rollout', ':uid', ':regional']);
       data.forEach((jsonObject) => {
         const dntSheet = jsonObject['dnt-sheet'];
         const dntColumnsStr = jsonObject['dnt-columns'];
@@ -124,7 +150,7 @@ const json2html = (json, dntConfig) => {
 
   const jsonCopy = { ...json };
 
-  if (jsonCopy[':type'] === 'multi-sheet') {
+  if (isMultiSheet) {
     const dntInfo = getDntInfo(jsonCopy?.dnt);
     jsonCopy[':names'].sort().forEach((name) => {
       body.appendChild(createSheetDiv(jsonCopy[name], name, dntInfo));
