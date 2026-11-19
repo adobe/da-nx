@@ -5,6 +5,8 @@ const ADDED = 'added';
 const ADDED_TAG = 'da-diff-added';
 const DELETED = 'deleted';
 const DELETED_TAG = 'da-diff-deleted';
+// Matches what the editor saves, so a preview before the page is opened leaves upstream blocks out.
+const DELETED_OPEN = `<${DELETED_TAG} data-mdast="ignore">`;
 const SAME = 'same';
 
 const HLX_AEM_URL_REGEX = /\.hlx\.page\/|\.hlx\.live\/|\.aem\.page\//g;
@@ -140,8 +142,14 @@ const listElToBlockMap = (listItems) => [...listItems].map((item) => ({
   block: item,
 }));
 
+function createWrapper(tag) {
+  const wrapper = document.createElement(tag);
+  if (tag === DELETED_TAG) wrapper.setAttribute('data-mdast', 'ignore');
+  return wrapper;
+}
+
 function wrapContentWithElement(targetElement, wrapperElementTag) {
-  const wrapperElement = document.createElement(wrapperElementTag);
+  const wrapperElement = createWrapper(wrapperElementTag);
   while (targetElement.firstChild) {
     wrapperElement.appendChild(targetElement.firstChild);
   }
@@ -369,7 +377,7 @@ function htmldiff(originalDOM, modifiedDOM) {
 }
 
 function wrapElement(targetElement, wrapperElementTag) {
-  const wrapperElement = document.createElement(wrapperElementTag);
+  const wrapperElement = createWrapper(wrapperElementTag);
   wrapperElement.appendChild(targetElement);
   return wrapperElement;
 }
@@ -415,14 +423,14 @@ function appendPairedDiffedBlockGroupsHtml({
   const deletedInner = getGroupInnerHtml(deletedGroup, diffSep);
   addedGroup[0]?.setAttribute(ADDED_TAG, '');
   const addedInner = getGroupInnerHtml(addedGroup, diffSep);
-  return `${htmlText}<${DELETED_TAG}>${deletedInner}</${DELETED_TAG}>${addedInner}`;
+  return `${htmlText}${DELETED_OPEN}${deletedInner}</${DELETED_TAG}>${addedInner}`;
 }
 
 function appendSingleDiffedBlockGroupHtml({ htmlText, type, blockGroup }) {
   const diffSep = { sectionSeparator: DIFF_INNER_SECTION_MARK };
   if (type === DELETED) {
     const inner = getGroupInnerHtml(blockGroup, diffSep);
-    return `${htmlText}<${DELETED_TAG}>${inner}</${DELETED_TAG}>`;
+    return `${htmlText}${DELETED_OPEN}${inner}</${DELETED_TAG}>`;
   }
   blockGroup[0]?.setAttribute(ADDED_TAG, '');
   const inner = getGroupInnerHtml(blockGroup, diffSep);
@@ -600,7 +608,7 @@ const addedHtml = (part) => {
 
 function markedHtml({ parts, mark }) {
   if (mark !== 'upstream') return parts.map(addedHtml).join('');
-  return `<${DELETED_TAG}>${parts.map(partHtml).join('')}</${DELETED_TAG}>`;
+  return `${DELETED_OPEN}${parts.map(partHtml).join('')}</${DELETED_TAG}>`;
 }
 
 const groupMarks = (blocks) => blocks.reduce((groups, entry) => {
