@@ -17,9 +17,9 @@ const splitList = (value) => String(value ?? '').split(',').map((v) => v.trim())
  * @param {string[]} items - Items to join.
  * @returns {string} Joined text.
  */
-function joinList(items) {
-  if (items.length < 3) return items.join(' and ');
-  return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`;
+function joinList(items, conjunction = 'and') {
+  if (items.length < 3) return items.join(` ${conjunction} `);
+  return `${items.slice(0, -1).join(', ')}, ${conjunction} ${items.at(-1)}`;
 }
 
 /**
@@ -96,9 +96,16 @@ export async function validateServiceValues({
   const label = (key) => `translation.service.${env}.${key}`;
   const credentialKeys = credentials && Array.isArray(mod.requiredCredentialKeys)
     ? mod.requiredCredentialKeys : [];
-  const absent = [...missing(mod.requiredKeys), ...missing(credentialKeys)];
+  const quote = (key) => `"${label(key)}"`;
+  const anyGroups = Array.isArray(mod.requiredAnyKeys) ? mod.requiredAnyKeys : [];
+  const absent = [
+    ...[...missing(mod.requiredKeys), ...missing(credentialKeys)].map(quote),
+    ...anyGroups
+      .filter((group) => !group.some((key) => hasValue(values[key])))
+      .map((group) => `one of ${joinList(group.map(quote), 'or')}`),
+  ];
   if (!absent.length) return [];
-  return [`Translation service "${name}" is missing ${joinList(absent.map((key) => `"${label(key)}"`))}.`];
+  return [`Translation service "${name}" is missing ${joinList(absent)}.`];
 }
 
 /**

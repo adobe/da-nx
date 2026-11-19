@@ -304,6 +304,7 @@ export function finalizeOptions(
  *   applicable when false.
  * @property {string[]} [dependsOn] - Keys whose change clears this option's value and
  *   refetches its choices.
+ * @property {boolean} [required] - Blocks Next while the option is enabled but has no value.
  */
 
 /**

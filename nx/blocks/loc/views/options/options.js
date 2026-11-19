@@ -144,6 +144,12 @@ class NxLocOptions extends LitElement {
       return;
     }
 
+    const unsetOption = !isBack && this.unsetRequiredServiceOption;
+    if (unsetOption) {
+      this._message = { text: `Select a ${unsetOption.label.toLowerCase()} to continue.`, type: 'error' };
+      return;
+    }
+
     const { message, updates } = hasConfigErrors ? {} : this.updateOptions();
     if (message && !isBack) {
       this._message = message;
@@ -175,6 +181,14 @@ class NxLocOptions extends LitElement {
 
   get serviceOptionsLoading() {
     return !!this._serviceOptions?.some((option) => option.items === undefined);
+  }
+
+  get unsetRequiredServiceOption() {
+    const env = this._siteOptions?.['translation.service.all.env'];
+    const envConfig = this._siteConfig?.service?.envs?.[env];
+    return this._serviceOptions?.find((option) => option.required
+      && (!option.enabledWhen || option.enabledWhen(envConfig))
+      && !String(envConfig?.[option.key] ?? '').trim());
   }
 
   /**

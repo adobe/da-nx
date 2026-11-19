@@ -840,6 +840,80 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
   });
 });
 
+describe('NxLocOptions - required service options', () => {
+  beforeEach(() => {
+    resetMockIms();
+    sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    restoreFetch();
+    sessionStorage.clear();
+  });
+
+  function createAccountOnlyEl() {
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod = { origin: 'https://api.smartling.com', accountUid: 'acct-1' };
+    el.updateOptions = () => ({ updates: {} });
+    return el;
+  }
+
+  function countActions(el) {
+    const actions = [];
+    el.addEventListener('action', (e) => actions.push(e.detail.data.view));
+    return actions;
+  }
+
+  it('blocks Next when an account-only config has no project to select', async () => {
+    installFetch(smartlingHandler({ projects: [] }));
+    const el = createAccountOnlyEl();
+    await el.loadConnectorServiceOptions();
+    const actions = countActions(el);
+
+    el.handleAction({ detail: { view: 'translate' } });
+
+    expect(actions).to.deep.equal([]);
+    expect(el._message).to.deep.equal({ text: 'Select a project to continue.', type: 'error' });
+  });
+
+  it('continues once an account-only config has a project selected', async () => {
+    installFetch(smartlingHandler({
+      projects: [{ projectId: 'proj-1', projectName: 'Project One', archived: false }],
+    }));
+    const el = createAccountOnlyEl();
+    await el.loadConnectorServiceOptions();
+    const actions = countActions(el);
+
+    el.handleAction({ detail: { view: 'translate' } });
+
+    expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-1');
+    expect(actions).to.deep.equal(['translate']);
+  });
+
+  it('still allows Back when the project is unset', async () => {
+    installFetch(smartlingHandler({ projects: [] }));
+    const el = createAccountOnlyEl();
+    await el.loadConnectorServiceOptions();
+    const actions = countActions(el);
+
+    el.handleAction({ detail: { view: 'validate' } });
+
+    expect(actions).to.deep.equal(['validate']);
+  });
+
+  it('ignores a required option that enabledWhen marks not applicable', () => {
+    const el = createAccountOnlyEl();
+    el._serviceOptions = [{
+      key: 'projectId', label: 'Project', required: true, items: [], enabledWhen: () => false,
+    }];
+    const actions = countActions(el);
+
+    el.handleAction({ detail: { view: 'translate' } });
+
+    expect(actions).to.deep.equal(['translate']);
+  });
+});
+
 describe('options utils - service option helpers', () => {
   describe('normalizeFetchResult', () => {
     it('wraps a plain array as a complete list', () => {

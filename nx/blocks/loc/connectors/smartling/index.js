@@ -5,7 +5,9 @@ import {
   BASE_OPTS, resolveOrigin, getToken, onUnauthorized, isConnected, connect as establishConnection,
 } from './auth.js';
 
-export const requiredKeys = ['origin', 'projectId'];
+export const requiredKeys = ['origin'];
+
+export const requiredAnyKeys = [['accountUid', 'projectId']];
 
 export const requiredCredentialKeys = ['userIdentifier', 'userSecret'];
 
@@ -242,6 +244,7 @@ export const serviceOptions = [
   {
     key: 'projectId',
     label: 'Project',
+    required: true,
     fetch: async (service) => {
       const { items, incomplete } = await listProjects(service);
       return {
