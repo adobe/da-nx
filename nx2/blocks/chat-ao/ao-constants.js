@@ -18,25 +18,33 @@ export const AO_HTTP_BASE = 'https://agent-orchestrator-prod-va7.adobe.io';
 
 // The CMA bridge (aem-sites-claudebridge) hosts the WebSocket data plane and
 // the skills REST plane for the alternate harness. See docs/chat-ao-alt-harness.md.
-// `?bridge=dev` selects the Dev bridge (stage IMS, i.e. localhost); default prod.
+// `?ref=local` uses a local bridge (same flag as the local da-agent);
+// `?bridge=dev` the Dev bridge (stage IMS, i.e. localhost); default prod.
 const CMA_BRIDGE_HOSTS = {
   dev: 'aem-sites-claudebridge-dev-va6.adobe.io',
   prod: 'aem-sites-claudebridge-va6.adobe.io',
 };
+const CMA_BRIDGE_LOCAL = 'localhost:8080';
 
-export function resolveCmaBridgeHost(search = globalThis.location?.search ?? '') {
+export function resolveCmaBridgeBases(search = globalThis.location?.search ?? '') {
+  let params;
   try {
-    return new URLSearchParams(search).get('bridge') === 'dev' ? CMA_BRIDGE_HOSTS.dev : CMA_BRIDGE_HOSTS.prod;
+    params = new URLSearchParams(search);
   } catch {
-    return CMA_BRIDGE_HOSTS.prod;
+    params = new URLSearchParams();
   }
+  if (params.get('ref') === 'local') {
+    return { wsBase: `ws://${CMA_BRIDGE_LOCAL}`, httpBase: `http://${CMA_BRIDGE_LOCAL}` };
+  }
+  const host = params.get('bridge') === 'dev' ? CMA_BRIDGE_HOSTS.dev : CMA_BRIDGE_HOSTS.prod;
+  return { wsBase: `wss://${host}`, httpBase: `https://${host}` };
 }
 
-const CMA_BRIDGE_HOST = resolveCmaBridgeHost();
+const CMA_BRIDGE_BASES = resolveCmaBridgeBases();
 
-export const CMA_BRIDGE_WS_BASE = `wss://${CMA_BRIDGE_HOST}`;
+export const CMA_BRIDGE_WS_BASE = CMA_BRIDGE_BASES.wsBase;
 
-export const CMA_BRIDGE_HTTP_BASE = `https://${CMA_BRIDGE_HOST}`;
+export const CMA_BRIDGE_HTTP_BASE = CMA_BRIDGE_BASES.httpBase;
 
 export const AO_MANIFEST_ID = 'experience-workspace';
 
