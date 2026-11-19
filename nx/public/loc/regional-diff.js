@@ -439,33 +439,66 @@ function appendSingleDiffedBlockGroupHtml({ htmlText, type, blockGroup }) {
   return `${htmlText}${inner}`;
 }
 
-// A removed block next to an added one is one block that changed, not two separate edits.
-const PAIR_KINDS = {
-  'incoming,local': 'conflict',
-  'local-removed,local': 'local-changed',
-  'incoming,removed-upstream': 'upstream-changed',
-};
+// A removed block and an added block in the same stretch of changes are one block that changed.
+// The first rule wins, so a block the base knows pairs before one both sides could have changed.
+const PAIR_RULES = [
+  ['local-removed', 'local', 'local-changed'],
+  ['incoming', 'removed-upstream', 'upstream-changed'],
+  ['incoming', 'local', 'conflict'],
+];
 
 const isOwnBlock = (item) => !Array.isArray(item?.block) && !item?.block?.isSection;
 
+const countHashes = (hashes) => hashes.reduce(
+  (counts, hash) => counts.set(hash, (counts.get(hash) || 0) + 1),
+  new Map(),
+);
+
+function pairKinds({ kinds, runs }) {
+  const indexes = (kind, run, used) => kinds
+    .map((value, idx) => (value === kind && runs[idx] === run && !used.has(idx) ? idx : -1))
+    .filter((idx) => idx >= 0);
+  return PAIR_RULES.reduce(({ result, used }, [deleted, added, kind]) => {
+    const nextUsed = new Set(used);
+    const nextResult = [...result];
+    [...new Set(runs)].forEach((run) => {
+      const removed = indexes(deleted, run, nextUsed);
+      const adds = indexes(added, run, nextUsed);
+      removed.slice(0, adds.length).forEach((idx, pos) => {
+        [idx, adds[pos]].forEach((paired) => {
+          nextResult[paired] = kind;
+          nextUsed.add(paired);
+        });
+      });
+    });
+    return { result: nextResult, used: nextUsed };
+  }, { result: kinds, used: new Set() }).result;
+}
+
 // Without a base, DELETED means "only upstream" and ADDED means "only the page". The base tells
 // who changed it: upstream added (incoming), upstream removed, the page removed, or both changed.
+// Unchanged blocks use up their base copies first, so a repeated block is judged by its extra copy.
 function classifyDiff(diff, base) {
-  const inBase = new Set(base);
   const smartHash = (item) => hashBlock(item.block, { smart: true }).substring(0, HASH_LENGTH);
+  const counts = countHashes(base);
+  diff.filter((item) => item.type === SAME && isOwnBlock(item)).forEach((item) => {
+    const hash = smartHash(item);
+    counts.set(hash, (counts.get(hash) || 0) - 1);
+  });
   const kinds = diff.map((item) => {
     if (!isOwnBlock(item) || item.type === SAME) return undefined;
-    const known = inBase.has(smartHash(item));
+    const hash = smartHash(item);
+    const known = (counts.get(hash) || 0) > 0;
+    if (known) counts.set(hash, counts.get(hash) - 1);
     if (item.type === DELETED) return known ? 'local-removed' : 'incoming';
     return known ? 'removed-upstream' : 'local';
   });
-  return diff.map((item, idx) => {
-    const pair = item.type === DELETED
-      ? [kinds[idx], kinds[idx + 1]]
-      : [kinds[idx - 1], kinds[idx]];
-    const kind = PAIR_KINDS[pair.join()] || kinds[idx];
-    return kind ? { ...item, kind } : item;
-  });
+  const runs = diff.reduce((acc, item) => {
+    const breaks = item.type === SAME || item.block?.isSection;
+    return [...acc, breaks ? (acc.at(-1) || 0) + 1 : acc.at(-1) || 0];
+  }, []);
+  return pairKinds({ kinds, runs }).map((kind, idx) => (
+    kind ? { ...diff[idx], kind } : diff[idx]));
 }
 
 function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes = []) {
@@ -558,6 +591,7 @@ export const removeLocTags = (html) => {
   // TODO: Remove da-loc-deleted once we've migrated all regional edits to the new loc tags
   const locElsToRemove = html.querySelectorAll(`${DELETED_TAG}, [loc-temp-dom], da-loc-deleted`);
   locElsToRemove.forEach((el) => el.remove());
+  html.querySelectorAll(`[${KIND_ATTR}]`).forEach((el) => el.removeAttribute(KIND_ATTR));
 
   // Keep added content: old regional edits (da-loc-added) and list items (<li><da-diff-added>)
   const daLocAddedEls = html.querySelectorAll(`da-loc-added, ${ADDED_TAG}`);

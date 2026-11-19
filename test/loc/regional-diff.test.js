@@ -972,6 +972,31 @@ describe('regionalDiff with a base', () => {
     expect(main.querySelector('p[da-diff-added]').getAttribute('data-diff-kind')).to.equal('local');
   });
 
+  it('judges a repeated block by its extra copy', async () => {
+    const main = await run({ base: '<p>A</p>', source: '<p>A</p><p>A</p>', page: '<p>A</p>' });
+    expect(main.querySelector('da-diff-deleted').getAttribute('data-diff-kind')).to.equal('incoming');
+  });
+
+  it('pairs a page edit with its base block even when upstream added another block first', async () => {
+    const main = await run({
+      base: '<p>A</p><p>B</p>',
+      source: '<p>X</p><p>A</p><p>B</p>',
+      page: '<p>A</p><p>B local</p>',
+    });
+    const kinds = [...main.querySelectorAll('[data-diff-kind]')]
+      .map((el) => `${el.textContent}:${el.getAttribute('data-diff-kind')}`);
+    expect(kinds).to.include('X:incoming');
+    expect(kinds).to.include('B:local-changed');
+    expect(kinds).to.include('B local:local-changed');
+  });
+
+  it('removeLocTags drops the kind from a block the author kept', async () => {
+    const main = await run({ base: '<p>A</p>', source: '<p>Up</p>', page: '<p>A</p>' });
+    removeLocTags(main);
+    expect(main.querySelector('[data-diff-kind]')).to.equal(null);
+    expect(main.innerHTML).to.equal('<div><p>A</p></div>');
+  });
+
   it('adds no kind without a base', async () => {
     const main = await regionalDiff(toDoc('<p>A</p>'), toDoc('<p>B</p>'), [], [], { site: 'site', config });
     expect(main.querySelector('[data-diff-kind]')).to.equal(null);
