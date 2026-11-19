@@ -17,3 +17,20 @@ export function pillIconName(type, name) {
   if (type === 'file') return fileIconName(name, { fallback: 's2-icon-filetext-20-n' });
   return fileIconName(name);
 }
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// Decorative <svg> for an S2 sprite icon (`<use href="{href}#icon">`), e.g. for a component's
+// `icon` slot. `use` at 100% scales the referenced icon into the 20×20 frame.
+export function iconSvg({ href, slot } = {}) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 20 20');
+  svg.setAttribute('aria-hidden', 'true');
+  if (slot) svg.setAttribute('slot', slot);
+  const use = document.createElementNS(SVG_NS, 'use');
+  use.setAttribute('href', `${href}#icon`);
+  use.setAttribute('width', '100%');
+  use.setAttribute('height', '100%');
+  svg.append(use);
+  return svg;
+}

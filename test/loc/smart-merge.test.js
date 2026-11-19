@@ -202,6 +202,16 @@ describe('threeWayMerge conflict reporting', () => {
     ['does not report a reorder only the page made', 'A B C D', 'A B C D2', 'C A B D', 'C A B D2', counts(0, 0)],
     ['does not report a page reorder when the page already follows upstream\'s', 'A B C D E', 'B A C D E', 'B A C E D', 'B A C E D', counts(0, 0)],
     ['reports an unapplied upstream reorder beside a page reorder', 'A B C D E', 'A C D B E', 'A L C E D', 'A L C E D', counts(0, 0, 0, true)],
+    ['keeps and reports a move across a section break only the page has', '|x H A B', '|x H B A', '|x H A |y B', '|x H A |y B', counts(0, 0, 0, true)],
+    ['keeps and reports a move across a block only the page has', 'A B C', 'B A C', 'A L B C', 'A L B C', counts(0, 0, 0, true)],
+    ['applies a move that stops before a section the page added', '|x H A B', '|x H B A', '|x H A B |y L', '|x H B A |y L', counts(0, 0)],
+    ['keeps the page order unlisted when the page moved a block (known limitation)', 'A B C', 'B A C', 'A C B', 'A C B', counts(0, 0)],
+    ['keeps and reports a move past a block the page replaced with a section', '|x H A B C D', '|x H B C A D', '|x H A B |y X D', '|x H A B |y X D', counts(0, 0, 0, true)],
+    ['keeps and reports a move past a section the page added where upstream removed a block', '|x H A B C D E', '|x H B D A E', '|x H A B C |y X E', '|x H A B |y X E', counts(0, 0, 0, true)],
+    ['applies a move after a block the page replaced when it crosses nothing only the page has', '|s A B C D', '|s A D B C', '|s Al X B C D', '|s Al X D B C', counts(0, 0)],
+    ['applies a move that lands after a block the page added', 'A B C D', 'A D B C', 'A X B C D', 'A X D B C', counts(0, 0)],
+    ['applies a move when the page added a copy of a baseline block', 'A B C D', 'C A B D', 'A B C D B', 'C A B D B', counts(0, 0)],
+    ['applies a move when both sides added the same block', 'A B C', 'B X A C', 'A B C X', 'B X A C X', counts(0, 0)],
   ];
 
   cases.forEach(([name, base, source, dest, result, expected]) => {

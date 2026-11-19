@@ -10,6 +10,7 @@ import {
   removeWaitingLanguagesFromConf,
 } from './index.js';
 import { getProjectSourceLocations } from '../../utils/utils.js';
+import { validateService, configErrorMessage } from '../../utils/validate-config.js';
 
 const style = await loadStyle(import.meta.url);
 const spinnerStyle = await loadStyle(new URL('../../../../../nx2/styles/spinner.css', import.meta.url).href);
@@ -24,6 +25,7 @@ class NxLocTranslate extends LitElement {
     _urls: { state: true },
     _urlErrors: { state: true },
     _connected: { state: true },
+    _configErrors: { state: true },
     _translateLangs: { state: true },
     _copyLangs: { state: true },
     _message: { state: true },
@@ -73,15 +75,26 @@ class NxLocTranslate extends LitElement {
    * A spread/copy here would leave `this._service` permanently stale for
    * any property a connector adds after initial setup, until the next
    * full page load rebuilds it from the freshly persisted project.
+   * Skipped when no language uses Translate (e.g. copy-only projects).
+   * Config errors block sending, but the connector still loads when it can so
+   * in-flight projects keep Connect, Get status, and Cancel.
    * @returns {Promise<void>}
    */
   async setupService() {
+    if (!this.project.langs?.some((lang) => lang.action === 'translate')) return;
     const { service } = this.project.options;
-    service.connector = await setupConnector(service);
-    service.org = this.project.org;
-    service.site = this.project.site;
-    this._service = service;
-    this._connected = await this._service.connector.isConnected(this._service);
+    const { errors } = await validateService(service);
+    this._configErrors = errors.length ? errors : undefined;
+    if (errors.length) this.handleMessage(configErrorMessage(errors));
+    try {
+      service.connector = await setupConnector(service);
+      service.org = this.project.org;
+      service.site = this.project.site;
+      this._service = service;
+      this._connected = await this._service.connector.isConnected(this._service);
+    } catch (e) {
+      if (!errors.length) throw e;
+    }
   }
 
   setupProject() {
@@ -127,6 +140,7 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleConnect() {
+    if (!this._service) return;
     this._connectBusy = true;
     try {
       const sendMessage = this.handleMessage.bind(this);
@@ -216,6 +230,12 @@ class NxLocTranslate extends LitElement {
 
   async handleSendAll() {
     if (this._sendAllBusy || this.isBusy) return;
+    if (this._configErrors?.length || !this._service) {
+      this.handleMessage(this._configErrors?.length
+        ? configErrorMessage(this._configErrors)
+        : { text: 'Translation service is not configured.', type: 'error' });
+      return;
+    }
     const managed = this.supportsManagedStatus;
     this._sendAllBusy = true;
     this.handleMessage(undefined);
