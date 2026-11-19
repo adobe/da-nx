@@ -934,6 +934,18 @@ describe('NxSnapshot', () => {
       const buttons = group.querySelectorAll('button');
       expect(buttons.length).to.equal(2);
     });
+
+    it('Shows content actions as focusable buttons without a toggle', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = true;
+      el._launchEnabled = true;
+      el.requestUpdate();
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-launch-sub-heading').tagName).to.equal('P');
+      const buttons = [...el.shadowRoot.querySelectorAll('.nx-launch-action-group button')];
+      expect(buttons.map((b) => b.textContent.trim())).to.deep.equal(['Sync all pages', 'Promote all pages']);
+      buttons.forEach((b) => expect(b.tabIndex).to.equal(0));
+    });
   });
 
   // --- 202 async job polling ---
