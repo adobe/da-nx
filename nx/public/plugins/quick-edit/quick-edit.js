@@ -5,7 +5,7 @@ import {
   updateImageSrc,
   handleImageError,
 } from './src/images.js';
-import { setEditorState, captureFocusedEditor } from './src/prose.js';
+import { setEditorState, captureFocusedEditor, restoreEditorFocus } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
@@ -32,6 +32,7 @@ import {
   getSelectedNode,
 } from './src/selection.js';
 import { installClickForwarding } from './src/click-forwarding.js';
+import { setupToolbarShortcut } from './src/toolbar-shortcut.js';
 import { replaceChanges } from './src/reload.js';
 import { setupDropListeners, handleDropTarget } from './src/drop.js';
 
@@ -139,6 +140,8 @@ function onMessage(e, ctx) {
     scrollToProseIndex(payload.proseIndex);
   } else if (type === MESSAGE_TYPES.SET_SELECTED_NODE) {
     setSelectedNode(payload.node, document, { scrollIntoView: payload.scrollIntoView });
+  } else if (type === MESSAGE_TYPES.FOCUS_EDITOR) {
+    restoreEditorFocus(ctx);
   }
 }
 
@@ -173,6 +176,7 @@ function setupParentController(reloadCallback, { partialReload }) {
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
     setupCommentShortcut(ctx);
+    setupToolbarShortcut(ctx);
     installClickForwarding({ getPort: () => ctx.port });
 
     window.removeEventListener('message', listener);

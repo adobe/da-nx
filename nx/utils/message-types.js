@@ -17,6 +17,7 @@ export const MESSAGE_TYPES = Object.freeze({
   SET_READ_ONLY: 'set-read-only', // { readOnly: boolean } — can only lock; never unlocks a user without write permission (config.canWrite)
   SET_COMMENT_MARKERS: 'set-comment-markers', // { markers: [...], selectedThreadId: string | null }
   SCROLL_TO_POS: 'scroll-to-pos', // { proseIndex: number } — scroll layout mode to a comment
+  FOCUS_EDITOR: 'focus-editor', // no payload — return keyboard focus to the last inline editor
 
   // Iframe -> host: ongoing
   CURSOR_MOVE: 'cursor-move', // { cursorOffset?, textCursorOffset? } — absent = clear remote cursor
@@ -31,6 +32,7 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_MARKER_CLICK: 'comment-marker-click', // { payload: { threadId: string } }
   COMMENT_MARKER_CLEAR: 'comment-marker-clear', // no payload
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
+  FOCUS_TOOLBAR: 'focus-toolbar', // no payload — the user pressed Alt+F10 to reach the host toolbar
   QUICK_EDIT_IFRAME_CLICK: 'quick-edit-iframe-click', // { target?: string, source: 'ew-wysiwyg-layout' } — quick-edit iframe clicks; `target` in RUM format
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
   DROP_TARGET: 'drop-target', // Host -> iframe: { phase: 'hover' | 'resolve' | 'leave', kind: 'html' | 'image', x?, y?, requestId? }; reply: { requestId, documentVersion, target: { anchor: { kind: 'block' | 'text' | 'image' | 'main', index }, side: 'before' | 'after' } | { proseIndex, imageVersion, originalSrc } | null, reason?: 'busy' }

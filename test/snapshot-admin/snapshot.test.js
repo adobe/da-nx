@@ -75,7 +75,7 @@ describe('NxSnapshot', () => {
   describe('validateSchedule', () => {
     it('Sets error for a date in the past', async () => {
       const el = await createElement();
-      el.validateSchedule('2020-01-01T00:00:00');
+      expect(el.validateSchedule('2020-01-01T00:00:00')).to.equal(false);
       expect(el._message).to.not.be.undefined;
       expect(el._message.heading).to.equal('Schedule Error');
       expect(el._message.message).to.include('at least 5 minutes');
@@ -91,7 +91,7 @@ describe('NxSnapshot', () => {
     it('Does not set error for a date more than 5 minutes from now', async () => {
       const el = await createElement();
       const tenMinFromNow = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-      el.validateSchedule(tenMinFromNow);
+      expect(el.validateSchedule(tenMinFromNow)).to.equal(true);
       expect(el._message).to.be.undefined;
     });
   });
@@ -110,6 +110,252 @@ describe('NxSnapshot', () => {
       await el.handleSave();
       expect(el._message).to.not.be.undefined;
       expect(el._message.message).to.include('name');
+    });
+
+    it('Does not save when scheduled publish is too soon', async () => {
+      const posts = [];
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') posts.push(urlStr);
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? '2020-01-01T00:00' : undefined);
+      await el.handleSave();
+      expect(el._message.heading).to.equal('Schedule Error');
+      expect(posts).to.have.length(0);
+    });
+  });
+
+  describe('handleSave - schedule failure', () => {
+    const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    function mockScheduleFailure(saved) {
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') {
+            const manifest = JSON.parse(opts.body);
+            saved.push(manifest);
+            return mockManifestResponse(manifest);
+          }
+          return mockManifestResponse();
+        },
+        'snapshot-scheduler': () => new Response(null, {
+          status: 400,
+          headers: new Headers({ 'X-Error': 'Scheduled publish is in the past' }),
+        }),
+      });
+    }
+
+    it('Shows the scheduler error and clears scheduledPublish on save', async () => {
+      const saved = [];
+      mockScheduleFailure(saved);
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleSave();
+      expect(el._message.heading).to.equal('Schedule Error');
+      expect(el._message.message).to.equal('Scheduled publish is in the past');
+      expect(saved).to.have.length(2);
+      expect(saved[0].metadata.scheduledPublish).to.equal(future);
+      expect(saved[1].metadata).to.not.have.property('scheduledPublish');
+      expect(el._manifest.metadata.scheduledPublish).to.be.undefined;
+    });
+
+    it('Shows the scheduler error and clears scheduledPublish on approve', async () => {
+      const saved = [];
+      mockScheduleFailure(saved);
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleReview('approve');
+      expect(el._message.message).to.equal('Scheduled publish is in the past');
+      expect(saved).to.have.length(2);
+      expect(saved[1].metadata).to.not.have.property('scheduledPublish');
+    });
+
+    it('Resets the scheduler input after a failed approve', async () => {
+      mockScheduleFailure([]);
+      const el = await createElement({ isRegistered: true, userPermissions: true });
+      const input = el.shadowRoot.querySelector('[name="scheduler"]');
+      input.value = future.slice(0, 16);
+      await el.handleReview('approve');
+      await el.updateComplete;
+      expect(el._message.heading).to.equal('Schedule Error');
+      expect(input.value).to.equal('');
+    });
+
+    it('Clears scheduledPublish when the scheduler request throws', async () => {
+      const saved = [];
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') saved.push(JSON.parse(opts.body));
+          return mockManifestResponse();
+        },
+        'snapshot-scheduler': () => { throw new TypeError('Failed to fetch'); },
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleReview('approve');
+      expect(el._action).to.be.undefined;
+      expect(el._message.message).to.equal('Failed to schedule publish');
+      expect(saved).to.have.length(2);
+      expect(saved[1].metadata).to.not.have.property('scheduledPublish');
+    });
+
+    ['handleSave', 'handleReview'].forEach((method) => {
+      it(`Stays busy until scheduling and rollback finish (${method})`, async () => {
+        let posts = 0;
+        let resolveSchedule;
+        let resolveRollback;
+        let notifyScheduleCalled;
+        let notifyRollbackCalled;
+        const scheduleCalled = new Promise((r) => { notifyScheduleCalled = r; });
+        const rollbackCalled = new Promise((r) => { notifyRollbackCalled = r; });
+        setupFetchMock(originalFetch, {
+          'admin.hlx.page/snapshot/': (urlStr, opts) => {
+            if (opts?.method !== 'POST') return mockManifestResponse();
+            posts += 1;
+            if (posts === 1) return mockManifestResponse(JSON.parse(opts.body));
+            notifyRollbackCalled();
+            return new Promise((r) => { resolveRollback = () => r(mockManifestResponse()); });
+          },
+          'snapshot-scheduler': () => {
+            notifyScheduleCalled();
+            const failed = new Response(null, { status: 500 });
+            return new Promise((r) => { resolveSchedule = () => r(failed); });
+          },
+        });
+        const el = await createElement();
+        el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+        const done = method === 'handleSave' ? el.handleSave() : el.handleReview('approve');
+        await scheduleCalled;
+        expect(el._action).to.be.a('string');
+        resolveSchedule();
+        await rollbackCalled;
+        expect(el._action).to.be.a('string');
+        resolveRollback();
+        await done;
+        expect(el._action).to.be.undefined;
+        expect(el._message.heading).to.equal('Schedule Error');
+      });
+    });
+
+    it('Returns focus to Save after the schedule error dialog closes', async () => {
+      let posts = 0;
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method !== 'POST') return mockManifestResponse();
+          posts += 1;
+          return mockManifestResponse(posts === 1 ? JSON.parse(opts.body) : undefined);
+        },
+        'snapshot-scheduler': () => new Response(null, { status: 500 }),
+      });
+      const el = await createElement({ startOpen: true });
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      const save = [...el.shadowRoot.querySelectorAll('button')]
+        .find((b) => b.textContent.trim() === 'Save');
+      save.focus();
+      const done = el.handleSave();
+      await el.updateComplete;
+      save.blur();
+      await done;
+      const dialog = el.shadowRoot.querySelector('nx-dialog');
+      await dialog.updateComplete;
+      expect(el.shadowRoot.activeElement === dialog).to.equal(true);
+      dialog.handleAction();
+      await el.updateComplete;
+      expect(el.shadowRoot.activeElement === save).to.equal(true);
+    });
+
+    it('Clears the busy state when saving throws', async () => {
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') throw new TypeError('Failed to fetch');
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      const error = await el.handleSave().catch((e) => e);
+      expect(error).to.be.instanceOf(TypeError);
+      expect(el._action).to.be.undefined;
+    });
+
+    it('Clears the busy state when a review request throws', async () => {
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') throw new TypeError('Failed to fetch');
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement();
+      const error = await el.executeReview('request').catch((e) => e);
+      expect(error).to.be.instanceOf(TypeError);
+      expect(el._action).to.be.undefined;
+    });
+
+    [
+      ['delete', (el) => el.handleDialog({ detail: 'delete' })],
+      ['copy', (el) => el.executeCopy(
+        [{ path: '/img.png', aemPreview: 'https://main--site--org.aem.page/img.png' }],
+        'fork',
+        'overwrite',
+      )],
+      ['adding fragments', (el) => {
+        el._discoveredFragments = [{ path: '/fragments/a', selected: true }];
+        return el.handleAddFragments();
+      }],
+    ].forEach(([label, run]) => {
+      it(`Clears the busy state when ${label} throws`, async () => {
+        const el = await createElement({ startOpen: true });
+        window.fetch = async (url, opts) => {
+          const urlStr = typeof url === 'string' ? url : url.toString();
+          if (urlStr.startsWith('/') || urlStr.startsWith('http://localhost')) {
+            return originalFetch.call(window, url, opts);
+          }
+          // isHlx6 memoizes the ping per site, so a rejected ping would leak into later tests.
+          if (urlStr.includes('/ping/')) return new Response('', { status: 200 });
+          throw new TypeError('Failed to fetch');
+        };
+        await run(el).catch(() => {});
+        expect(el._action).to.be.undefined;
+      });
+    });
+
+    it('Reports when scheduledPublish could not be cleared', async () => {
+      let posts = 0;
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method !== 'POST') return mockManifestResponse();
+          posts += 1;
+          if (posts === 1) return mockManifestResponse(JSON.parse(opts.body));
+          return new Response(null, { status: 500, headers: new Headers({ 'X-Error': 'boom' }) });
+        },
+        'snapshot-scheduler': () => new Response(null, { status: 500 }),
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleSave();
+      expect(el._message.message).to.include('could not be cleared: boom');
+      expect(el._manifest.metadata.scheduledPublish).to.equal(future);
+    });
+
+    it('Still shows the scheduler error when clearing throws', async () => {
+      let posts = 0;
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method !== 'POST') return mockManifestResponse();
+          posts += 1;
+          if (posts === 1) return mockManifestResponse(JSON.parse(opts.body));
+          throw new TypeError('Failed to fetch');
+        },
+        'snapshot-scheduler': () => { throw new TypeError('Failed to fetch'); },
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleSave();
+      expect(el._message.heading).to.equal('Schedule Error');
+      expect(el._message.message).to.include('could not be cleared: Failed to fetch');
     });
   });
 
@@ -299,6 +545,41 @@ describe('NxSnapshot', () => {
       // Simulate confirmation from dialog
       await el.handleDialog({ detail: 'delete' });
       expect(deleteEventFired).to.equal(true);
+    });
+
+    [
+      ['404', () => new Response(null, { status: 404 })],
+      ['500', () => new Response(null, { status: 500 })],
+      ['network error', () => { throw new TypeError('Failed to fetch'); }],
+    ].forEach(([label, schedulerResponse]) => {
+      it(`Removes the schedule and still succeeds when scheduler returns ${label}`, async () => {
+        const schedulerCalls = [];
+        setupFetchMock(originalFetch, {
+          'admin.hlx.page/snapshot/': (urlStr, opts) => {
+            if (opts?.method === 'POST' || opts?.method === 'DELETE') {
+              return new Response('{}', { status: 200, headers: new Headers({ 'x-da-actions': '' }) });
+            }
+            return mockManifestResponse();
+          },
+          '/source/': () => new Response('', { status: 200, headers: new Headers({ 'x-da-actions': '' }) }),
+          'snapshot-scheduler': (urlStr, opts) => {
+            schedulerCalls.push({ urlStr, opts });
+            return schedulerResponse();
+          },
+        });
+
+        const el = await createElement();
+        el._manifest = { resources: [{ path: '/page1' }], metadata: {} };
+        let deleteEventFired = false;
+        el.addEventListener('delete', () => { deleteEventFired = true; });
+        await el.handleDialog({ detail: 'delete' });
+
+        expect(deleteEventFired).to.equal(true);
+        expect(schedulerCalls).to.have.length(1);
+        expect(schedulerCalls[0].opts.method).to.equal('DELETE');
+        expect(schedulerCalls[0].urlStr).to.match(/\/schedule\/snapshot\/[^/]+\/[^/]+\/test-snapshot$/);
+        expect(schedulerCalls[0].opts.headers.Authorization).to.equal('Bearer test-token');
+      });
     });
 
     it('Sets error message on API failure', async () => {
@@ -798,6 +1079,39 @@ describe('NxSnapshot', () => {
       await el.updateComplete;
       const overlay = el.shadowRoot.querySelector('.nx-snapshot-overlay');
       expect(overlay).to.be.null;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-wrapper').inert).to.equal(false);
+    });
+
+    it('Makes the panel inert while busy', async () => {
+      const el = await createElement({ startOpen: true });
+      el._action = 'Saving';
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-wrapper').inert).to.equal(true);
+    });
+
+    it('Returns focus to the pressed button when busy ends', async () => {
+      const el = await createElement({ startOpen: true });
+      const button = el.shadowRoot.querySelector('.nx-snapshot-expand');
+      button.focus();
+      el._action = 'Saving';
+      await el.updateComplete;
+      button.blur();
+      el._action = undefined;
+      await el.updateComplete;
+      expect(el.shadowRoot.activeElement === button).to.equal(true);
+    });
+
+    it('Keeps focus elsewhere if the user moved it while busy', async () => {
+      const el = await createElement({ startOpen: true });
+      const other = document.createElement('input');
+      document.body.appendChild(other);
+      el.shadowRoot.querySelector('.nx-snapshot-expand').focus();
+      el._action = 'Saving';
+      await el.updateComplete;
+      other.focus();
+      el._action = undefined;
+      await el.updateComplete;
+      expect(document.activeElement === other).to.equal(true);
     });
   });
 
@@ -879,6 +1193,31 @@ describe('NxSnapshot', () => {
       const group = el.shadowRoot.querySelector('.nx-launch-action-group');
       const buttons = group.querySelectorAll('button');
       expect(buttons.length).to.equal(2);
+    });
+
+    it('Renders the Launch toggle as a keyboard-operable button', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = true;
+      el.requestUpdate();
+      await el.updateComplete;
+      const toggle = el.shadowRoot.querySelector('.nx-launch-sub-heading');
+      expect(toggle.tagName).to.equal('BUTTON');
+      expect(toggle.getAttribute('type')).to.equal('button');
+      expect(toggle.getAttribute('aria-expanded')).to.equal('false');
+      expect(toggle.getAttribute('aria-controls')).to.equal('nx-launch-panel');
+      expect(el.shadowRoot.querySelector('#nx-launch-panel')).to.not.be.null;
+      expect(el.shadowRoot.querySelector('.nx-launch-action-group')).to.be.null;
+
+      toggle.click();
+      await el.updateComplete;
+      expect(toggle.getAttribute('aria-expanded')).to.equal('true');
+      const group = el.shadowRoot.querySelector('#nx-launch-panel .nx-launch-action-group');
+      expect(group).to.not.be.null;
+
+      toggle.click();
+      await el.updateComplete;
+      expect(toggle.getAttribute('aria-expanded')).to.equal('false');
+      expect(el.shadowRoot.querySelector('.nx-launch-action-group')).to.be.null;
     });
   });
 

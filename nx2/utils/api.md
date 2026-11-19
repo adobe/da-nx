@@ -118,13 +118,22 @@ Document CRUD on `source` paths. Bridges DA's `/source` and AEM's `/sites/{site}
 | `list`         | `({ org, site, path?, continuationToken? })` or `(fullPath, { continuationToken? })`            | List a folder. Returns `{ ok, items, continuationToken, permissions }` (normalized — items match legacy DA shape regardless of server). Pass `{ org }` (no site) to list at org level — merges DA-legacy folders (`${DA_ADMIN}/list/{org}`) with hlx6 source-bus sites (`org.listSites`), deduped by name. Only DA paginates; `org.listSites` is only queried on the first page (no `continuationToken`). Bulk lists paginate — pass `continuationToken` back into the next call. |
 | `save`         | `({ org, site, path, body })` or `(fullPath, { body })`                                       | Upload — raw `Response`. POST for both branches. **DA-legacy**: wraps `body` as a Blob in `multipart/form-data` field `data`, with the Blob's type set from the path extension via `TYPE_MAP`. **hlx6**: sends `body` raw (string, Blob, or File); `Content-Type` is set from the path extension via `TYPE_MAP` and overrides any auto-applied Blob type. Extensions not in `TYPE_MAP` send no `Content-Type`. On success, `resp.json()` is normalized to DA's `{ source: { contentUrl } }` shape (`contentUrl` = the written source URL), since the hlx6 endpoint returns an empty body; non-ok responses pass through unchanged. |
 | `getMetadata`  | `({ org, site, path })` or `(fullPath)`                                                       | HEAD — raw `Response`. Value is in `resp.headers` (`doc-id`, `last-modified`, etc.).                                                                                                          |
-| `delete`       | `({ org, site, path })` or `(fullPath)`                                                       | DELETE — raw `Response` (typically 204). For recursive folder deletion use `deleteFolder`.                                                                                                    |
-| `copy`         | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | Raw `Response`. `path` = source, `destination` = target. **hlx6**: PUT to dest URL with `?source=…&collision=…` query. **DA**: POST `/copy/{org}/{site}{path}` with `multipart/form-data` field `destination`. |
-| `move`         | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | Same shape as `copy`. Raw `Response`. Adds `?move=true` (hlx6) or POSTs to `/move/{org}/{site}{path}` (DA).                                                                                  |
+| `delete`       | `({ org, site, path, continuationToken? })` or `(fullPath, { continuationToken? })`           | DELETE — raw `Response` (typically 204). For recursive folder deletion use `deleteFolder`.                                                                                                    |
+| `copy`         | `({ org, site, path, destination, collision?, continuationToken? })` or `(fullPath, { destination, collision?, continuationToken? })` | Raw `Response`. `path` = source, `destination` = target. **hlx6**: PUT to dest URL with `?source=…&collision=…` query. **DA**: POST `/copy/{org}/{site}{path}` with `multipart/form-data` field `destination`. |
+| `move`         | `({ org, site, path, destination, collision?, continuationToken? })` or `(fullPath, { destination, collision?, continuationToken? })` | Same shape as `copy`. Raw `Response`. Adds `?move=true` (hlx6) or POSTs to `/move/{org}/{site}{path}` (DA).                                                                                  |
 | `createFolder` | `({ org, site, path })` or `(fullPath)`                                                       | POST on `${path}/` (trailing slash).                                                                                                                                                           |
-| `deleteFolder` | `({ org, site, path })` or `(fullPath)`                                                       | DELETE on `${path}/`.                                                                                                                                                                          |
-| `copyFolder`   | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | Recursive folder copy. Same shape as `copy`. **hlx6**: `path`/`destination` are normalized to a trailing slash first, then PUT to dest URL with `?source=…/&collision=…` query. **DA**: POST `/copy/{org}/{site}{path}` with `multipart/form-data` field `destination` — no trailing-slash normalization (legacy DA doesn't need it). |
+| `deleteFolder` | `({ org, site, path, continuationToken? })` or `(fullPath, { continuationToken? })`           | DELETE on `${path}/`.                                                                                                                                                                          |
+| `copyFolder`   | `({ org, site, path, destination, collision?, continuationToken? })` or `(fullPath, { destination, collision?, continuationToken? })` | Recursive folder copy. Same shape as `copy`. **hlx6**: `path`/`destination` are normalized to a trailing slash first, then PUT to dest URL with `?source=…/&collision=…` query. **DA**: POST `/copy/{org}/{site}{path}` with `multipart/form-data` field `destination` — no trailing-slash normalization (legacy DA doesn't need it). |
 
+### Mutation pagination
+
+Legacy DA folder deletes, copies, and moves can return `206` with a JSON body
+containing `{ continuationToken }`. These methods still return a raw `Response`:
+read the token with `await resp.json()`, then pass it as `continuationToken` to the
+same method, keeping the source and destination unchanged. The API sends it in
+the `continuation-token` multipart form field. Repeat until the response is no
+longer `206`. A `206` without a non-empty string token is an incomplete operation,
+not a completed success; surface an error rather than dropping the remaining work.
 
 ### URL shapes
 
@@ -190,9 +199,17 @@ Document version history. Versions are document-scoped, so all methods take a `p
 
 | Method   | Signature                                                                               | Notes                                                                                                                                                                                         |
 | -------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list`   | `({ org, site, path })` or `(fullPath)`                                                 | List versions. **hlx6**: `…/source{path}/.versions`. **DA**: `${DA_ADMIN}/versionlist/{org}/{site}{path}`.                                                                                    |
-| `get`    | `({ org, site, path, versionId })` or `(fullPath, { versionId })`                       | Retrieve specific version content. **hlx6**: `versionId` is the ULID returned by `list`. **DA**: `versionId` is the trailing `{versionGuid}/{fileGuid}.{ext}` segment from the list response. |
+| `list`   | `({ org, site, path })` or `(fullPath)`                                                 | List version history. **hlx6**: merges `…/source{path}/.versions` snapshots with `…/source{path}/.history` activity. **DA**: `${DA_ADMIN}/versionlist/{org}/{site}{path}`. |
+| `get`    | `({ org, site, path, versionId })` or `(fullPath, { versionId })`                       | Retrieve specific version content. **hlx6**: `versionId` is a listing entry's `version` ULID. **DA**: `versionId` is the trailing `{versionGuid}/{fileGuid}.{ext}` segment from the list response. |
 | `create` | `({ org, site, path, operation?, comment? })` or `(fullPath, { operation?, comment? })` | Create a version snapshot. **hlx6**: POSTs `{ operation, comment }` JSON body. **DA**: POSTs `{ label }` JSON body, with `comment` mapped to `label`.                                         |
+
+On hlx6, `list` still returns a `Response` whose JSON body is an array, ordered newest first:
+
+- Audit entries retain the API's long field names (`id`, `timestamp`, `firstTimestamp`, `operation`, `path`, `sourcePath`, `label`, `snapshot`) unchanged. The API's `users` email strings are normalized to `{ email }` objects for existing history consumers. Older entries without `users` receive an empty array, representing unknown actors.
+- The optional `snapshot` string identifies the version created by the activity. It is merged with its matching snapshot record, retaining the existing `version`, `version-date`, `version-by`, and other metadata without duplicating the row.
+- Snapshots without audit entries remain in the list, including snapshots created before audit logging. Only entries with a `version` field identify local, restorable snapshots; an audit reference absent from the snapshot listing remains an activity entry.
+- The audit endpoint provides at most 500 recent activities. `resp.truncated` preserves its truncation flag; snapshot listings are not restricted by this activity limit. There is no audit pagination.
+- Failure of either request is returned as a non-ok response, not a partial history. Legacy DA responses are unchanged.
 
 
 ### Example
@@ -203,9 +220,12 @@ await versions.create({
   org, site, path: '/index.html', comment: 'Pre-launch checkpoint',
 });
 
-// List all versions
+// List snapshots and recent activity
 const list = await versions.list({ org, site, path: '/index.html' });
-const versions = await list.json();
+if (list.ok) {
+  const history = await list.json();
+  if (list.truncated) console.warn('Older audit activity was omitted');
+}
 ```
 
 ---

@@ -71,6 +71,8 @@ const MESSAGES = {
   UI_MEDIA_RESULTS: 'Media results',
   UI_SEARCH_MEDIA: 'Search media',
   UI_CARD_REFERENCES: '{count} references',
+  UI_VIEW_MEDIA_DETAILS: 'View details for {name}',
+  UI_OPEN_SITE: 'Open {name}',
   UI_DISMISS: 'Dismiss',
   UI_EXTERNAL_RESOURCE: 'External resource',
   UI_UNABLE_TO_FETCH: 'Unable to load file',
