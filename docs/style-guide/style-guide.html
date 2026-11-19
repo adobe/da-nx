@@ -759,6 +759,7 @@ card.addEventListener('select', (e) =&gt; console.log(e.detail.id));</code></pre
       <article class="sg-example">
         <h3>showToast <a href="https://github.com/adobe/da-nx/blob/main/docs/toast.md" target="_blank"
             rel="noopener">docs →</a></h3>
+        <p>Notifications appear above toolbar popovers when the Popover API is supported.</p>
         <div class="sg-demo">
           <button class="nx-form-btn-secondary" id="demo-toast-trigger">Show toast</button>
           <button class="nx-form-btn-secondary" id="demo-toast-warning-trigger">Show warning + CTA</button>
@@ -968,7 +969,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
           { value: 'exp-workspace/frescopaco', label: 'exp-workspace/frescopaco' },
         ];
       };
-      selector.showAddSite = () => showToast({ text: 'Demo only: Add site opens the shared dialog in your application.' });
+      selector.showAddSite = () => showToast({ text: 'Demo only: Add site navigates directly to /start in your application.' });
       selector.addEventListener('site-add', (event) => {
         event.stopPropagation();
         selector.showAddSite();
