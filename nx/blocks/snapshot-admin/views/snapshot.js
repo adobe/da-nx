@@ -76,6 +76,24 @@ class NxSnapshot extends LitElement {
     super.update();
   }
 
+  willUpdate(props) {
+    if (props.has('_action') && this._action && !props.get('_action')) {
+      this._focusBeforeAction = this.shadowRoot.activeElement;
+    }
+  }
+
+  updated() {
+    // Inert drops focus while busy; restore it once the action and any dialog it opened end.
+    if (this._action || !this._focusBeforeAction) return;
+    const active = this.shadowRoot.activeElement;
+    const inDialog = active?.localName === 'nx-dialog';
+    if (inDialog && active.details?.open) return;
+    if (inDialog || !document.activeElement || document.activeElement === document.body) {
+      this._focusBeforeAction.focus({ preventScroll: true });
+    }
+    this._focusBeforeAction = undefined;
+  }
+
   async loadManifest() {
     this._manifest = await fetchManifest(this.basics.name);
     this._launchEnabled = this._manifest?.metadata?.launchEnabled === true;
@@ -144,7 +162,26 @@ class NxSnapshot extends LitElement {
         message: 'Scheduled publish date must be at least 5 minutes from now',
         open: true,
       };
+      return false;
     }
+    return true;
+  }
+
+  async clearScheduledPublish(name, manifest, scheduleResult) {
+    const metadata = { ...manifest.metadata, scheduledPublish: undefined };
+    const result = await saveManifest(name, { ...manifest, metadata })
+      .catch((e) => ({ error: e.message }));
+    if (!result.error) {
+      this._manifest = result;
+      const input = this.shadowRoot.querySelector('[name="scheduler"]');
+      if (input) input.value = '';
+    }
+    const error = scheduleResult.text || 'Failed to schedule publish';
+    this._message = {
+      heading: 'Schedule Error',
+      message: result.error ? `${error}. The scheduled publish date could not be cleared: ${result.error}` : error,
+      open: true,
+    };
   }
 
   async handleSave(lock) {
@@ -155,41 +192,38 @@ class NxSnapshot extends LitElement {
       return;
     }
 
-    this._action = 'Saving';
-
-    // Set the name if it isn't already set
-    if (!this.basics.name) this.basics.name = name;
-
-    // Validate scheduled publish time before saving
     const scheduledPublish = this.getValue('[name="scheduler"]');
-    if (scheduledPublish && scheduledPublish !== '') this.validateSchedule(scheduledPublish);
+    if (scheduledPublish && !this.validateSchedule(scheduledPublish)) return;
 
-    const manifest = this.getUpdatedManifest();
+    this._action = 'Saving';
+    try {
+      // Set the name if it isn't already set
+      if (!this.basics.name) this.basics.name = name;
 
-    // Handle any URLs which may have changed
-    await this.handleEditUrls();
+      const manifest = this.getUpdatedManifest();
 
-    // Set the lock status if it's not undefined
-    if (lock === true || lock === false) manifest.locked = lock;
+      // Handle any URLs which may have changed
+      await this.handleEditUrls();
 
-    const result = await saveManifest(name, manifest);
-    this._action = undefined;
-    this._editUrls = false;
-    if (result.error) {
-      this._message = { heading: 'Note', message: result.error, open: true };
-      return;
-    }
-    this._manifest = result;
+      // Set the lock status if it's not undefined
+      if (lock === true || lock === false) manifest.locked = lock;
 
-    // Handle scheduled publish if the field exists and has a value
-    if (!scheduledPublish || scheduledPublish === '') return;
-    const scheduleResult = await updateSchedule(name);
-    if (scheduleResult.status !== 200) {
-      this._message = {
-        heading: 'Schedule Error',
-        message: scheduleResult.headers.get('X-Error') || 'Failed to schedule publish',
-        open: true,
-      };
+      const result = await saveManifest(name, manifest);
+      this._editUrls = false;
+      if (result.error) {
+        this._message = { heading: 'Note', message: result.error, open: true };
+        return;
+      }
+      this._manifest = result;
+
+      if (scheduledPublish) {
+        const scheduleResult = await updateSchedule(name);
+        if (scheduleResult.status !== 200) {
+          await this.clearScheduledPublish(name, manifest, scheduleResult);
+        }
+      }
+    } finally {
+      this._action = undefined;
     }
   }
 
@@ -224,8 +258,7 @@ class NxSnapshot extends LitElement {
       const result = await deleteSnapshot(
         this.basics.name,
         this._manifest.resources.map((res) => res.path),
-      );
-      this._action = undefined;
+      ).finally(() => { this._action = undefined; });
       if (result.error) {
         this._message = { heading: 'Note', message: result.error, open: true };
         return;
@@ -244,7 +277,7 @@ class NxSnapshot extends LitElement {
   handleDelete() {
     this._message = {
       heading: 'Delete Snapshot',
-      message: html`This will delete <b>${this.basics.name}</b>.<br/>Any files in the <b>.snapshots</b> directory will also be deleted.<br/><br/>Are you sure?`,
+      message: html`This will delete <b>${this.basics.name}</b>, including any content staged for it.<br/><br/>Are you sure?`,
       open: true,
       actions: [
         { label: 'Cancel', value: 'cancel', variant: 'primary' },
@@ -258,42 +291,38 @@ class NxSnapshot extends LitElement {
     if (state === 'approve') {
       const scheduledPublish = this.getValue('[name="scheduler"]');
       if (scheduledPublish && scheduledPublish !== '') {
+        if (!this.validateSchedule(scheduledPublish)) return;
+
         // Schedule the publish instead of immediate approval
         this._action = 'Scheduling';
+        try {
+          // Save the manifest first with the scheduled publish data
+          const manifest = this.getUpdatedManifest();
+          await this.handleEditUrls();
+          const saveResult = await saveManifest(this.basics.name, manifest);
 
-        // Validate scheduled publish time before saving
-        this.validateSchedule(scheduledPublish);
+          if (saveResult.error) {
+            this._message = { heading: 'Note', message: saveResult.error, open: true };
+            return;
+          }
 
-        // Save the manifest first with the scheduled publish data
-        const manifest = this.getUpdatedManifest();
-        await this.handleEditUrls();
-        const saveResult = await saveManifest(this.basics.name, manifest);
+          // Now schedule the publish
+          const scheduleResult = await updateSchedule(this.basics.name, true);
 
-        if (saveResult.error) {
-          this._action = undefined;
-          this._message = { heading: 'Note', message: saveResult.error, open: true };
-          return;
-        }
+          if (scheduleResult.status !== 200) {
+            await this.clearScheduledPublish(this.basics.name, manifest, scheduleResult);
+            return;
+          }
 
-        // Now schedule the publish
-        const scheduleResult = await updateSchedule(this.basics.name, true);
-        this._action = undefined;
-
-        if (scheduleResult.status !== 200) {
           this._message = {
-            heading: 'Schedule Error',
-            message: scheduleResult.text || 'Failed to schedule publish',
+            heading: 'Scheduled',
+            message: 'Snapshot publish has been scheduled successfully.',
             open: true,
           };
-          return;
+          this.loadManifest();
+        } finally {
+          this._action = undefined;
         }
-
-        this._message = {
-          heading: 'Scheduled',
-          message: 'Snapshot publish has been scheduled successfully.',
-          open: true,
-        };
-        this.loadManifest();
         return;
       }
       this._message = {
@@ -314,8 +343,8 @@ class NxSnapshot extends LitElement {
 
   async executeReview(state) {
     this._action = 'Saving';
-    const result = await reviewSnapshot(this.basics.name, state);
-    this._action = undefined;
+    const result = await reviewSnapshot(this.basics.name, state)
+      .finally(() => { this._action = undefined; });
     if (result.error) {
       this._message = { heading: 'Note', message: result.error, open: true };
       return;
@@ -342,13 +371,13 @@ class NxSnapshot extends LitElement {
     this._action = direction === 'fork'
       ? 'Syncing content into snapshot.'
       : 'Promoting content from snapshot.';
-    await copyManifest(this.basics.name, resources, direction, mode);
+    await copyManifest(this.basics.name, resources, direction, mode)
+      .finally(() => { this._action = undefined; });
     if (direction === 'fork') {
       const updated = { ...this._snapshotExists };
       resources.forEach((res) => { updated[res.path] = true; });
       this._snapshotExists = updated;
     }
-    this._action = undefined;
   }
 
   async handleCopyModeDialog(e) {
@@ -450,11 +479,11 @@ class NxSnapshot extends LitElement {
       ...this._manifest.resources.map((res) => res.aemPreview),
       ...selected.map((f) => `https://placeholder.com${f.path}`),
     ];
-    const result = await updatePaths(this.basics.name, currPaths, newHrefs);
+    const result = await updatePaths(this.basics.name, currPaths, newHrefs)
+      .finally(() => { this._action = undefined; });
     if (result.error) {
       this._message = { heading: 'Note', message: result.error, open: true };
     }
-    this._action = undefined;
     this._discoveredFragments = [];
     await this.loadManifest();
   }
@@ -698,7 +727,7 @@ class NxSnapshot extends LitElement {
 
   render() {
     return html`
-      <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._action ? 'is-saving' : ''}">
+      <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._action ? 'is-saving' : ''}" ?inert=${!!this._action}>
         ${this._action ? html`<div class="nx-snapshot-overlay">
           ${typeof this._action === 'string' ? html`<span>${this._action}</span>` : nothing}
           <svg class="nx-snapshot-spinner" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.exposure}"></use></svg>
