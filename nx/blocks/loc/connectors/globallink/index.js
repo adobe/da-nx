@@ -479,11 +479,14 @@ async function uploadSourceFiles(service, submissionId, urls, batchName) {
  * Saves a submission and requests that GlobalLink auto-start processing it. GlobalLink
  * responds 200 even when the submission didn't actually start (e.g. a missing mandatory
  * custom attribute), so success is read from `startedSubmissionIds` in the body, not
- * just the HTTP status.
+ * just the HTTP status. A failed 401 re-login is treated as the 401 it recovers from, so
+ * only a request that threw without a response is reported as `unanswered`.
  * @param {object} service - The flattened per-environment service config.
  * @param {string|number} submissionId - The submission to save/start.
- * @returns {Promise<{started: boolean, messages: string[]|null}>} Whether the submission
- * actually started, plus any messages GlobalLink returned (e.g. explaining why it didn't).
+ * @returns {Promise<{started: boolean, unanswered?: boolean, messages: string[]|null}>}
+ * Whether the submission actually started, whether the request got no response (so it may
+ * have), plus any messages GlobalLink returned (e.g. explaining why it didn't).
+ * @throws If auth headers can't be built, before any request is sent.
  */
 async function saveAndAutostart(service, submissionId) {
   const url = `${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/save`;
@@ -492,7 +495,12 @@ async function saveAndAutostart(service, submissionId) {
     headers: await authHeaders(service),
     body: JSON.stringify({ autoStart: true }),
   };
-  const resp = await fetchWithRetry(url, opts, retryConfig(service, opts));
+  const config = { onUnauthorized: () => onUnauthorized(service, opts)().catch(() => null) };
+  const resp = await fetchWithRetry(url, opts, config).catch((error) => ({ error }));
+  if (resp.error) {
+    const { message } = resp.error;
+    return { started: false, unanswered: true, messages: message ? [message] : null };
+  }
   const json = await resp.json().catch(() => null);
   if (!resp.ok) {
     const detail = errorDetail(json);
@@ -511,20 +519,22 @@ async function saveAndAutostart(service, submissionId) {
  * @param {object} service - The flattened per-environment service config.
  * @param {string[]} submissionIds - Every submission id to save/start.
  * @returns {Promise<{started: boolean, startedIds: string[], failedIds: string[],
- * messages: string[]|null}>} Whether every submission started, which ids started and
- * which didn't, plus every message any of them returned.
+ * unansweredIds: string[], messages: string[]|null}>} Whether every submission started,
+ * which ids didn't start (GlobalLink said so, or the request was never sent), and which
+ * requests got no response (so whether they started is unknown), plus every message.
  */
 async function saveAndAutostartAll(service, submissionIds) {
-  const results = await Promise.all(
-    submissionIds.map((submissionId) => saveAndAutostart(service, submissionId)),
-  );
-  const startedIds = submissionIds.filter((_, i) => results[i].started);
-  const failedIds = submissionIds.filter((_, i) => !results[i].started);
+  const results = await Promise.all(submissionIds.map((submissionId) => (
+    saveAndAutostart(service, submissionId)
+      .catch((e) => ({ started: false, messages: e?.message ? [e.message] : null }))
+  )));
+  const idsWhere = (predicate) => submissionIds.filter((_, i) => predicate(results[i]));
   const messages = results.flatMap((result) => result.messages || []);
   return {
-    started: failedIds.length === 0,
-    startedIds,
-    failedIds,
+    started: results.every((result) => result.started),
+    startedIds: idsWhere((result) => result.started),
+    failedIds: idsWhere((result) => !result.started && !result.unanswered),
+    unansweredIds: idsWhere((result) => result.unanswered),
     messages: messages.length ? messages : null,
   };
 }
@@ -792,7 +802,8 @@ function persistSubmission({ options, submissionIds, documentsByPath }) {
 
 /**
  * Records a send that failed after the submission was created: persists the submission IDs
- * and marks every language `error`, so it cannot be retried within this project.
+ * and marks every language `error` with `submissionFailed`, so it cannot be retried within
+ * this project and status checks leave it alone.
  * @param {object} conf - The failure configuration.
  * @param {object} conf.options - The localization project options (mutated in place).
  * @param {object[]} conf.langs - The target languages to mark `error` (mutated in place).
@@ -808,6 +819,7 @@ async function recordFailedSubmission({
   langs.forEach((lang) => {
     lang.translation ??= {};
     lang.translation.status = 'error';
+    lang.translation.submissionFailed = true;
   });
   await saveState({ options });
 }
@@ -907,15 +919,20 @@ export async function sendAllLanguages({
 
     sendMessage({ text: 'Starting GlobalLink submission.' });
     const {
-      started, startedIds, failedIds, messages,
+      started, startedIds, failedIds, unansweredIds, messages,
     } = await saveAndAutostartAll(service, submissionIds);
     if (!started) {
       await failSubmission();
-      const partial = startedIds.length
-        ? ` Started: ${startedIds.join(', ')}. Failed: ${failedIds.join(', ')}.`
+      const partial = startedIds.length || unansweredIds.length
+        ? [['Started', startedIds], ['Failed', failedIds], ['No response', unansweredIds]]
+          .filter(([, ids]) => ids.length)
+          .map(([label, ids]) => ` ${label}: ${ids.join(', ')}.`)
+          .join('')
         : '';
+      const detail = messages?.join(' ');
+      const sentence = partial && detail && !/[.!?]$/.test(detail) ? `${detail}.` : detail;
       sendMessage({
-        text: `${withDetail('Failed to save/start GlobalLink submission.', messages?.join(' '))}${partial}`,
+        text: `${withDetail('Failed to save/start GlobalLink submission.', sentence)}${partial}`,
         type: 'error',
       });
       return undefined;
@@ -945,9 +962,10 @@ export async function sendAllLanguages({
 
 /**
  * Refreshes translation progress for a submission, marking languages as
- * `translated` once every document has a processed target. Languages already `complete`,
- * `cancelled` or `error` are skipped (GlobalLink keeps reporting delivered targets as
- * processed indefinitely, and a failed send must stay failed).
+ * `translated` once every document has a processed target. Languages already `complete` or
+ * `cancelled`, or whose send failed (`submissionFailed`), are skipped: GlobalLink keeps
+ * reporting delivered targets as processed indefinitely, and a failed send must stay failed.
+ * Other `error` languages (e.g. a failed save to DA) are re-checked so they can be retried.
  * @param {object} conf - The status-check configuration.
  * @param {object} conf.service - The flattened per-environment service config, including
  * the previously persisted `submissionIds` (see {@link getAllSubmissionIds}).
@@ -968,9 +986,11 @@ export async function getStatusAll({ service, langs, urls, actions }) {
     return;
   }
 
-  // 'complete'/'cancelled'/'error' are terminal - GlobalLink keeps reporting a delivered target
-  // as processed forever, so without this guard a status check would revert them to 'translated'.
-  const activeLangs = langs.filter((lang) => !['complete', 'cancelled', 'error'].includes(lang.translation?.status));
+  // 'complete'/'cancelled' and failed sends are terminal - GlobalLink keeps reporting a delivered
+  // target as processed forever, so without this guard a status check would revert them to
+  // 'translated'.
+  const activeLangs = langs.filter((lang) => !lang.translation?.submissionFailed
+    && !['complete', 'cancelled'].includes(lang.translation?.status));
   if (!activeLangs.length) return;
 
   const connected = await isConnected(service);
