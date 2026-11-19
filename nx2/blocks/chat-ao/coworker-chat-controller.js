@@ -11,7 +11,7 @@
  */
 
 import BaseChatController from './base-chat-controller.js';
-import { AO_COMPONENT_CATALOG_URL } from './ao-constants.js';
+import { AO_COMPONENT_CATALOG_URL } from './coworker/constants.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
 } from './utils/episodes.js';

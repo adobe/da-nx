@@ -36,6 +36,15 @@ running (unless a plan approval is pending) the input is blocked, so the prompt
 is rejected (`setPrompt` resolves `false`): the draft is left untouched, no
 send is scheduled, and a warning toast asks the user to wait for the response.
 
+## Coworker backend ownership
+
+`coworker/` owns AO endpoint resolution and the on-demand
+`checkCoworkerAccess()` helper. It checks chat access for the current IMS user
+and organization, returning `{ allowed }` or `{ error, status? }`. ACS uses
+the AO region with a VA7 fallback; only production is supported.
+
+The helper is not wired into startup or session creation. CMA is unchanged.
+
 ## Input ownership
 
 `nx-ao-input` (`input.js` / `input.css`) owns the draft, pills/attachments,

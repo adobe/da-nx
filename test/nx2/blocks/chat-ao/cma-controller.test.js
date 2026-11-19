@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
-import { CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/cma/constants.js';
 import { resetMockIms, setMockIms } from '../../../../nx2/test/mocks/ims.js';
 
 function reset() {
