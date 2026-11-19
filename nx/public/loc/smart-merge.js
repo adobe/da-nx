@@ -243,6 +243,16 @@ function revertSectionMoves({ base, source, dest = [] }) {
   return [...units].sort((x, y) => x.key - y.key).flatMap(({ blocks }) => blocks);
 }
 
+// Content only the page has: blocks and section breaks it added that are not in the baseline.
+// Blocks the page edited one for one count as the baseline blocks they replaced.
+function pageOnlyBlocks({ base, dest }) {
+  const inBase = new Set(base);
+  const added = new Set(getHunks({ base, blocks: dest, side: 'dest' }).hunks
+    .filter(({ start, end, blocks }) => blocks.length !== end - start)
+    .flatMap(({ blocks }) => blocks));
+  return dest.filter((block) => !inBase.has(block.hash) && (added.has(block) || isSection(block)));
+}
+
 // Moves of blocks the page left as they were (see rule 4 in rollout-smart-overwrite.md).
 function safeMoves({ base, dest, moves }) {
   const destHashes = toHashes(dest);
@@ -555,9 +565,19 @@ const sameBlocks = (one, other) => {
     && [...counts].every(([hash, count]) => others.get(hash) === count);
 };
 
-// Applied moves may only change the order: same blocks and sections, no more unresolved changes.
-const keepsApplied = (tried, plain) => sameBlocks(tried.blocks, plain.blocks)
-  && ['skipped', 'review', 'removedUpstream'].every((key) => tried[key] === plain[key]);
+// Applied moves may only change the order: same blocks and sections, no more unresolved changes,
+// and no moved block lands on the other side of content only the page has.
+const keepsApplied = ({ tried, plain, pageOnly }) => {
+  const pageOnlyBefore = (blocks, hash) => blocks
+    .slice(0, blocks.findIndex((block) => block.hash === hash))
+    .filter((block) => pageOnly.has(block.hash))
+    .map((block) => block.hash)
+    .join();
+  return sameBlocks(tried.blocks, plain.blocks)
+    && ['skipped', 'review', 'removedUpstream'].every((key) => tried[key] === plain[key])
+    && tried.applied.every((hash) => pageOnlyBefore(tried.blocks, hash)
+      === pageOnlyBefore(plain.blocks, hash));
+};
 
 /**
  * @param {Object} params
@@ -591,6 +611,9 @@ export default function threeWayMerge({
   const params = { base, source, dest };
   const tried = mergeBlocks({ ...params, applyMoves: true });
   const plain = tried.applied.length ? mergeBlocks(params) : tried;
-  const { applied: _, ...result } = keepsApplied(tried, plain) ? tried : plain;
+  const upstreamHashes = new Set(baseline);
+  const pageOnly = new Set(toHashes(pageOnlyBlocks({ base, dest }))
+    .filter((hash) => !upstreamHashes.has(hash)));
+  const { applied: _, ...result } = keepsApplied({ tried, plain, pageOnly }) ? tried : plain;
   return result;
 }
