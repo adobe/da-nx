@@ -163,7 +163,8 @@ class NxLocTranslate extends LitElement {
       }
       const text = await resp.text();
       const extension = url.srcPath.split('.').pop();
-      url.content = await this._service.dnt.addDnt(text, siteConfig, { fileType: extension });
+      const dntOpts = { fileType: extension, path: url.basePath };
+      url.content = await this._service.dnt.addDnt(text, siteConfig, dntOpts);
     }));
 
     // Check for errors

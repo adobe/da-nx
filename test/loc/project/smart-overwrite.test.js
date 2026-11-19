@@ -96,14 +96,14 @@ describe('smartOverwriteCopy', () => {
   const expectFirstMerge = async (url, sourceMain) => {
     expect(url.status).to.equal('success');
     expect(saved).to.include('<p da-diff-added="">B local</p>');
-    expect(saved).to.include('<da-diff-deleted><p>B global</p></da-diff-deleted>');
+    expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>B global</p></da-diff-deleted>');
     const hashes = await hashesOf(sourceMain);
     expect(saved).to.include(`<div>rolloutbase</div><div>/org/site/apac/page.html|${hashes.join(',')}</div>`);
   };
 
   // Keeps the local side of every difference, like an author resolving the review in DA.
   const keepLocal = (html) => html
-    .replace(/<da-diff-deleted>[\s\S]*?<\/da-diff-deleted>/g, '')
+    .replace(/<da-diff-deleted[^>]*>[\s\S]*?<\/da-diff-deleted>/g, '')
     .replaceAll(' da-diff-added=""', '');
 
   it('merges like today on the first run and records the base', async () => {
@@ -147,7 +147,7 @@ describe('smartOverwriteCopy', () => {
     destHtml = saved;
     const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p><p>C2</p>');
     expect(url.status).to.equal('success');
-    expect(saved).to.include('<da-diff-deleted><p>B global</p></da-diff-deleted>');
+    expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>B global</p></da-diff-deleted>');
     expect(saved).to.include('<p da-diff-added="">B local</p>');
     expect(saved).to.include('C2');
     const hashes = await hashesOf('<p>A</p><p>B global</p><p>C2</p>');
@@ -289,7 +289,7 @@ describe('smartOverwriteCopy', () => {
     destHtml = toPage('<da-diff-deleted><p>Old</p></da-diff-deleted>');
     const url = await rollout(smartOverwriteCopy, '<p>A</p>');
     expect(url.status).to.equal('success');
-    expect(saved).to.include('<da-diff-deleted><p>A</p></da-diff-deleted>');
+    expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>A</p></da-diff-deleted>');
     expect(saved).to.not.include('Old');
   });
 
@@ -307,7 +307,7 @@ describe('smartOverwriteCopy', () => {
     destHtml = toPage('<p>A</p><p da-diff-added="">B local</p><da-diff-deleted><p>B old</p></da-diff-deleted>');
     await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
     expect(saved).to.include('<p da-diff-added="">B local</p>');
-    expect(saved).to.include('<da-diff-deleted><p>B global</p></da-diff-deleted>');
+    expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>B global</p></da-diff-deleted>');
     expect(saved).to.not.include('B old');
   });
 
@@ -539,7 +539,7 @@ describe('smartOverwriteCopy', () => {
     const url = await rollout(smartOverwriteCopy, p('R Ls M'));
     expect(url.outcome).to.equal('review');
     expect(url.reordered).to.be.true;
-    expect(saved).to.include(`${p('M R D')}<da-diff-deleted><p>Ls</p></da-diff-deleted><p da-diff-added="">I</p><p da-diff-added="">L</p>`);
+    expect(saved).to.include(`${p('M R D')}<da-diff-deleted data-mdast="ignore"><p>Ls</p></da-diff-deleted><p da-diff-added="">I</p><p da-diff-added="">L</p>`);
     expect(saved).to.include('rolloutorder');
   });
 
@@ -569,9 +569,9 @@ describe('smartOverwriteCopy', () => {
     const base = await hashesOf(p('A B C D E F'));
     destHtml = toPage(p('L B C L2 E F'), baseRow(`/org/site/apac/page.html|${base.join(',')}`));
     await rollout(smartOverwriteCopy, p('A2 Y B C D2 Z E F'));
-    expect(saved).to.include('<da-diff-deleted><p>A2</p><p>Y</p></da-diff-deleted><p da-diff-added="">L</p>');
+    expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>A2</p><p>Y</p></da-diff-deleted><p da-diff-added="">L</p>');
     const rejected = [getDiffHash('<p>A2</p>'), getDiffHash('<p>Y</p>')].join(',');
-    destHtml = saved.replace(/<da-diff-deleted>[\s\S]*?<\/da-diff-deleted>/, '').replace(' da-diff-added=""', '')
+    destHtml = saved.replace(/<da-diff-deleted[^>]*>[\s\S]*?<\/da-diff-deleted>/, '').replace(' da-diff-added=""', '')
       .replace('<div class="da-metadata">', `<div class="da-metadata"><div><div>rejectedhashes</div><div>${rejected}</div></div>`);
     saved = undefined;
     const url = await rollout(smartOverwriteCopy, p('A2 Y B C D2 Z E F'));
@@ -580,8 +580,8 @@ describe('smartOverwriteCopy', () => {
     expect(saved).to.not.include('<p>Y</p>');
     expect(saved).to.include('<p da-diff-added="">L</p>');
     expect(saved).to.include('<p da-diff-added="">L2</p>');
-    expect(saved).to.include('<da-diff-deleted><p>D2</p></da-diff-deleted>');
-    expect(saved).to.include('<da-diff-deleted><p>Z</p></da-diff-deleted>');
+    expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>D2</p></da-diff-deleted>');
+    expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>Z</p></da-diff-deleted>');
   });
 
   it('marks the local copy for review when upstream removed one of two identical blocks', async () => {
@@ -872,7 +872,7 @@ describe('smartOverwriteCopy', () => {
         destHtml = toPage(`${code}<p>B local</p>`, baseRow(base));
         const url = await toSnapshot(toPage(`${code}<p>B global</p>`));
         expect(url.status).to.equal('success');
-        expect(saved).to.include('<da-diff-deleted><p>B global</p></da-diff-deleted>');
+        expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>B global</p></da-diff-deleted>');
         expect(saved).to.include(code);
         expect(saved).to.include(`<div>rolloutbase</div><div>${base}</div>`);
         expect(saved.match(/rolloutbase/g)).to.have.length(1);
