@@ -1,6 +1,8 @@
 import { daFetch, source } from '../../../../nx2/utils/api.js';
 import { loadIms } from '../../../../nx2/utils/ims.js';
-import { createSnapshotApi, appendHtmlUnlessExtension } from '../../../public/snapshot/api.js';
+import {
+  createSnapshotApi, appendHtmlUnlessExtension, SNAPSHOT_SCHEDULER_URL,
+} from '../../../public/snapshot/api.js';
 
 export { appendHtmlUnlessExtension };
 
@@ -19,8 +21,10 @@ const createApi = (org, site) => createSnapshotApi({
 });
 
 let api = createApi();
+const current = {};
 
 export function setOrgSite(org, site) {
+  Object.assign(current, { org, site });
   api = createApi(org, site);
 }
 
@@ -68,7 +72,28 @@ export const fetchSnapshots = () => api.list();
 
 export const deleteSnapshotFiles = (name, paths) => api.removePaths({ name, paths });
 
-export const deleteSnapshot = (name, paths) => api.deleteSnapshot({ name, paths });
+async function deleteSchedule(name) {
+  try {
+    const { accessToken } = await loadIms();
+    // daFetch does not send the IMS token to the scheduler, but its DELETE route needs it.
+    const headers = { Authorization: `Bearer ${accessToken?.token}` };
+    const url = `${SNAPSHOT_SCHEDULER_URL}/schedule/snapshot/${current.org}/${current.site}/${name}`;
+    const resp = await daFetch({ url, opts: { method: 'DELETE', headers } });
+    if (!resp.ok && resp.status !== 404) {
+      // eslint-disable-next-line no-console
+      console.warn(`Could not remove schedule for snapshot ${name}. Status: ${resp.status}`);
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn(`Could not remove schedule for snapshot ${name}`, error);
+  }
+}
+
+export async function deleteSnapshot(name, paths) {
+  const result = await api.deleteSnapshot({ name, paths });
+  if (result.success) await deleteSchedule(name);
+  return result;
+}
 
 export const updatePaths = (name, currPaths, hrefs) => api.updatePaths({ name, currPaths, hrefs });
 
