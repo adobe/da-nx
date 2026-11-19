@@ -262,8 +262,8 @@ these.
   | `local-changed` | Only the page changed a block | both elements of the pair |
 
   Kinds apply to single blocks only; block groups and list items stay unmarked. Both elements of a pair carry the
-  same kind. The editor (da-live, through da-parser) keeps the attribute until the author resolves the block, and
-  accepted content never keeps it. This needs da-parser#44 and da-live#1762.
+  same kind. The editor (da-live, through da-tools) keeps the attribute until the author resolves the block, and
+  accepted content never keeps it. This needs da-tools#44 and da-live#1762.
 
 - No valid baseline yet (no sync point set and never rolled out on this site, or a baseline that is malformed or
   recorded for a different path):
