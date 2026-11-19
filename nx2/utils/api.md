@@ -205,7 +205,7 @@ Document version history. Versions are document-scoped, so all methods take a `p
 
 On hlx6, `list` still returns a `Response` whose JSON body is an array, ordered newest first:
 
-- Audit entries retain the API's long field names (`id`, `timestamp`, `firstTimestamp`, `operation`, `path`, `sourcePath`, `label`, `snapshot`) unchanged. The API's `users` email strings are normalized to `{ email }` objects for existing history consumers.
+- Audit entries retain the API's long field names (`id`, `timestamp`, `firstTimestamp`, `operation`, `path`, `sourcePath`, `label`, `snapshot`) unchanged. The API's `users` email strings are normalized to `{ email }` objects for existing history consumers. Older entries without `users` receive an empty array, representing unknown actors.
 - The optional `snapshot` string identifies the version created by the activity. It is merged with its matching snapshot record, retaining the existing `version`, `version-date`, `version-by`, and other metadata without duplicating the row.
 - Snapshots without audit entries remain in the list, including snapshots created before audit logging. Only entries with a `version` field identify local, restorable snapshots; an audit reference absent from the snapshot listing remains an activity entry.
 - The audit endpoint provides at most 500 recent activities. `resp.truncated` preserves its truncation flag; snapshot listings are not restricted by this activity limit. There is no audit pagination.

@@ -857,9 +857,9 @@ function adaptJsonResponse(resp, obj) {
 
 function hlx6ToDaVersions({ snapshots, entries }) {
   const byId = new Map(snapshots.map((entry) => [entry.version, entry]));
-  const history = entries.map((entry) => {
+  const history = entries.map(({ users = [], ...entry }) => {
     const version = byId.get(entry.snapshot);
-    return { ...version, ...entry, users: entry.users.map((email) => ({ email })) };
+    return { ...version, ...entry, users: users.map((email) => ({ email })) };
   });
   const versionIds = new Set(history.map((entry) => entry.version));
   // Snapshots may predate audit logging or have no journal entry after a best-effort write.

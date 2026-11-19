@@ -1058,6 +1058,38 @@ describe('api.js', () => {
       expect(calls.every((call) => call.headers.Authorization === 'Bearer test-token')).to.equal(true);
     });
 
+    it('versions.list supports older activity entries without users', async () => {
+      const version = {
+        version: 'local',
+        'version-date': '2026-01-02T00:00:00.000Z',
+        'version-by': 'author@example.com',
+      };
+      const edit = {
+        id: 'edit',
+        timestamp: Date.parse('2026-01-03T00:00:00.000Z'),
+        operation: 'edit',
+        path: '/x.html',
+      };
+      const activity = {
+        id: 'snapshot',
+        timestamp: Date.parse('2026-01-02T00:00:00.000Z'),
+        operation: 'version',
+        path: '/x.html',
+        label: 'Checkpoint',
+        snapshot: 'local',
+      };
+      installListingFetch({
+        snapshots: [version], audit: { entries: [edit, activity], truncated: false },
+      });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await versions.list({ org: o, site: s, path: '/x.html' });
+      expect(resp.ok).to.equal(true);
+      expect(await resp.json()).to.deep.equal([
+        { ...edit, users: [] },
+        { ...version, ...activity, users: [] },
+      ]);
+    });
+
     it('versions.list accepts a path string and returns an empty audit history', async () => {
       installListingFetch();
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
