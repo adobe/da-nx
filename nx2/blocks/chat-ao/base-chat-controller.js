@@ -294,7 +294,12 @@ export default class BaseChatController {
   // owns the reconnect path (_recoverFromClose) that depends on it.
   async _attach() {
     await this._ensureSocket();
-    this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+    this._ws?.send(JSON.stringify(this._attachFrame()));
+  }
+
+  // Overridable ATTACH payload; CMA adds `replayHistory` (claudebridge #230).
+  _attachFrame() {
+    return { type: AO_FRAME.ATTACH };
   }
 
   // See docs/chat-ao-component.md#connection-recovery for why this exists

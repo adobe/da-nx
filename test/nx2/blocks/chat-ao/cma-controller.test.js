@@ -190,3 +190,41 @@ describe('cma-controller error surfacing', () => {
     expect(last.content).to.contain('isn\'t provisioned for the alternate assistant');
   });
 });
+
+describe('cma-controller ATTACH replayHistory flag (claudebridge PR #230)', () => {
+  beforeEach(reset);
+  afterEach(reset);
+
+  // Warm reconnect must signal replayHistory:false (still holds its transcript).
+  it('_attachFrame requests replay when the transcript is empty (cold resume)', () => {
+    const { controller } = makeController();
+    controller._messages = [];
+    expect(controller._attachFrame()).to.deep.equal({ type: 'ATTACH', replayHistory: true });
+  });
+
+  it('_attachFrame declines replay when the transcript is non-empty (warm reconnect)', () => {
+    const { controller } = makeController();
+    controller._messages = [{ role: 'user', content: 'hi' }];
+    expect(controller._attachFrame()).to.deep.equal({ type: 'ATTACH', replayHistory: false });
+  });
+
+  it('_attach actually sends the replayHistory flag over the socket', async () => {
+    const { controller, sent } = makeController();
+    // Use the real _attach (the harness stubs it by default).
+    delete controller._attach;
+    controller._ensureSocket = async () => { };
+    controller._messages = [{ role: 'user', content: 'hi' }];
+    await controller._attach();
+    expect(sent.at(-1)).to.deep.equal({ type: 'ATTACH', replayHistory: false });
+  });
+
+  it('_loadEpisode clears the transcript so the subsequent attach requests replay', async () => {
+    const { controller } = makeController();
+    controller._messages = [{ role: 'user', content: 'old' }];
+    let framesAtAttach;
+    controller._ensureSocket = async () => { };
+    controller._attach = async () => { framesAtAttach = controller._attachFrame(); };
+    await controller._loadEpisode('episode-1');
+    expect(framesAtAttach).to.deep.equal({ type: 'ATTACH', replayHistory: true });
+  });
+});
