@@ -83,7 +83,7 @@ class NxMarketplace extends LitElement {
     return html`
       <div class="item-actions">
         ${getActions(item).map(({ label, href }) => html`
-          <a class="nx-action-btn nx-btn-sm" href=${href} target="_blank" rel="noopener noreferrer">${label}</a>
+          <a class="item-action" href=${href} target="_blank" rel="noopener noreferrer">${label}</a>
         `)}
       </div>
     `;
