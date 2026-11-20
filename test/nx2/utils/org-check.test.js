@@ -3,7 +3,7 @@ import { DA_ADMIN, HLX_ADMIN } from '../../../nx2/utils/utils.js';
 import { DA_ORIGIN } from '../../../nx/public/utils/constants.js';
 import {
   calls, installFetch, restoreFetch,
-} from '../../../nx2/test/mocks/fetch.js';
+} from '../mocks/fetch.js';
 
 const originalHref = window.location.href;
 history.replaceState(null, '', '/browse');
