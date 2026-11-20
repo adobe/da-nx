@@ -88,7 +88,7 @@ describe('nx-loc-rollout smart overwrite', () => {
       if (siteConfig && url.endsWith('/source/org/optin/.da/translate.json')) {
         return { ok: true, status: 200, headers, json: async () => siteConfig };
       }
-      if (url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => sourcePage };
+      if (sourcePage && url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => sourcePage };
       const dest = Object.keys(destPages).find((path) => url.endsWith(path));
       if (dest) return { ok: true, status: 200, headers, text: async () => destPages[dest] };
       return { ok: false, status: 404, headers, text: async () => '' };
@@ -199,6 +199,28 @@ describe('nx-loc-rollout smart overwrite', () => {
     el._sortedLangs = [bad, good];
     await el.handleRolloutGroup({ langs: [bad, good] });
     expect(good.rollout.status).to.equal('complete');
+  });
+
+  it('keeps both rollout errors and clears only the language that succeeds on retry', async () => {
+    const english = newLang();
+    const french = { ...newLang(), code: 'fr', name: 'French', location: '/langstore/fr' };
+    const el = newRollout('merge', english);
+    el._langs = [english, french];
+    el._sortedLangs = el._langs;
+    sourcePage = undefined;
+
+    await el.handleRolloutGroup({ langs: [english, french] });
+
+    expect(el._errors.map(({ error }) => error)).to.have.lengthOf(2);
+    expect(el._errors[0].error).to.include('/langstore/en/');
+    expect(el._errors[1].error).to.include('/langstore/fr/');
+
+    sourcePage = SOURCE;
+    await el.handleRolloutLang(english);
+
+    expect(english.rollout.status).to.equal('complete');
+    expect(el._errors).to.have.lengthOf(1);
+    expect(el._errors[0].error).to.include('/langstore/fr/');
   });
 
   it('recovers when reading the language pages fails', async () => {

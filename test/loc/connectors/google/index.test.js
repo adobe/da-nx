@@ -1,5 +1,8 @@
 import { expect } from '@esm-bundle/chai';
-import { sendAllLanguages } from '../../../../nx/blocks/loc/connectors/google/index.js';
+import sinon from 'sinon';
+import {
+  getPageErrors, getStatusAll, saveItems, sendAllLanguages,
+} from '../../../../nx/blocks/loc/connectors/google/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
 // Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
@@ -44,6 +47,7 @@ describe('google connector - sendAllLanguages', () => {
     const site = 'site1';
     const langs = [{ name: 'French', code: 'fr-FR', location: '/fr' }];
     const langsWithUrls = [{
+      code: 'fr-FR',
       urls: [{ suppliedPath: '/page', content: '<p>hi</p>' }],
     }];
     const actions = { sendMessage: () => {}, saveState: async () => {} };
@@ -69,6 +73,7 @@ describe('google connector - sendAllLanguages', () => {
     const site = 'site1';
     const langs = [{ name: 'French', code: 'fr-FR', location: '/fr' }];
     const langsWithUrls = [{
+      code: 'fr-FR',
       urls: [{ suppliedPath: '/page', content: '<p>hi</p>' }],
     }];
     const actions = { sendMessage: () => {}, saveState: async () => {} };
@@ -78,5 +83,213 @@ describe('google connector - sendAllLanguages', () => {
     });
 
     expect(calls).to.have.lengthOf(0);
+  });
+});
+
+describe('google connector - partial failures', () => {
+  let translateCalls;
+
+  const translatedHtml = (text) => `<body><main><p>${text}</p></main></body>`;
+
+  // A page whose content includes FAIL gets a 500, REJECT a network error.
+  function installTranslateFetch() {
+    translateCalls = [];
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const data = opts.body?.get?.('data') || '';
+      translateCalls.push(data);
+      if (data.includes('REJECT')) throw new TypeError('Failed to fetch');
+      if (data.includes('FAIL')) return new Response('', { status: 500 });
+      return new Response(JSON.stringify({ translated: translatedHtml(data) }), { status: 200 });
+    };
+  }
+
+  const project = { org: 'org', site: 'site', path: '/org/site/.da/translation/active/project' };
+  const makeLangsWithUrls = (contents) => [{
+    code: 'fr',
+    urls: contents.map((content, idx) => ({ suppliedPath: `/page-${idx}`, content })),
+  }];
+
+  const actions = { sendMessage: () => {}, saveState: async () => {} };
+  const savedTo = (saveFn) => saveFn.args.map(([url]) => url.destination);
+  const saveFn = () => sinon.stub().callsFake(async (url) => { url.status = 'success'; });
+
+  beforeEach(() => {
+    resetMockIms();
+    installTranslateFetch();
+  });
+
+  afterEach(() => {
+    restoreFetch();
+  });
+
+  ['FAIL', 'REJECT'].forEach((marker) => {
+    it(`does not count a page whose translation fails (${marker})`, async () => {
+      const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
+      const langsWithUrls = makeLangsWithUrls(['<p>one</p>', `<p>${marker}</p>`, '<p>three</p>']);
+
+      await sendAllLanguages({
+        ...project, langs, langsWithUrls, options: {}, actions,
+      });
+
+      expect(langs[0].translation).to.deep.include({ sent: 3, translated: 2 });
+      const errors = getPageErrors({ ...project, langs });
+      expect(errors).to.have.length(1);
+      expect(errors[0].error).to.include('/page-1');
+
+      const save = saveFn();
+      const saved = await saveItems({ ...project, lang: langs[0], saveFn: save });
+      expect(savedTo(save)).to.deep.equal(['/org/site/fr/page-0.html', '/org/site/fr/page-2.html']);
+      expect(saved.find((url) => url.suppliedPath === '/page-1').status).to.equal('error');
+    });
+  });
+
+  it('includes the HTTP status in the error', async () => {
+    const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
+    const langsWithUrls = makeLangsWithUrls(['<p>FAIL</p>']);
+
+    await sendAllLanguages({
+      ...project, langs, langsWithUrls, options: {}, actions,
+    });
+
+    expect(getPageErrors({ ...project, langs })[0].error).to.include('500');
+  });
+
+  it('reports every page as translated when all succeed', async () => {
+    const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
+    const langsWithUrls = makeLangsWithUrls(['<p>one</p>', '<p>two</p>', '<p>three</p>']);
+
+    await sendAllLanguages({
+      ...project, langs, langsWithUrls, options: {}, actions,
+    });
+
+    expect(getPageErrors({ ...project, langs })).to.deep.equal([]);
+    expect(langs[0].translation).to.deep.equal({ sent: 3, translated: 3, status: 'translated' });
+  });
+
+  it('retries only the failed pages on get status and then saves only those', async () => {
+    const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
+    const langsWithUrls = makeLangsWithUrls(['<p>one</p>', '<p>FAIL two</p>', '<p>three</p>']);
+    await sendAllLanguages({
+      ...project, langs, langsWithUrls, options: {}, actions,
+    });
+    await saveItems({ ...project, lang: langs[0], saveFn: saveFn() });
+    langs[0].translation.status = 'error';
+
+    window.fetch = async (url, opts = {}) => {
+      const data = opts.body.get('data');
+      translateCalls.push(data);
+      return new Response(JSON.stringify({ translated: translatedHtml(data) }), { status: 200 });
+    };
+    translateCalls = [];
+
+    await getStatusAll({ ...project, langs });
+
+    expect(translateCalls).to.have.length(1);
+    expect(translateCalls[0]).to.include('FAIL two');
+    expect(langs[0].translation).to.deep.include({ translated: 3, status: 'translated' });
+
+    const retrySave = saveFn();
+    await saveItems({ ...project, lang: langs[0], saveFn: retrySave });
+    expect(savedTo(retrySave)).to.deep.equal(['/org/site/fr/page-1.html']);
+    expect(getPageErrors({ ...project, langs })).to.deep.equal([]);
+  });
+
+  it('re-saves a translated page whose save failed without translating it again', async () => {
+    const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
+    const langsWithUrls = makeLangsWithUrls(['<p>one</p>', '<p>two</p>']);
+    await sendAllLanguages({
+      ...project, langs, langsWithUrls, options: {}, actions,
+    });
+    const failingSave = sinon.stub().callsFake(async (url) => {
+      const ok = !url.destination.endsWith('page-1.html');
+      url.status = ok ? 'success' : 'error';
+      if (!ok) url.error = `${url.destination}: Save failed (500)`;
+    });
+    await saveItems({ ...project, lang: langs[0], saveFn: failingSave });
+    langs[0].translation.status = 'error';
+    translateCalls = [];
+
+    await getStatusAll({ ...project, langs });
+
+    expect(translateCalls).to.have.length(0);
+
+    const retrySave = saveFn();
+    await saveItems({ ...project, lang: langs[0], saveFn: retrySave });
+    expect(savedTo(retrySave)).to.deep.equal(['/org/site/fr/page-1.html']);
+    expect(getPageErrors({ ...project, langs })).to.deep.equal([]);
+  });
+
+  it('retries after rollout saves a copy of the project languages', async () => {
+    const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
+    const conf = {
+      org: 'org', site: 'site', path: '/org/site/.da/translation/active/project', langs,
+    };
+    const langsWithUrls = makeLangsWithUrls(['<p>FAIL</p>']);
+    await sendAllLanguages({ ...conf, langsWithUrls, options: {}, actions });
+    langs[0].translation.status = 'error';
+    const updated = { ...langs[0] };
+    window.fetch = async () => new Response(JSON.stringify({ translated: '<p>Bonjour</p>' }));
+
+    await getStatusAll({ ...conf, langs: [updated] });
+
+    expect(updated.translation).to.include({ translated: 1, status: 'translated' });
+    const save = saveFn();
+    await saveItems({ ...conf, lang: updated, saveFn: save });
+    expect(savedTo(save)).to.deep.equal(['/org/site/fr/page-0.html']);
+  });
+
+  it('saves each language from its own translations', async () => {
+    const langs = [
+      { name: 'French', code: 'fr', location: '/fr' },
+      { name: 'German', code: 'de', location: '/de' },
+    ];
+    const [{ urls }] = makeLangsWithUrls(['<p>one</p>']);
+    await sendAllLanguages({
+      ...project, langs, langsWithUrls: [{ code: 'fr', urls }, { code: 'de', urls }], options: {}, actions,
+    });
+
+    const save = saveFn();
+    await saveItems({ ...project, lang: langs[1], saveFn: save });
+
+    expect(savedTo(save)).to.deep.equal(['/org/site/de/page-0.html']);
+  });
+
+  it('does not reuse results from another project with the same language', async () => {
+    const lang = { name: 'French', code: 'fr', location: '/fr' };
+    const otherLang = { ...lang };
+    const conf = {
+      org: 'org', langsWithUrls: makeLangsWithUrls(['<p>one</p>']), options: {}, actions,
+    };
+    const other = '/org/site/.da/translation/active/other';
+    await sendAllLanguages({
+      ...conf, site: 'site', path: other, langs: [otherLang], langsWithUrls: makeLangsWithUrls(['<p>other</p>']),
+    });
+    await sendAllLanguages({
+      ...conf, site: 'site', path: '/org/site/.da/translation/active/project', langs: [lang],
+    });
+
+    const save = saveFn();
+    await saveItems({ ...project, path: other, lang: otherLang, saveFn: save });
+
+    expect(savedTo(save)).to.deep.equal(['/org/site/fr/page-0.html']);
+    expect(save.firstCall.args[0].sourceContent).to.include('other');
+  });
+
+  it('saves translated pages to the snapshot, not to the site', async () => {
+    const lang = { name: 'French', code: 'fr', location: '/fr' };
+    await sendAllLanguages({
+      ...project,
+      snapshot: 'summer',
+      langs: [lang],
+      langsWithUrls: makeLangsWithUrls(['<p>one</p>']),
+      options: {},
+      actions,
+    });
+
+    const save = saveFn();
+    await saveItems({ ...project, lang, saveFn: save });
+
+    expect(savedTo(save)).to.deep.equal(['/org/site/.snapshots/summer/fr/page-0.html']);
   });
 });

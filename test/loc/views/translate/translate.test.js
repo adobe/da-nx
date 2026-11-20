@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../nx/blocks/loc/views/translate/translate.js';
+import * as google from '../../../../nx/blocks/loc/connectors/google/index.js';
 
 function createTranslateEl() {
   const el = document.createElement('nx-loc-translate');
@@ -61,6 +62,27 @@ describe('NxLocTranslate - update() message guard', () => {
 });
 
 describe('NxLocTranslate - Send All retry', () => {
+  it('keeps source errors visible when Google has nothing to send', async () => {
+    const el = createTranslateEl();
+    const lang = { code: 'fr', name: 'French' };
+    const source = { suppliedPath: '/page', error: '/page has unmerged changes.' };
+    el._service = { connector: google };
+    el._translateLangs = [lang];
+    el._urls = [source];
+    el._options = {};
+    el.getBaseTranslationConf = async () => ({
+      langs: [lang],
+      urls: [source],
+      langsWithUrls: [{ ...lang, urls: [source] }],
+      options: el._options,
+    });
+
+    await el.handleSendAll();
+
+    expect(el._urlErrors).to.deep.equal([source]);
+    expect(lang.translation).to.equal(undefined);
+  });
+
   [false, true].forEach((managed) => {
     it(`clears the previous error before retrying with managed status ${managed}`, async () => {
       const el = createTranslateEl();
