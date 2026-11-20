@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { installFetch, restoreFetch } from '../../../../nx2/test/mocks/fetch.js';
+import { installFetch, restoreFetch } from '../../mocks/fetch.js';
 import '../../../../nx2/blocks/editortoggle/editortoggle.js';
 
 describe('nx-editortoggle', () => {

@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import { createEngine } from '../../../../nx/deps/da-sc-sdk/dist/index.js';
 import decorate from '../../../../nx/blocks/form/form.js';
 import { PANEL_EVENT, subscribePanelSections } from '../../../../nx2/utils/panel.js';
-import { installFetch, restoreFetch } from '../../../../nx2/test/mocks/fetch.js';
+import { installFetch, restoreFetch } from '../../../nx2/mocks/fetch.js';
 
 // nx-preview lazy-imports the (heavy) Prism bundle on its first paint. Stub it
 // so the render smoke tests stay light and don't starve other test files that

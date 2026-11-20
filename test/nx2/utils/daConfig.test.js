@@ -4,7 +4,7 @@ import {
 } from '../../../nx2/utils/utils.js';
 import {
   calls, installFetch, restoreFetch, lastCall,
-} from '../../../nx2/test/mocks/fetch.js';
+} from '../mocks/fetch.js';
 import { getFirstSheet, fetchDaConfigs, getConfigValue } from '../../../nx2/utils/daConfig.js';
 
 // fetchDaConfigs memoizes per `/{org}` and `/{org}/{site}` key for the
