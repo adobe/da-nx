@@ -344,6 +344,10 @@ export function isSourceDetectEnabled(value) {
   return String(value ?? '').trim().toLowerCase() === 'true';
 }
 
+export function isLocalizeLinksEnabled(config) {
+  return String(config?.['translate.links.localize'] ?? '').trim().toLowerCase() === 'true';
+}
+
 export function normalizeLocation(location) {
   const trimmed = String(location ?? '').trim().replace(/\/+$/, '');
   return trimmed || '/';
@@ -422,6 +426,92 @@ export function resolveSourceLang({ langs = [], urls = [], defaultSourceLang }) 
 
   const [root] = pathsByRoot.keys();
   return { sourceLang: buildSourceLang({ root, langs, defaultSourceLang }), detected: true };
+}
+
+export function getConfiguredLocations(langRows = []) {
+  const locations = langRows
+    .flatMap((lang) => [lang.location, lang.source, ...getLocaleList(lang.locales)])
+    .filter(Boolean)
+    .map(normalizeLocation)
+    .filter((location) => location !== '/');
+  return [...new Set(locations)];
+}
+
+const SITE_HOST_SUFFIXES = ['aem.page', 'aem.live', 'hlx.page', 'hlx.live'];
+
+function splitSiteHref({ href, org, site }) {
+  if (href.startsWith('/') && !href.startsWith('//')) return { origin: '', rest: href };
+  const [, origin, host, rest] = href.match(/^(https?:\/\/([^/\\?#]+))(.*)$/i) ?? [];
+  const hostname = host?.replace(/:\d*$/, '').toLowerCase();
+  const isSiteHost = SITE_HOST_SUFFIXES
+    .some((suffix) => hostname?.endsWith(`--${site}--${org}.${suffix}`.toLowerCase()));
+  return isSiteHost ? { origin, rest: rest || '/' } : undefined;
+}
+
+function decodeSegment(segment) {
+  try {
+    const decoded = decodeURIComponent(segment);
+    return decoded.includes('/') ? segment : decoded;
+  } catch {
+    return segment;
+  }
+}
+
+const decodePath = (path) => path.split('/').map(decodeSegment).join('/');
+
+function localizeHref({
+  href, org, site, froms, dest, known,
+}) {
+  const parts = splitSiteHref({ href, org, site });
+  if (!parts) return href;
+  const [path] = parts.rest.split(/[?#]/);
+  const segments = path.split('/');
+  const owner = findSourceLocation({ path: segments.map(decodeSegment).join('/'), locations: known });
+  if (!froms.includes(owner)) return href;
+  const ownerLength = segments.slice(0, owner.split('/').length).join('/').length;
+  const localized = `${dest === '/' ? '' : dest}${parts.rest.slice(ownerLength)}`;
+  // A root-relative result starting with `//` would become an external protocol-relative URL.
+  if (!parts.origin && /^[/\\]{2}/.test(localized.replace(/[\t\n\r]/g, ''))) return href;
+  return `${parts.origin}${localized.startsWith('/') ? '' : '/'}${localized}`;
+}
+
+function replaceLinkText({ a, href, localized }) {
+  const walker = a.ownerDocument.createTreeWalker(a, NodeFilter.SHOW_TEXT);
+  const node = walker.nextNode();
+  if (!node || walker.nextNode()) return;
+  node.data = node.data.replace(href, () => localized);
+}
+
+export function localizeLinks({
+  html, org, site, fromPrefixes, destPrefix, locations = [],
+}) {
+  const dest = normalizeLocation(destPrefix);
+  const decodeLocation = (location) => decodePath(normalizeLocation(location));
+  const destKey = decodeLocation(dest);
+  const froms = [...new Set(fromPrefixes.filter(Boolean).map(decodeLocation))]
+    .filter((from) => from !== '/' && from !== destKey);
+  if (!froms.length) return html;
+
+  const known = [...new Set([...froms, destKey, ...locations.map(decodeLocation)])]
+    .filter((location) => location !== '/');
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const updates = [...doc.querySelectorAll('a[href]')]
+    .map((a) => {
+      const href = a.getAttribute('href');
+      return {
+        a,
+        href,
+        localized: localizeHref({
+          href, org, site, froms, dest, known,
+        }),
+      };
+    })
+    .filter(({ href, localized }) => href !== localized);
+  updates.forEach(({ a, href, localized }) => {
+    a.setAttribute('href', localized);
+    if (a.textContent.trim() === href) replaceLinkText({ a, href, localized });
+  });
+  return updates.length ? doc.documentElement.outerHTML : html;
 }
 
 // BEFORE TIMES
