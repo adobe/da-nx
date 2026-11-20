@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { render } from 'da-lit';
 import '../../../../nx2/blocks/chat-ao/chat-ao.js';
 import { MENU_OPTIONS } from '../../../../nx2/blocks/shared/chat/constants.js';
 import {
@@ -12,6 +13,32 @@ describe('chat-ao menu by harness', () => {
   beforeEach(() => {
     chat = document.createElement('nx-chat-ao');
     chat._context = { org: 'o', site: 's' };
+  });
+
+  ['coworker', 'cma'].forEach((harness) => {
+    it(`passes artifact actions to the host callback for ${harness}`, () => {
+      const calls = [];
+      chat._harness = harness;
+      chat.onArtifactAction = (value) => calls.push(value);
+      chat.messages = [{
+        role: 'assistant',
+        uiArtifact: {
+          id: 'proposal',
+          components: [{
+            id: 'root',
+            component: 'ActionButton',
+            label: 'View diff',
+            action: { event: { name: 'editor.viewDiff' } },
+          }],
+        },
+      }];
+      const host = document.createElement('div');
+      render(chat.render(), host);
+      host.querySelector('.ui-artifact button').click();
+      expect(calls).to.deep.equal([{
+        artifactId: 'proposal', componentId: 'root', name: 'editor.viewDiff', context: {},
+      }]);
+    });
   });
 
   it('CMA menu has Manage Skills and NOTHING Coworker (including Experience Context, no CMA destination yet)', () => {

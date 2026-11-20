@@ -41,7 +41,7 @@ export function renderArtifactNode(node, fallbackText, ctx = {}) {
   const children = flat ? flatChildRefs(node) : node.children ?? node.props?.children ?? [];
   const props = flat ? flatFields(node) : node.props;
   try {
-    return renderFn({ ...props, children }, { ...ctx, fallbackText });
+    return renderFn({ ...props, children }, { ...ctx, fallbackText, componentId: node.id });
   } catch {
     return renderFallback(fallbackText);
   }

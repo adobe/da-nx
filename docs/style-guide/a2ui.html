@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>A2UI Component Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:,">
+  <script type="importmap">
+    {
+      "imports": {
+        "da-lit": "/deps/lit/dist/index.js"
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/nx2/styles/styles.css" />
+  <link rel="stylesheet" href="/nx2/styles/buttons.css" />
+  <link rel="stylesheet" href="style-guide.css" />
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+
+    body {
+      color: var(--s2-gray-900);
+      background: var(--s2-gray-25);
+    }
+
+    .sg-toc {
+      flex-wrap: wrap;
+    }
+
+    .a2ui-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--s2-spacing-100);
+    }
+
+    .a2ui-toolbar a {
+      color: var(--s2-blue-900);
+    }
+
+    .a2ui-toolbar select {
+      padding: var(--s2-spacing-75) var(--s2-spacing-100);
+      border: 1px solid var(--s2-gray-400);
+      border-radius: var(--s2-corner-radius-200);
+      font: inherit;
+      color: inherit;
+      background: var(--s2-gray-50);
+    }
+
+    .sg-example {
+      scroll-margin-top: var(--s2-spacing-300);
+    }
+
+    .sg-demo {
+      display: block;
+      min-width: 0;
+    }
+
+    .a2ui-json {
+      padding: var(--s2-spacing-200) var(--s2-spacing-300);
+      border-top: 1px solid var(--s2-gray-200);
+      background: var(--s2-gray-50);
+    }
+
+    .a2ui-json summary {
+      cursor: pointer;
+    }
+
+    .a2ui-json pre {
+      max-height: 480px;
+      overflow: auto;
+      font-size: var(--s2-body-size-xs);
+    }
+
+    .a2ui-action {
+      display: block;
+      padding: var(--s2-spacing-100) var(--s2-spacing-300);
+      border-top: 1px solid var(--s2-gray-200);
+      font-size: var(--s2-body-size-xs);
+      color: var(--s2-gray-700);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+
+<body>
+  <header class="sg-header">
+    <h1>A2UI Component Guide</h1>
+    <p>
+      Live examples of every component registered in our chat artifact renderer.
+      These are the components supported by this checkout, not the full upstream
+      Coworker catalog. Each preview uses the real renderer and stylesheets, isolated
+      in a shadow root just like the chat UI.
+      Consumer-owned icon artwork is loaded from <code>da.live</code>.
+    </p>
+    <p>
+      Expand an example's JSON to copy its flat A2UI records. Child IDs compose the
+      tree from <code>root</code>. Put the array in your artifact's
+      <code>components</code> field; it is not a complete harness tool invocation.
+      See <a href="../chat-ao-component.md">the chat documentation</a> for action handling.
+    </p>
+    <div class="a2ui-toolbar">
+      <label for="scheme">Color scheme</label>
+      <select id="scheme">
+        <option value="light dark">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+      <a href="style-guide.html">Shared UI style guide</a>
+    </div>
+  </header>
+
+  <nav class="sg-toc" aria-label="A2UI components"></nav>
+
+  <main>
+    <section class="sg-section" aria-labelledby="components-title">
+      <h2 id="components-title">Supported components</h2>
+      <p>
+        Button events below are demonstrations: their host callback only logs the
+        payload. No editor commands run, no changes are saved, and no agent turn
+        is submitted. Context paths stay unresolved. Buttons without actions are disabled.
+      </p>
+      <div id="examples">Loading components...</div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { html, render, nothing } from 'da-lit';
+    import { setConfig } from '/nx2/scripts/nx.js';
+    import { loadStyle } from '/nx2/utils/utils.js';
+
+    await setConfig({});
+
+    const [
+      { renderUiArtifact }, buttonStyle, artifactStyle, chatStyle, evaluationStyle,
+    ] = await Promise.all([
+      import('/nx2/blocks/chat-ao/artifacts/index.js'),
+      loadStyle(new URL('/nx2/styles/buttons.css', location.href).href),
+      loadStyle(new URL('/nx2/blocks/chat-ao/artifacts/artifacts.css', location.href).href),
+      loadStyle(new URL('/nx2/blocks/chat-ao/chat-ao.css', location.href).href),
+      loadStyle(new URL('/nx2/blocks/chat-ao/artifacts/page-evaluation.css', location.href).href),
+    ]);
+
+    // These icon URLs normally resolve against the consuming application.
+    [artifactStyle, chatStyle, evaluationStyle].forEach((sheet) => {
+      sheet.replaceSync([...sheet.cssRules].map(({ cssText }) => cssText
+        .replaceAll('url("/img/icons/', 'url("https://da.live/img/icons/')).join('\n'));
+    });
+    const copyIcons = new Map(await Promise.all(['paste', 'checkmark'].map(async (name) => {
+      const file = `s2-icon-${name}-20-n.svg`;
+      try {
+        const response = await fetch(`https://da.live/img/icons/${file}`);
+        if (!response.ok) return [file, null];
+        return [file, URL.createObjectURL(await response.blob())];
+      } catch {
+        return [file, null];
+      }
+    })));
+
+    const stack = (records) => [
+      { id: 'root', component: 'Column', gap: 12, children: records.map(({ id }) => id) },
+      ...records,
+    ];
+    const eventAction = (name) => ({
+      event: { name, context: { pagePath: { path: '/pages/home/path' } } },
+    });
+
+    const examples = [
+      {
+        name: 'Column',
+        note: 'Vertical composition. Supports literal width, gap, padding, align, justify and wrap.',
+        components: [
+          {
+            id: 'root', component: 'Column', width: 'full', gap: 12, padding: 16, children: ['title', 'body'],
+          },
+          { id: 'title', component: 'Text', text: 'A vertical stack', style: 'heading' },
+          { id: 'body', component: 'Text', text: 'Children are resolved by ID, in the order listed.' },
+        ],
+      },
+      {
+        name: 'Row',
+        note: 'Horizontal composition. Use wrap: "wrap" to let children flow onto another line on narrow screens.',
+        components: [
+          {
+            id: 'root', component: 'Row', gap: 8, align: 'center', wrap: 'wrap', children: ['label', 'draft', 'review'],
+          },
+          { id: 'label', component: 'Text', text: 'Page status', style: 'ui' },
+          { id: 'draft', component: 'Badge', label: 'Draft', variant: 'neutral' },
+          { id: 'review', component: 'Badge', label: 'Ready for review', variant: 'informative' },
+        ],
+      },
+      {
+        name: 'Text',
+        note: 'Literal text with semantic styles, size options and normal, preformatted or truncated wrapping.',
+        components: stack([
+          {
+            id: 'heading', component: 'Text', text: 'Proposed changes', style: 'heading', type: 'h2', size: 'lg',
+          },
+          { id: 'title', component: 'Text', text: 'Home page', style: 'title' },
+          { id: 'body', component: 'Text', text: 'Review the proposed updates before accepting them.', style: 'body' },
+          { id: 'ui', component: 'Text', text: 'A compact interface label', style: 'ui', size: 'sm' },
+          {
+            id: 'detail', component: 'Text', text: '/campaigns/spring-2026', style: 'detail', size: 'xs', wrap: 'truncate',
+          },
+          { id: 'code', component: 'Text', text: 'const status = "draft";', style: 'code', wrap: 'pre' },
+        ]),
+      },
+      {
+        name: 'Markdown',
+        note: 'Uses the shared chat Markdown pipeline. Links are limited to HTTP(S) and open in a new tab.',
+        components: [{
+          id: 'root',
+          component: 'Markdown',
+          content: '### Review summary\n\nUpdated **three pages** with a consistent campaign message.\n\n- Refreshed the headline\n- Improved image descriptions\n- Preserved existing navigation\n\n[Open documentation](https://www.aem.live/docs/)',
+        }],
+      },
+      {
+        name: 'Badge',
+        note: 'Semantic variants with bold, outline or subtle fills, and S through XL sizes.',
+        components: [
+          {
+            id: 'root', component: 'Row', gap: 8, align: 'center', wrap: 'wrap', children: ['count', 'draft', 'ready', 'warning', 'failed', 'accent'],
+          },
+          {
+            id: 'count', component: 'Badge', label: '3 of 3 included', variant: 'informative', fillStyle: 'subtle', size: 'S',
+          },
+          { id: 'draft', component: 'Badge', label: 'Draft', variant: 'neutral', fillStyle: 'outline' },
+          { id: 'ready', component: 'Badge', label: 'Ready', variant: 'positive' },
+          { id: 'warning', component: 'Badge', label: 'Needs review', variant: 'notice', fillStyle: 'subtle' },
+          { id: 'failed', component: 'Badge', label: 'Failed', variant: 'negative' },
+          { id: 'accent', component: 'Badge', label: 'New', variant: 'accent', size: 'L' },
+        ],
+      },
+      {
+        name: 'Link',
+        note: 'Native HTTP(S) anchors. Supports primary/secondary, quiet and standalone styling; action callbacks are not supported.',
+        components: stack([
+          { id: 'primary', component: 'Link', label: 'Preview in a new tab', href: 'https://www.aem.live/', openInNewTab: true },
+          {
+            id: 'secondary', component: 'Link', label: 'Documentation (secondary, quiet)', href: 'https://www.aem.live/docs/', variant: 'secondary', isQuiet: true, isStandalone: true,
+          },
+        ]),
+      },
+      {
+        name: 'Button',
+        note: 'Named events go to the demo host callback. URL buttons use native navigation. Submit/reset types and function-call actions are not supported.',
+        actions: true,
+        components: [
+          {
+            id: 'root', component: 'Row', gap: 8, align: 'center', wrap: 'wrap', children: ['accent', 'primary', 'secondary', 'negative', 'genai', 'premium', 'url', 'disabled', 'unwired'],
+          },
+          ...['accent', 'primary', 'secondary', 'negative', 'genai', 'premium'].map((variant) => ({
+            id: variant, component: 'Button', label: variant, variant, action: { event: { name: `demo.${variant}` } },
+          })),
+          {
+            id: 'url', component: 'Button', label: 'Open documentation', href: 'https://www.aem.live/docs/', openInNewTab: true, icon: 'OpenIn',
+          },
+          { id: 'disabled', component: 'Button', label: 'Explicitly disabled', isDisabled: true, action: { event: { name: 'demo.disabled' } } },
+          { id: 'unwired', component: 'Button', label: 'No action (disabled)' },
+        ],
+      },
+      {
+        name: 'ActionButton',
+        note: 'Quiet actions with optional icons, accessible labels, tooltips and notification counts. Context references are passed to the host unchanged.',
+        actions: true,
+        components: [
+          {
+            id: 'root', component: 'Row', gap: 8, align: 'center', wrap: 'wrap', children: ['diff', 'reset', 'notifications', 'icon', 'disabled'],
+          },
+          { id: 'diff', component: 'ActionButton', label: 'View diff', icon: 'Layers', action: eventAction('editor.viewDiff') },
+          { id: 'reset', component: 'ActionButton', label: 'Reset page', icon: 'Delete', action: eventAction('editor.resetPage') },
+          { id: 'notifications', component: 'ActionButton', label: 'Updates', notificationBadge: 3, action: { event: { name: 'demo.updates' } } },
+          {
+            id: 'icon', component: 'ActionButton', ariaLabel: 'More actions', tooltip: 'More actions', icon: 'More', action: { event: { name: 'demo.more' } },
+          },
+          { id: 'disabled', component: 'ActionButton', label: 'No action (disabled)', icon: 'Close' },
+        ],
+      },
+      {
+        name: 'Divider',
+        note: 'Horizontal (default) or vertical accessible separators.',
+        components: [
+          { id: 'root', component: 'Column', gap: 12, children: ['above', 'horizontal', 'row'] },
+          { id: 'above', component: 'Text', text: 'A horizontal separator below this text.' },
+          { id: 'horizontal', component: 'Divider' },
+          { id: 'row', component: 'Row', gap: 12, align: 'center', children: ['left', 'vertical', 'right'] },
+          { id: 'left', component: 'Text', text: 'Before' },
+          { id: 'vertical', component: 'Divider', orientation: 'vertical' },
+          { id: 'right', component: 'Text', text: 'After' },
+        ],
+      },
+      {
+        name: 'Card',
+        note: 'A bordered container for child components. This local renderer is not an entry in the upstream catalog.',
+        components: [
+          { id: 'root', component: 'Card', children: ['title', 'description'] },
+          { id: 'title', component: 'Text', text: 'Campaign overview', style: 'heading' },
+          { id: 'description', component: 'Text', text: 'A simple container, composed from existing components.' },
+        ],
+      },
+      {
+        name: 'Tile',
+        note: 'A titled card with an optional description and exactly one child; use a Column to group multiple children.',
+        components: [
+          { id: 'root', component: 'Tile', title: 'Review queue', description: 'Pages awaiting approval', child: 'content' },
+          { id: 'content', component: 'Column', gap: 8, children: ['page', 'status'] },
+          { id: 'page', component: 'Text', text: 'Spring campaign landing page' },
+          { id: 'status', component: 'Badge', label: 'Ready for review', variant: 'informative', fillStyle: 'subtle' },
+        ],
+      },
+      {
+        name: 'CardView',
+        note: 'Static compact cards with titles, descriptions and optional imageSrc. selectionMode must be "none"; sizes currently render as XS.',
+        components: [{
+          id: 'root',
+          component: 'CardView',
+          label: 'Updated pages',
+          size: 'XS',
+          selectionMode: 'none',
+          items: [
+            { id: 'home', title: 'Home', description: 'Refreshed campaign headline' },
+            { id: 'about', title: 'About us', description: 'Updated team introduction' },
+            { id: 'stores', title: 'Store locator', description: 'Improved accessibility' },
+          ],
+        }],
+      },
+      {
+        name: 'TableView',
+        note: 'Text columns and scalar cell values, with optional CSV download. Row selection and rich cell components are not supported.',
+        components: [{
+          id: 'root',
+          component: 'TableView',
+          label: 'Proposal pages',
+          selectionMode: 'none',
+          allowsCsvExport: true,
+          columns: [
+            { id: 'title', name: 'Page', isRowHeader: true },
+            { id: 'path', name: 'Path', type: 'text' },
+            { id: 'status', name: 'Status', type: 'text' },
+          ],
+          items: [
+            { id: 'home', title: 'Home', path: '/index.html', status: 'Included' },
+            { id: 'about', title: 'About us', path: '/about.html', status: 'Included' },
+            { id: 'stores', title: 'Store locator', path: '/stores.html', status: 'Excluded' },
+          ],
+        }],
+      },
+      {
+        name: 'MetricCard',
+        note: 'A labelled value with optional trend and change. A literal formatCurrency expression is also supported.',
+        components: [
+          { id: 'root', component: 'Row', gap: 12, wrap: 'wrap', children: ['pages', 'revenue'] },
+          {
+            id: 'pages', component: 'MetricCard', label: 'Pages reviewed', value: 24, trend: 'up', change: '+6 this week', tone: 'positive',
+          },
+          { id: 'revenue', component: 'MetricCard', label: 'Revenue', value: { call: 'formatCurrency', args: { value: 12500, currency: 'USD', decimals: 0 } } },
+        ],
+      },
+      {
+        name: 'InlineAlert',
+        note: 'Informative, positive, notice, negative and neutral status messages.',
+        components: stack([
+          { id: 'info', component: 'InlineAlert', variant: 'informative', title: 'Proposal ready.', description: 'Review changes before saving.' },
+          { id: 'success', component: 'InlineAlert', variant: 'positive', title: 'Saved.', description: 'Your draft is up to date.' },
+          { id: 'warning', component: 'InlineAlert', variant: 'notice', title: 'Unsaved changes.', description: 'Accept the proposal to save your draft.' },
+          { id: 'error', component: 'InlineAlert', variant: 'negative', title: 'Save failed.', description: 'No changes were persisted.' },
+          { id: 'neutral', component: 'InlineAlert', variant: 'neutral', description: 'There are no pending changes.' },
+        ]),
+      },
+      {
+        name: 'CodeBlock',
+        note: 'Syntax highlighting and a copy button. Supports JavaScript, markup/HTML/XML/SVG, CSS and JSON; other languages remain plain text.',
+        components: [{
+          id: 'root',
+          component: 'CodeBlock',
+          language: 'javascript',
+          code: 'const proposal = { title: "Spring campaign", included: 3 };\nconsole.log(proposal.title);',
+        }],
+      },
+      {
+        name: 'PageEvaluationWithIcons',
+        note: 'Summary metrics, expandable check groups, pagination and suggestion dialogs. Open "View suggestions" to inspect the real dialog.',
+        components: [{
+          id: 'root',
+          component: 'PageEvaluationWithIcons',
+          title: 'Home page evaluation',
+          failed: true,
+          summary: [
+            { label: 'Passed', value: 2, tone: 'positive' },
+            { label: 'Needs attention', value: 1, tone: 'negative' },
+          ],
+          sections: [
+            {
+              key: 'attention',
+              label: 'Needs attention',
+              subLabel: '1 check',
+              tone: 'negative',
+              defaultOpen: true,
+              items: [{
+                title: 'Use a descriptive page title',
+                description: 'The current title is too generic.',
+                suggestion: {
+                  label: 'Page title',
+                  issue: 'The title "Home" does not describe the campaign.',
+                  suggested: 'Spring collection | Example store',
+                  context: { category: 'SEO', description: 'A specific title helps readers identify the page.' },
+                },
+              }],
+            },
+            {
+              key: 'passed',
+              label: 'Passed checks',
+              subLabel: '2 checks',
+              tone: 'positive',
+              items: [
+                { title: 'Page has a main heading', description: 'One descriptive H1 is present.' },
+                { title: 'Images have alternative text', description: 'All content images include descriptions.' },
+              ],
+            },
+          ],
+        }],
+      },
+      {
+        name: 'Composed proposal',
+        note: 'A page-list composition using only registered primitives. All event buttons only log their callback payload; they do not alter this example or the editor.',
+        actions: true,
+        components: [
+          {
+            id: 'root', component: 'Column', width: 'full', gap: 12, padding: 16, children: ['header', 'separator', 'page', 'footer', 'accept'],
+          },
+          {
+            id: 'header', component: 'Row', gap: 8, align: 'center', wrap: 'wrap', justify: 'space-between', children: ['heading', 'count', 'collapse'],
+          },
+          { id: 'heading', component: 'Text', text: 'Proposed changes', style: 'heading', size: 'sm' },
+          {
+            id: 'count', component: 'Badge', label: '1 of 1 included', variant: 'informative', fillStyle: 'subtle', size: 'S',
+          },
+          { id: 'collapse', component: 'ActionButton', label: 'Collapse', icon: 'ViewList', action: { event: { name: 'demo.collapse' } } },
+          { id: 'separator', component: 'Divider' },
+          { id: 'page', component: 'Column', gap: 4, children: ['page-title', 'path', 'actions'] },
+          { id: 'page-title', component: 'Text', text: 'Home', style: 'ui', size: 'sm' },
+          { id: 'path', component: 'Text', text: '/index.html', style: 'detail', size: 'xs' },
+          {
+            id: 'actions', component: 'Row', gap: 8, align: 'center', wrap: 'wrap', children: ['preview', 'diff', 'reset'],
+          },
+          {
+            id: 'preview', component: 'Link', label: 'Preview', href: 'https://www.aem.live/', openInNewTab: true, isQuiet: true,
+          },
+          { id: 'diff', component: 'ActionButton', label: 'View diff', icon: 'Layers', action: eventAction('editor.viewDiff') },
+          { id: 'reset', component: 'ActionButton', label: 'Reset page', icon: 'Delete', action: eventAction('editor.resetPage') },
+          { id: 'footer', component: 'Text', text: 'Unsaved proposal. Reset excludes a page; accepting saves the remaining changes to your drafts.', style: 'detail', size: 'xs' },
+          { id: 'accept', component: 'Button', label: 'Accept changes', variant: 'accent', action: { event: { name: 'editor.acceptProposal' } } },
+        ],
+      },
+    ];
+
+    const idOf = (name) => name.toLowerCase().replaceAll(' ', '-');
+    render(
+      examples.map(({ name }) => html`<a href="#${idOf(name)}">${name}</a>`),
+      document.querySelector('.sg-toc'),
+    );
+    const container = document.createElement('div');
+    render(examples.map(({ name, note, components, actions }) => html`
+      <article class="sg-example" id=${idOf(name)}>
+        <h3>${name}</h3>
+        <p class="sg-note">${note}</p>
+        <div class="sg-demo"></div>
+        ${actions ? html`<output class="a2ui-action" aria-live="polite">Choose a button to inspect its demo callback payload.</output>` : nothing}
+        <details class="a2ui-json">
+          <summary>Component JSON</summary>
+          <pre><code>${JSON.stringify(components, null, 2)}</code></pre>
+        </details>
+      </article>
+    `), container);
+
+    examples.forEach(({ name, components, actions }) => {
+      const article = container.querySelector(`#${idOf(name)}`);
+      const preview = article.querySelector('.sg-demo').attachShadow({ mode: 'open' });
+      render(html`<div class="message message-assistant">${renderUiArtifact({
+        id: `example-${idOf(name)}`,
+        components,
+        textFallback: 'This example is not supported by the current renderer.',
+      }, {
+        onAction: actions ? (payload) => {
+          article.querySelector('output').textContent = `Demo only - no operation performed.\n${JSON.stringify(payload, null, 2)}`;
+        } : undefined,
+      })}</div>`, preview);
+      preview.querySelectorAll('.message-action-copy use').forEach((use) => {
+        const file = new URL(use.getAttribute('href'), location.href).pathname.split('/').pop();
+        const href = copyIcons.get(file);
+        if (href) use.setAttribute('href', `${href}#icon`);
+        else use.closest('button')?.replaceChildren('Copy');
+      });
+    });
+    document.querySelector('#examples').replaceChildren(...container.childNodes);
+    document.querySelectorAll('.sg-demo').forEach(({ shadowRoot }) => {
+      shadowRoot.adoptedStyleSheets = [chatStyle, buttonStyle, artifactStyle];
+    });
+
+    document.querySelector('#scheme').addEventListener('change', ({ target }) => {
+      document.documentElement.style.colorScheme = target.value;
+    });
+  </script>
+</body>
+
+</html>
