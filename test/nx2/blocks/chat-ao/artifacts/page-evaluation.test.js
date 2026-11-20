@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { render } from 'da-lit';
 import { renderUiArtifact } from '../../../../../nx2/blocks/chat-ao/artifacts/index.js';
-import { buildSuggestionPrompt } from '../../../../../nx2/blocks/chat-ao/artifacts/page-evaluation.js';
+import { buildSuggestionPrompt, pagePathFromUrl } from '../../../../../nx2/blocks/chat-ao/artifacts/page-evaluation.js';
 import { PANEL_EVENT } from '../../../../../nx2/utils/panel.js';
 import { installFetch, restoreFetch } from '../../../mocks/fetch.js';
 
@@ -27,7 +27,35 @@ const item = {
   },
 };
 
+describe('pagePathFromUrl', () => {
+  [
+    ['https://main--site--org.preview.da.live/products/foo', '/org/site/products/foo'],
+    ['https://feat--site--org.stage-preview.da.live/a/b.html', '/org/site/a/b'],
+    ['https://main--site--org.aem.page/', '/org/site/index'],
+    ['https://main--site--org.aem.live/folder/', '/org/site/folder/index'],
+  ].forEach(([url, expected]) => {
+    it(`maps ${url} to ${expected}`, () => {
+      expect(pagePathFromUrl(url)).to.equal(expected);
+    });
+  });
+
+  ['https://example.com/foo', 'not a url', '', undefined].forEach((url) => {
+    it(`returns undefined for ${JSON.stringify(url)}`, () => {
+      expect(pagePathFromUrl(url)).to.be.undefined;
+    });
+  });
+});
+
 describe('page evaluation suggestion actions', () => {
+  it('names the evaluated page when the url is known', () => {
+    const text = buildSuggestionPrompt({ item, evaluatedUrl: 'https://main--site--org.aem.page/products/foo' });
+    expect(text.split('\n')[0]).to.equal('Fix this failed preflight page evaluation check on the page /org/site/products/foo.');
+  });
+
+  it('falls back to the current page when the url cannot be mapped', () => {
+    const text = buildSuggestionPrompt({ item, evaluatedUrl: 'https://example.com/foo' });
+    expect(text.split('\n')[0]).to.equal('Fix this failed preflight page evaluation check on the current page.');
+  });
   it('builds the prompt from the available fields', () => {
     expect(buildSuggestionPrompt({ item })).to.equal(
       'Fix this failed preflight page evaluation check on the current page.\n'
@@ -82,13 +110,17 @@ describe('page evaluation suggestion actions', () => {
       window.location.hash = org ? `#/${org}/site/page` : '';
     };
 
-    const openSuggestion = async () => {
+    const openSuggestion = async ({ evaluatedUrl } = {}) => {
       host = document.createElement('div');
       document.body.append(host);
       render(renderUiArtifact({
         components: [{
           type: 'PageEvaluationWithIcons',
-          props: { title: 'Eval', sections: [{ label: 'Failures', tone: 'negative', defaultOpen: true, items: [item] }] },
+          props: {
+            title: 'Eval',
+            ...(evaluatedUrl && { evaluatedUrl }),
+            sections: [{ label: 'Failures', tone: 'negative', defaultOpen: true, items: [item] }],
+          },
         }],
       }), host);
       const card = host.querySelector('nx-page-eval');
@@ -129,6 +161,23 @@ describe('page evaluation suggestion actions', () => {
           options: { text: buildSuggestionPrompt({ item }), autoSend },
         }]);
       });
+    });
+
+    it('sends a prompt naming the evaluated page when the data includes its url', async () => {
+      withChat();
+      const evaluatedUrl = 'https://main--site--org.preview.da.live/products/foo';
+      const card = await openSuggestion({ evaluatedUrl });
+      await waitUntil(() => card.shadowRoot.querySelector('.ui-artifact-pe-modal-apply'));
+
+      const events = [];
+      const listener = (e) => events.push(e.detail);
+      document.addEventListener(PANEL_EVENT.OPEN, listener);
+      card.shadowRoot.querySelector('.ui-artifact-pe-modal-apply').click();
+      await waitUntil(() => events.length === 1);
+      document.removeEventListener(PANEL_EVENT.OPEN, listener);
+
+      expect(events[0].options.text).to.equal(buildSuggestionPrompt({ item, evaluatedUrl }));
+      expect(events[0].options.text).to.contain('on the page /org/site/products/foo.');
     });
 
     [
