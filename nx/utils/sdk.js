@@ -2,6 +2,15 @@ import { setImsDetails, daFetch } from './daFetch.js';
 
 let port2;
 
+function isComparisonPath(path) {
+  if (typeof path !== 'string' || !path.startsWith('/') || /[%\\?#\s]/.test(path)
+    || [...path].some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) {
+    return false;
+  }
+  const parts = path.slice(1).split('/');
+  return parts.length >= 3 && parts.every((part) => part && !['.', '..'].includes(part));
+}
+
 function handleSdkResponse({ port, action, details }) {
   return new Promise((resolve) => {
     const requestId = crypto.randomUUID();
@@ -140,7 +149,8 @@ export function createHostActions({ port, capabilities = {} }) {
     },
     openComparison: (options = {}) => {
       const { candidate, baseline } = options ?? {};
-      if (!['document', 'preview'].includes(candidate) || baseline !== 'live') {
+      if ((!['document', 'preview'].includes(candidate) && !isComparisonPath(candidate))
+        || (baseline !== 'live' && !isComparisonPath(baseline))) {
         throw new TypeError('invalid-comparison');
       }
       port.postMessage({ action: 'openComparison', details: { candidate, baseline } });
