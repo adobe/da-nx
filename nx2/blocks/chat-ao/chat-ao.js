@@ -309,14 +309,14 @@ export default class NxChatAo extends LitElement {
     if (changed.has('pendingPlanApproval') && this.pendingPlanApproval?.turnId !== changed.get('pendingPlanApproval')?.turnId) {
       this._planFeedback = '';
     }
-    if (changed.has('messages')) {
+    if (changed.has('messages') || changed.has('pendingQuestion')) {
       const log = this.shadowRoot?.querySelector('.chat-scroll-container');
       this._wasNearBottom = !log || (log.scrollHeight - log.scrollTop - log.clientHeight < 50);
     }
   }
 
   updated(changed) {
-    if (changed.has('messages')) {
+    if (changed.has('messages') || changed.has('pendingQuestion')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
       if (log && this._wasNearBottom) {
         cancelAnimationFrame(this._scrollRaf);
@@ -461,22 +461,27 @@ export default class NxChatAo extends LitElement {
                 <div class="message-content">${msg.content}</div>
               </div>
             `))}
+            ${this.pendingQuestion ? html`
+              <div class="message message-assistant">
+                <nx-question-card
+                  .pending=${this.pendingQuestion}
+                  .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
+                  .onDecline=${() => this._controller.declineQuestion()}
+                ></nx-question-card>
+                <div class="chat-waiting">Waiting for your response...</div>
+              </div>
+            ` : nothing}
             ${this.pendingPlanApproval ? renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
             onFeedbackText: (text) => { this._planFeedback = text; },
             onApprove: () => this._controller.respondToPlanApproval('approve'),
             onReject: () => this._controller.respondToPlanApproval('reject', this._planFeedback?.trim() ?? ''),
           }) : nothing}
-            ${this.thinking && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
+            ${this.thinking && !this.pendingQuestion && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
           ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
           `}
         </div>
       </div>
       <div class="chat-form-wrap">
-        <nx-question-card
-          .pending=${this.pendingQuestion}
-          .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
-          .onDecline=${() => this._controller.declineQuestion()}
-        ></nx-question-card>
         ${renderPermissionCard(this.pendingPermission, {
             onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
           })}
