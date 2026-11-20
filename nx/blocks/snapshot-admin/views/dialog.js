@@ -1,80 +1,63 @@
 import { html, LitElement, nothing } from 'da-lit';
 import getStyle from '../../../../nx2/public/utils/styles.js';
-import { getConfig } from '../../../../nx2/scripts/nx.js';
+import '../../../../nx2/blocks/shared/dialog/dialog.js';
 
-const { nxBase, codeBase } = getConfig();
-const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
-const style = await getStyle(import.meta.url);
+const [form, style] = await Promise.all([
+  getStyle(new URL('../../../../nx2/styles/form.css', import.meta.url).href),
+  getStyle(import.meta.url),
+]);
 
-const CLOSE_ICON = `${codeBase}/img/icons/s2-icon-close-20-n.svg#icon`;
+const BTN_CLASS = {
+  primary: 'nx-form-btn-secondary',
+  negative: 'nx-form-btn-primary nx-btn-negative',
+};
 
-class NxDialog extends LitElement {
-  static properties = { details: { attribute: false } };
+class NxSnapshotDialog extends LitElement {
+  static properties = {
+    details: { attribute: false },
+    _open: { state: true },
+  };
 
-  async connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [sl, style];
+    this.shadowRoot.adoptedStyleSheets = [form, style];
   }
 
-  updated(props) {
-    if (props.has('details') && this.details) {
-      if (this.details.open) {
-        this._dialog.showModal();
-      } else {
-        this._dialog.close();
-      }
-    }
+  willUpdate(props) {
+    if (props.has('details')) this._open = !!this.details?.open;
   }
 
   handleAction(value) {
+    if (!this._open) return;
+    this._open = false;
     const opts = { bubbles: true, composed: true, detail: value };
-    const event = new CustomEvent('action', opts);
-    this.dispatchEvent(event);
-    this._dialog.close();
-  }
-
-  get _dialog() {
-    return this.shadowRoot.querySelector('sl-dialog');
+    this.dispatchEvent(new CustomEvent('action', opts));
   }
 
   renderActions() {
-    if (this.details?.actions) {
-      return this.details.actions.map((action) => html`
-        <sl-button
-          class="${action.variant || 'default'}"
-          @click=${() => this.handleAction(action.value)}
-        >
-          ${action.label}
-        </sl-button>
-      `);
-    }
-    return html`<sl-button @click=${() => this.handleAction()}>OK</sl-button>`;
+    const actions = this.details.actions || [{ label: 'OK' }];
+    return actions.map((action) => html`
+      <button
+        type="button"
+        slot="actions"
+        class=${BTN_CLASS[action.variant] || 'nx-form-btn-primary'}
+        @click=${() => this.handleAction(action.value)}>${action.label}</button>
+    `);
   }
 
   render() {
+    if (!this._open) return nothing;
+    const { heading, message, width } = this.details;
     return html`
-      <sl-dialog class="nx-snapshots-error">
-        <div class="nx-dialog" style=${this.details?.width ? `width:${this.details.width}` : nothing}>
-          <div class="nx-dialog-header-area">
-            <p class="sl-heading-l">${this.details?.heading}</p>
-            <button
-              class="nx-dialog-close-btn"
-              @click=${() => this.handleAction()}
-              aria-label="Close dialog">
-              <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${CLOSE_ICON}"></use></svg>
-            </button>
-          </div>
-          <hr/>
-          <div class="nx-dialog-content-area">
-            <p class="sl-body-s">${this.details?.message}</p>
-          </div>
-          <div class="nx-dialog-action-group">
-            ${this.renderActions()}
-          </div>
-        </div>
-      </sl-dialog>
+      <nx-dialog
+        title=${heading || nothing}
+        style=${width ? `--nx-dialog-max-width: ${width}` : nothing}
+        @close=${() => this.handleAction()}>
+        <div class="nx-dialog-message">${message}</div>
+        ${this.renderActions()}
+      </nx-dialog>
     `;
   }
 }
 
-customElements.define('nx-dialog', NxDialog);
+customElements.define('nx-snapshot-dialog', NxSnapshotDialog);
