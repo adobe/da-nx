@@ -43,7 +43,15 @@ send is scheduled, and a warning toast asks the user to wait for the response.
 and organization, returning `{ allowed }` or `{ error, status? }`. ACS uses
 the AO region with a VA7 fallback; only production is supported.
 
-The helper is not wired into startup or session creation. CMA is unchanged.
+Coworker session startup checks access before loading history or skills and
+opening connections. Checking, denied, and verification-error states disable
+the composer; errors offer Retry. The decision is shared by the session's views.
+Denials offer Open Profile to check the signed-in user and selected Adobe org.
+Switching org reloads the page and checks access again.
+CMA startup is unchanged. Both views use the presentation-only
+`renderChatStatus()` renderer in `shared/chat/status.js`. Default status
+mapping and wording live in `shared/chat/access.js` for either harness to reuse;
+the ACS request remains Coworker-specific.
 
 ## Input ownership
 
@@ -52,7 +60,8 @@ file selection/drop, slash menu, prompts, and voice input. `nx-chat-ao` retains
 conversation, session, approval, history, and document-event handling, delegating
 `setPrompt()` to the input.
 
-Hosts supply `blocked`, `cma`, `prompts`, `menuItems`, and `getSkills()`.
+Hosts supply `blocked`, `disabled`, `cma`, `prompts`, `menuItems`, and `getSkills()`.
+`disabled` prevents input without showing the turn's Stop action.
 `onSubmit({ text, context, attachments })` runs synchronously before the draft
 and pills clear. Other callbacks are `onStop()`, `onInput()` (session warming),
 and `onMenuSelect(id)`.

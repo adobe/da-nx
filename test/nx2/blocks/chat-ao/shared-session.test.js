@@ -26,6 +26,11 @@ describe('standalone input and full AO chat sharing', () => {
   let skillLoads;
   let history;
   let org;
+  let accessChecks;
+  let accessEffect;
+  let accessStatus;
+  let accessWait;
+  let profileNav;
 
   const patch = (object, name, value) => {
     const original = object[name];
@@ -92,11 +97,27 @@ describe('standalone input and full AO chat sharing', () => {
     episodeLoads = 0;
     skillLoads = 0;
     history = [];
+    accessChecks = 0;
+    accessEffect = 'permit';
+    accessStatus = 200;
+    accessWait = undefined;
+    setMockIms({
+      projectedProductContext: [{ prodCtx: { owningEntity: org } }],
+    });
     const originalFetch = window.fetch;
     patch(window, 'fetch', async (resource, options) => {
       const href = String(resource);
       if (href.startsWith('/') || href.startsWith(window.location.origin)) {
         return originalFetch(resource, options);
+      }
+      if (href.includes('/enforcement/cx-coworker')) {
+        accessChecks += 1;
+        await accessWait?.promise;
+        const responses = JSON.parse(options.body).requests
+          .map((request) => ({ ...request, effect: accessEffect }));
+        return new Response(JSON.stringify({ responses }), {
+          status: accessStatus, headers: { 'Content-Type': 'application/json' },
+        });
       }
       // Default: treat sites as Coworker-enabled so a re-resolved harness
       // (resolveHarness on navigation) matches the explicitly-coworker mounts.
@@ -166,6 +187,8 @@ describe('standalone input and full AO chat sharing', () => {
   });
 
   afterEach(async () => {
+    profileNav?.remove();
+    profileNav = undefined;
     elements.forEach((element) => element.remove());
     await tick();
     elements.forEach((element) => {
@@ -174,6 +197,128 @@ describe('standalone input and full AO chat sharing', () => {
     });
     originals.reverse().forEach((restore) => restore());
     resetMockIms();
+  });
+
+  it('shares a pending Coworker access check and only initializes after permission', async () => {
+    accessWait = deferred();
+    history = [{ id: 'existing', updated_at: new Date().toISOString() }];
+    const [standalone, full] = await pair('coworker');
+    await flush();
+    [standalone, full].forEach((chat) => {
+      expect(chat.shadowRoot.querySelector('.chat-status').textContent).to.include('Checking Coworker access');
+      expect(input(chat).disabled).to.equal(true);
+      expect(composer(chat).shadowRoot.querySelector('.chat-stop').hidden).to.equal(true);
+      expect(chat._session.canSend()).to.equal(false);
+    });
+    expect(accessChecks).to.equal(1);
+    expect(episodeLoads).to.equal(0);
+    expect(skillLoads).to.equal(0);
+    expect(sockets).to.have.length(0);
+    submit(full, 'Not yet');
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+    accessWait.resolve();
+    await ready(standalone, full);
+    expect(episodeLoads).to.equal(1);
+    expect(skillLoads).to.equal(1);
+    expect(input(full).disabled).to.equal(false);
+    expect(full.shadowRoot.querySelector('.chat-status')).to.equal(null);
+    expect(input(full).value).to.equal('Not yet');
+  });
+
+  it('offers the profile org switcher on denied access without starting the session', async () => {
+    profileNav = document.createElement('nx-nav');
+    const profile = document.createElement('nx-profile');
+    profileNav.attachShadow({ mode: 'open' }).append(profile);
+    const profileRoot = profile.attachShadow({ mode: 'open' });
+    const menu = document.createElement('div');
+    menu.popover = 'auto';
+    const orgButton = document.createElement('button');
+    orgButton.className = 'nx-menu-btn-org';
+    orgButton.textContent = 'Switch Adobe organization';
+    menu.append(orgButton);
+    profileRoot.append(menu);
+    document.body.append(profileNav);
+    accessEffect = 'deny';
+    history = [{ id: 'existing', updated_at: new Date().toISOString() }];
+    const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
+    [standalone, full].forEach((chat) => {
+      const status = chat.shadowRoot.querySelector('.chat-status');
+      expect(status.textContent).to.include('Coworker unavailable');
+      expect(status.textContent).to.include('correct user');
+      const action = status.querySelector('button');
+      expect(action.textContent).to.equal('Open Profile');
+      action.click();
+      expect(menu.matches(':popover-open')).to.equal(true);
+      expect(profileRoot.activeElement).to.equal(orgButton);
+      expect(input(chat).disabled).to.equal(true);
+      expect(chat._session.canSend()).to.equal(false);
+      submit(chat, 'Denied');
+    });
+    expect(accessChecks).to.equal(1);
+    expect(episodeLoads).to.equal(0);
+    expect(skillLoads).to.equal(0);
+    expect(sockets).to.have.length(0);
+  });
+
+  [false, true].forEach((standalone) => {
+    it(`${standalone ? 'compact' : 'full'}: retries a failed access check and sends the queued draft once`, async () => {
+      accessStatus = 503;
+      const chat = await mount({ standalone });
+      await ready(chat);
+      const status = chat.shadowRoot.querySelector('.chat-status');
+      expect(status.querySelector('button').textContent).to.equal('Retry');
+      expect(status.textContent).not.to.include('correct user');
+      await chat.setPrompt('Draft waiting for access', { autoSend: true });
+      await flush();
+      expect(episodeLoads).to.equal(0);
+      expect(skillLoads).to.equal(0);
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+      accessStatus = 200;
+      accessWait = deferred();
+      const retryChat = standalone ? await mount() : chat;
+      await flush();
+      const retry = retryChat.shadowRoot.querySelector('.chat-status button');
+      retry.click();
+      retry.click();
+      await flush();
+      expect(accessChecks).to.equal(2);
+      expect(input(chat).disabled).to.equal(true);
+      accessWait.resolve();
+      await ready(chat);
+      await flush();
+      expect(episodeLoads).to.equal(2, 'initial history load and new-episode refresh');
+      expect(skillLoads).to.equal(1);
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+      expect(chat._session.controller._messages.at(-1).content).to.equal('Draft waiting for access');
+      expect(input(chat).value).to.equal('');
+    });
+  });
+
+  it('does not initialize after a pending access check loses its last owner', async () => {
+    accessWait = deferred();
+    const chat = await mount();
+    await flush();
+    const session = chat._session;
+    chat.remove();
+    accessWait.resolve();
+    await session.ready;
+    expect(session.canSend()).to.equal(false);
+    expect(episodeLoads).to.equal(0);
+    expect(skillLoads).to.equal(0);
+    expect(sockets).to.have.length(0);
+  });
+
+  it('leaves CMA startup independent of Coworker access', async () => {
+    accessEffect = 'deny';
+    const chat = await mount({ harness: 'cma' });
+    await ready(chat);
+    expect(accessChecks).to.equal(0);
+    expect(chat.shadowRoot.querySelector('.chat-status')).to.equal(null);
+    expect(input(chat).disabled).to.equal(false);
+    submit(chat, 'CMA is unchanged');
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
   });
 
   ['coworker', 'cma'].forEach((harness) => {

@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
+import { openProfileMenu } from '../../utils/profile.js';
 import { getConfig } from '../../scripts/nx.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
@@ -7,6 +8,7 @@ import { buildAttachmentItems } from '../shared/chat/files.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
 import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
+import { renderChatStatus, chatStatusStyle } from '../shared/chat/status/status.js';
 import { AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES, ADD_MENU_ITEMS } from './ao-constants.js';
 import { ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { sampleRUM } from '../../deps/rum.js';
@@ -18,6 +20,7 @@ import '../shared/chat/prompts/prompts.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+const spinnerStyle = await loadStyle(new URL('../../styles/spinner.css', import.meta.url).href);
 const { codeBase } = getConfig();
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
@@ -26,6 +29,7 @@ const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
 export default class NxAoInput extends LitElement {
   static properties = {
     blocked: { type: Boolean },
+    disabled: { type: Boolean },
     harness: { type: String },
     prompts: { type: Array },
     menuItems: { type: Array },
@@ -37,6 +41,7 @@ export default class NxAoInput extends LitElement {
     onMenuSelect: { attribute: false },
     _dragging: { state: true },
     _voiceListening: { state: true },
+    _access: { state: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -82,6 +87,8 @@ export default class NxAoInput extends LitElement {
     this._releaseSession?.();
     this._releaseSession = undefined;
     this._session = undefined;
+    this._access = undefined;
+    this._pendingAutoSend = undefined;
     this._unsubscribeEvents?.();
     this._unsubscribeEvents = undefined;
     if (!this._standalone) return;
@@ -107,7 +114,14 @@ export default class NxAoInput extends LitElement {
         context, owner: this, isolated: this.isolated, harness,
       });
       this._releaseSession = this._session.subscribe(this, {
-        onUpdate: (state) => { this.blocked = !!state.thinking && !state.pendingPlanApproval; },
+        onUpdate: (state) => {
+          this.blocked = !!state.thinking && !state.pendingPlanApproval;
+          this._access = state.access;
+          if (this._pendingAutoSend && this._session.canSend()) {
+            this._submitWhenReady(this._pendingAutoSend)
+              .catch((error) => showToast({ text: error.message, variant: 'error' }));
+          }
+        },
       });
       this._unsubscribeEvents = subscribeChatEvents(this, {
         getContext: () => this._context,
@@ -145,6 +159,7 @@ export default class NxAoInput extends LitElement {
     const request = {};
     const sessionRequest = this._sessionRequest;
     this._promptRequest = request;
+    this._pendingAutoSend = undefined;
     await this.updateComplete;
     if (!this.isConnected || this._promptRequest !== request
       || this._sessionRequest !== sessionRequest || !text) return false;
@@ -159,7 +174,8 @@ export default class NxAoInput extends LitElement {
       return true;
     }
     if (this._standalone) {
-      this._submitWhenReady({ request, sessionRequest })
+      this._pendingAutoSend = { request, sessionRequest };
+      this._submitWhenReady(this._pendingAutoSend)
         .catch((error) => showToast({ text: error.message, variant: 'error' }));
     } else {
       this._promptRequest = undefined;
@@ -176,7 +192,12 @@ export default class NxAoInput extends LitElement {
       || this._sessionRequest !== sessionRequest || this._session !== session
       || !session?.canSend() || this.blocked) return;
     this._promptRequest = undefined;
+    this._pendingAutoSend = undefined;
     this.shadowRoot.querySelector('form').requestSubmit();
+  }
+
+  get _disabled() {
+    return this.disabled || !!this._access;
   }
 
   openPrompts() {
@@ -190,7 +211,7 @@ export default class NxAoInput extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEvent ??= `nx-ao-input-${crypto.randomUUID()}`;
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle, chatStatusStyle];
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
@@ -217,6 +238,7 @@ export default class NxAoInput extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._promptRequest = undefined;
+    this._pendingAutoSend = undefined;
     this._voice?.stop();
     this._slashMenu.close();
     this._unsubscribeHash?.();
@@ -266,6 +288,7 @@ export default class NxAoInput extends LitElement {
   }
 
   _send(text) {
+    if (this._disabled) return;
     const context = this.items.filter((item) => !item.dataBase64);
     const attachments = this.items.filter((item) => item.dataBase64);
     if (this._standalone) {
@@ -279,7 +302,7 @@ export default class NxAoInput extends LitElement {
 
   _submit(e) {
     e?.preventDefault();
-    if (this.blocked) return;
+    if (this.blocked || this._disabled) return;
     const text = this.draft.trim();
     if (!text) return;
     const { harness } = this;
@@ -289,6 +312,7 @@ export default class NxAoInput extends LitElement {
   }
 
   _handleInput(e) {
+    if (this._disabled) return;
     this._slashMenu.onInput(e);
     if (this._standalone) this._session?.controller.warmSession();
     else this.onInput?.();
@@ -331,6 +355,10 @@ export default class NxAoInput extends LitElement {
 
   render() {
     return html`
+      ${this._access ? renderChatStatus({
+      ...this._access,
+      onAction: this._access.status === 'denied' ? openProfileMenu : () => this._session.retryAccess(),
+    }) : nothing}
       <nx-popover class="prompts-popover">
         <nx-prompts .prompts=${this.prompts ?? []} .onSend=${(p) => this.setPrompt(p)}></nx-prompts>
       </nx-popover>
@@ -366,7 +394,7 @@ export default class NxAoInput extends LitElement {
           <textarea
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."
-            ?disabled=${this.blocked}
+            ?disabled=${this.blocked || this._disabled}
             @input=${this._handleInput}
             @keydown=${this._handleKeydown}
             @blur=${this._slashMenu.onBlur}
@@ -374,7 +402,7 @@ export default class NxAoInput extends LitElement {
         </div>
         <div class="chat-actions" ?data-thinking=${this.blocked} ?data-voice-listening=${this._voiceListening}>
           <nx-menu size="m" .items=${this.menuItems ?? ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-            <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
+            <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" ?disabled=${this._disabled} @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>
             </button>
@@ -385,7 +413,7 @@ export default class NxAoInput extends LitElement {
                 type="button"
                 class="chat-voice nx-action-btn-icon nx-btn-sm"
                 ?data-listening=${this._voiceListening}
-                ?disabled=${this.blocked}
+                ?disabled=${this.blocked || this._disabled}
                 aria-pressed=${this._voiceListening}
                 aria-label=${this._voiceListening ? 'Stop recording' : 'Use voice input'}
                 @click=${this._toggleVoiceInput}
@@ -397,7 +425,7 @@ export default class NxAoInput extends LitElement {
               ?hidden=${!this.blocked}
               @click=${this._stop}
             > ${icon('stop')}</button>
-            <button type="submit" class="chat-send harness-${this.harness} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
+            <button type="submit" class="chat-send harness-${this.harness} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} ?disabled=${this._disabled} aria-label="Send">
               ${icon('send')}
             </button>
           </div>

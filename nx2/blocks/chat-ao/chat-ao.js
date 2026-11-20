@@ -12,6 +12,7 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
+import { openProfileMenu } from '../../utils/profile.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
 import { resolveHarness } from '../../utils/ewFlags.js';
 import { getAoSession, getSessionScope, subscribeChatEvents } from './session.js';
@@ -27,6 +28,7 @@ import { CHAT_EVENT, skillsAppHref } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
+import { renderChatStatus, chatStatusStyle } from '../shared/chat/status/status.js';
 import { showToast } from '../shared/toast/toast.js';
 import '../shared/picker/picker.js';
 import '../shared/chat/new-chat/new-chat.js';
@@ -54,6 +56,7 @@ export default class NxChatAo extends LitElement {
     pendingPermission: { type: Object },
     loadingEpisode: { type: Boolean },
     staleEpisode: { type: Object },
+    access: { state: true },
     _prompts: { state: true },
     _planFeedback: { state: true },
   };
@@ -174,6 +177,7 @@ export default class NxChatAo extends LitElement {
   _onControllerUpdate({
     messages, thinking, streamingText, episodes, episodeId,
     pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
+    access,
   }) {
     this.messages = streamingText
       ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
@@ -186,6 +190,7 @@ export default class NxChatAo extends LitElement {
     this.pendingPermission = pendingPermission;
     this.loadingEpisode = loadingEpisode;
     this.staleEpisode = staleEpisode;
+    this.access = access;
     this._flushPendingAutoSend();
   }
 
@@ -275,7 +280,9 @@ export default class NxChatAo extends LitElement {
     super.connectedCallback();
     fetchResolvedManifestId();
     this._loadCoworkerNav();
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle, artifactStyle];
+    this.shadowRoot.adoptedStyleSheets = [
+      styles, buttonStyle, spinnerStyle, artifactStyle, chatStatusStyle,
+    ];
     this._initController();
     this._unsubscribeHash = hashChange.subscribe((state) => {
       if (!this._explicitContext) this._applyContext(state);
@@ -407,6 +414,10 @@ export default class NxChatAo extends LitElement {
 
   render() {
     const prompts = this._visiblePrompts;
+    const accessView = this.access ? renderChatStatus({
+      ...this.access,
+      onAction: this.access.status === 'denied' ? openProfileMenu : () => this._session.retryAccess(),
+    }) : undefined;
 
     return html`
       <div class="chat-header">
@@ -421,7 +432,7 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon" @click=${this._handleNewSession}>
+          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon" ?disabled=${!!this.access} @click=${this._handleNewSession}>
             ${icon('newChat')}
           </button>
           <button
@@ -434,7 +445,7 @@ export default class NxChatAo extends LitElement {
       </div>
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
-          ${this.loadingEpisode ? html`
+          ${accessView ?? (this.loadingEpisode ? html`
             <div class="chat-loading"><span class="nx-loading-spinner"></span></div>
           ` : html`
             ${!this.messages?.length && !this.thinking
@@ -478,7 +489,7 @@ export default class NxChatAo extends LitElement {
           }) : nothing}
             ${this.thinking && !this.pendingQuestion && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
           ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
-          `}
+          `)}
         </div>
       </div>
       <div class="chat-form-wrap">
@@ -486,6 +497,7 @@ export default class NxChatAo extends LitElement {
             onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
           })}
         <nx-ao-input
+          .disabled=${!!this.access}
           .blocked=${this._blocked}
           .harness=${this._harness}
           .prompts=${prompts}

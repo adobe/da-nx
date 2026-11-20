@@ -12,6 +12,8 @@
 
 import BaseChatController from './base-chat-controller.js';
 import { AO_COMPONENT_CATALOG_URL } from './coworker/constants.js';
+import { checkCoworkerAccess } from './coworker/access.js';
+import { CHECKING_CHAT_ACCESS, getChatAccessState } from '../shared/chat/access.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
 } from './utils/episodes.js';
@@ -25,6 +27,16 @@ const STALE_EPISODE_MS = 24 * 60 * 60 * 1000;
 // AO-direct / CX Coworker harness: episode history comes from the orchestrator
 // REST API (list + messages + warm session). See docs/chat-ao-controller-decoupling.md.
 export default class CoworkerChatController extends BaseChatController {
+  async checkAccess() {
+    this._access = CHECKING_CHAT_ACCESS;
+    this._update();
+    const result = await checkCoworkerAccess();
+    if (this._destroyed) return false;
+    this._access = getChatAccessState(result);
+    this._update();
+    return result.allowed === true;
+  }
+
   _fetchEpisodes() { return fetchEpisodes(EPISODE_LIST_LIMIT); }
 
   _fetchEpisodeMessages(episodeId) { return fetchEpisodeMessages(episodeId); }
