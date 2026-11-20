@@ -4,7 +4,7 @@ import {
 } from '../../../nx2/utils/utils.js';
 import {
   calls, installFetch, restoreFetch, lastCall, callsTo,
-} from '../../../nx2/test/mocks/fetch.js';
+} from '../mocks/fetch.js';
 
 import {
   daFetch,

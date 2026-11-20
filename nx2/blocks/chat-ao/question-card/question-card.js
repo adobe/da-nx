@@ -56,10 +56,10 @@ class NxQuestionCard extends LitElement {
     const firstQuestion = this.pending?.questions?.[0];
     if (!firstQuestion) return;
     if ((firstQuestion.options ?? []).length === 0) {
-      this.shadowRoot.querySelector('.question-other-input')?.focus();
+      this.shadowRoot.querySelector('.question-other-input')?.focus({ preventScroll: true });
       return;
     }
-    this.shadowRoot.querySelector('input[type="radio"], input[type="checkbox"]')?.focus();
+    this.shadowRoot.querySelector('input[type="radio"], input[type="checkbox"]')?.focus({ preventScroll: true });
   }
 
   _answerFor(question) {

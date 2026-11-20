@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { installFetch, restoreFetch } from '../../../../../nx2/test/mocks/fetch.js';
+import { installFetch, restoreFetch } from '../../../../nx2/mocks/fetch.js';
 import { JSON_PREVIEW_KEY, isJsonPreviewEnabled } from '../../../../../nx/blocks/form/utils/config.js';
 
 let counter = 0;

@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { PANEL_EVENT, registerPanelSection } from '../../../../nx2/utils/panel.js';
-import { calls, installFetch, restoreFetch } from '../../../../nx2/test/mocks/fetch.js';
+import { calls, installFetch, restoreFetch } from '../../mocks/fetch.js';
 
 await setConfig({ hostnames: [] });
 await import('../../../../nx2/blocks/sidenav/sidenav.js');

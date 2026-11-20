@@ -3,7 +3,7 @@ import init from '../../../nx/blocks/site-apps/site-apps.js';
 import { AEM_API, DA_ADMIN, HLX_ADMIN } from '../../../nx2/utils/utils.js';
 import {
   calls, installFetch, restoreFetch,
-} from '../../../nx2/test/mocks/fetch.js';
+} from '../mocks/fetch.js';
 
 describe('site apps config routing', () => {
   let section;
