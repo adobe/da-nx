@@ -176,6 +176,30 @@ describe('nx-picker swatch', () => {
     el.close();
   });
 
+  it('caps a long menu and scrolls it', async () => {
+    const items = Array.from({ length: 100 }, (_, i) => ({ value: `v${i}`, label: `Option ${i}` }));
+    const el = await createPicker({ items });
+    el.show();
+    const popover = el.shadowRoot.querySelector('nx-popover');
+    await popover.updateComplete;
+    await new Promise(requestAnimationFrame);
+    expect(popover.getBoundingClientRect().height).to.be.at.most(320);
+    expect(popover.scrollHeight).to.be.greaterThan(popover.clientHeight);
+    el.close();
+  });
+
+  it('accepts a menu-max-height override', async () => {
+    const items = Array.from({ length: 100 }, (_, i) => ({ value: `v${i}`, label: `Option ${i}` }));
+    const el = await createPicker({ items });
+    el.style.setProperty('--nx-picker-menu-max-height', '120px');
+    el.show();
+    const popover = el.shadowRoot.querySelector('nx-popover');
+    await popover.updateComplete;
+    await new Promise(requestAnimationFrame);
+    expect(popover.getBoundingClientRect().height).to.be.at.most(120);
+    el.close();
+  });
+
   it('keeps keyboard selection and expanded state working with described items', async () => {
     const el = await createPicker({
       items: [{ value: 'draft', label: 'Draft', description: 'Not published' }, { value: 'live', label: 'Live' }],
