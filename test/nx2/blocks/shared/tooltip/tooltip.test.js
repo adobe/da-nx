@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import '../../../../../../blocks/shared/tooltip/tooltip.js';
+import '../../../../../nx2/blocks/shared/tooltip/tooltip.js';
 
 await new Promise((resolve) => {
   const link = document.createElement('link');
