@@ -43,7 +43,8 @@ export default function init(el) {
 
   const cta = [...(content?.querySelectorAll('p') ?? [])].reverse().find((p) => {
     const a = p.querySelector('a');
-    return a && p.textContent.trim() === a.textContent.trim();
+    const text = p.textContent.trim();
+    return !!a && text !== '' && text === a.textContent.trim();
   });
   if (cta) {
     cta.classList.add('teaser-cta');

@@ -60,6 +60,15 @@ describe('teaser init', () => {
     expect(el.querySelectorAll(':scope > div > div').length).to.equal(1);
   });
 
+  it('does not promote an image-only link', () => {
+    const el = document.createElement('div');
+    el.className = 'nx-teaser';
+    el.innerHTML = '<div><div><picture><img src="a.png" alt=""></picture></div><div><h3>T</h3><p>Description</p><p><a href="https://example.com"><img src="data:," alt=""></a></p></div></div>';
+    init(el);
+    expect(el.querySelector('.teaser-cta')?.outerHTML ?? null).to.equal(null);
+    expect(el.querySelector('a.teaser-cta-link')?.outerHTML ?? null).to.equal(null);
+  });
+
   it('does not promote an inline link in a description paragraph', () => {
     const el = build({ link: false });
     el.querySelector('p').innerHTML = 'See <a href="https://example.com/i">this</a> for more';
