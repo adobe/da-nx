@@ -238,6 +238,10 @@ export default class NxChatAo extends LitElement {
       isolated: this.isolated,
       harness: this._harness,
     });
+    if (this._pendingAutoSend && !this._session.canQueueAutoSend({ includeReady: true })) {
+      this._pendingAutoSend = undefined;
+      this._promptRequest = undefined;
+    }
     this._controller = this._session.controller;
     this._releaseSession = this._session.subscribe(this, {
       onUpdate: (state) => this._onControllerUpdate(state),

@@ -23,8 +23,8 @@ including restored episode history. This applies to both Coworker and CMA,
 in full chat and standalone inputs. Only the latest startup prompt is submitted.
 Manual prompts still prefill immediately without sending.
 
-If `autoSend` arrives during the initial Coworker access check or CMA
-initialization, `nx-chat-ao` fills
+If `autoSend` arrives during the first Coworker or CMA startup, including
+history and skills loading after access is granted, `nx-chat-ao` fills
 the input and submits the draft on the first session update where
 `session.canSend()` is true, instead of dropping the send. Edits made while
 waiting are preserved in that submission. `setPrompt` resolves `true` when the
@@ -49,9 +49,10 @@ opening connections. The standalone input stays hidden until access is permitted
 preserving its draft and attachments. The full panel shows checking, denied, and
 verification-error states with a disabled composer; errors offer Retry.
 The decision is shared by the session's views.
-Auto-send can queue during the initial access check, but not after it completes
-or during Retry. Denials and failed checks cancel queued sends without clearing
-the draft. Retry only checks access; after permission, review the draft and Send.
+Auto-send can queue throughout the first successful startup, but not during Retry
+or its subsequent initialization. Denials and failed checks cancel queued sends
+without clearing the draft. Retry only checks access; after permission, review
+the draft and Send.
 Denials offer Open Profile to check the signed-in user and selected Adobe org.
 Switching org reloads the page and checks access again.
 CMA startup is unchanged. The full panel uses the presentation-only

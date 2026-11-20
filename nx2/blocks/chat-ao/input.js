@@ -115,6 +115,10 @@ export default class NxAoInput extends LitElement {
       this._session = getAoSession({
         context, owner: this, isolated: this.isolated, harness,
       });
+      if (this._pendingAutoSend && !this._session.canQueueAutoSend({ includeReady: true })) {
+        this._pendingAutoSend = undefined;
+        this._promptRequest = undefined;
+      }
       this._releaseSession = this._session.subscribe(this, {
         onUpdate: (state) => {
           this.blocked = !!state.thinking && !state.pendingPlanApproval;

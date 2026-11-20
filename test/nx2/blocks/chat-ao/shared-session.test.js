@@ -87,6 +87,21 @@ describe('standalone input and full AO chat sharing', () => {
     }));
     await flush();
   };
+  const pauseChatJoin = (standalone) => {
+    const Element = customElements.get(standalone ? 'nx-ao-input' : 'nx-chat-ao');
+    const method = standalone ? '_joinSession' : '_initController';
+    const join = Element.prototype[method];
+    if (!standalone) {
+      patch(Element.prototype, method, () => {});
+      return (chat) => join.call(chat);
+    }
+    const pending = deferred();
+    patch(Element.prototype, method, async function joinSession(options) {
+      await pending.promise;
+      return join.call(this, options);
+    });
+    return () => pending.resolve();
+  };
   const receive = (type, data = {}) => sockets.at(-1).receive(type, data);
 
   beforeEach(() => {
@@ -331,18 +346,30 @@ describe('standalone input and full AO chat sharing', () => {
       expect(input(chat).value).to.equal('Unavailable draft');
       accessStatus = 200;
       accessWait = deferred();
+      const startup = deferred();
+      const startupStarted = deferred();
+      const { loadSkills } = BaseChatController.prototype;
+      patch(BaseChatController.prototype, 'loadSkills', async function loadRetrySkills() {
+        startupStarted.resolve();
+        await startup.promise;
+        return loadSkills.call(this);
+      });
       const retryChat = standalone ? await mount() : chat;
       retryChat.shadowRoot.querySelector('.chat-status button').click();
       await flush();
       await chat.setPrompt('Review after Retry', { autoSend: true });
       expect(chat._pendingAutoSend).to.equal(undefined);
       accessWait.resolve();
+      await startupStarted.promise;
+      await chat.setPrompt('Review after Retry initialization', { autoSend: true });
+      expect(chat._pendingAutoSend).to.equal(undefined);
+      startup.resolve();
       await ready(chat);
       await flush();
       expect(episodeLoads).to.equal(1);
       expect(skillLoads).to.equal(1);
       expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
-      expect(input(chat).value).to.equal('Review after Retry');
+      expect(input(chat).value).to.equal('Review after Retry initialization');
       expect(input(chat).disabled).to.equal(false);
     });
 
@@ -361,18 +388,81 @@ describe('standalone input and full AO chat sharing', () => {
       expect(input(chat).disabled).to.equal(false);
     });
 
-    it(`${view}: does not queue a new auto-send once initial access is granted`, async () => {
-      const pending = deferred();
-      patch(BaseChatController.prototype, 'loadSkills', () => pending.promise);
-      const chat = await mount({ standalone });
-      await flush();
-      expect(accessChecks).to.equal(1);
-      expect(chat._session.canSend()).to.equal(false);
-      await chat.setPrompt('Review after startup', { autoSend: true });
-      pending.resolve();
-      await ready(chat);
-      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
-      expect(input(chat).value).to.equal('Review after startup');
+    ['history', 'skills'].forEach((loading) => {
+      it(`${view}: queues an auto-send after access is granted while ${loading} loads`, async () => {
+        const pending = deferred();
+        const started = deferred();
+        const controller = loading === 'history'
+          ? CoworkerChatController.prototype : BaseChatController.prototype;
+        const method = loading === 'history' ? '_fetchEpisodes' : 'loadSkills';
+        patch(controller, method, () => {
+          started.resolve();
+          return pending.promise;
+        });
+        const chat = await mount({ standalone });
+        await started.promise;
+        expect(accessChecks).to.equal(1);
+        expect(chat._session.canSend()).to.equal(false);
+        expect(await chat.setPrompt('Send after startup', { autoSend: true })).to.equal(true);
+        expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+        expect(input(chat).value).to.equal('Send after startup');
+        pending.resolve([]);
+        await ready(chat);
+        await flush();
+        const frames = sockets.flatMap((socket) => socket.frames)
+          .filter((frame) => frame.type === AO_FRAME.USER_INPUT);
+        expect(frames).to.have.length(1);
+        expect(frames[0].text).to.equal('Send after startup');
+        expect(input(chat).value).to.equal('');
+      });
+    });
+  });
+
+  [false, true].forEach((standalone) => {
+    const view = standalone ? 'compact' : 'full';
+    [false, true].forEach((retryCompleted) => {
+      it(`${view}: cancels a pre-join auto-send when Retry is ${retryCompleted ? 'complete' : 'pending'}`, async () => {
+        accessStatus = 503;
+        const other = await mount({ standalone: !standalone });
+        await ready(other);
+        accessStatus = 200;
+        accessWait = deferred();
+        other._session.retryAccess();
+        await flush();
+        const resumeJoin = pauseChatJoin(standalone);
+        const mounted = mount({ standalone });
+        const chat = elements.at(-1);
+        await chat.setPrompt('Review after Retry', { autoSend: true });
+        expect(chat._pendingAutoSend).not.to.equal(undefined);
+        if (retryCompleted) {
+          accessWait.resolve();
+          await ready(other);
+        }
+        resumeJoin(chat);
+        await mounted;
+        expect(chat._session).to.equal(other._session);
+        expect(chat._pendingAutoSend).to.equal(undefined);
+        accessWait.resolve();
+        await ready(other, chat);
+        expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+        expect(input(chat).value).to.equal('Review after Retry');
+      });
+    });
+
+    it(`${view}: sends a pre-join prompt when the first startup is already ready`, async () => {
+      const other = await mount({ standalone: !standalone });
+      await ready(other);
+      const resumeJoin = pauseChatJoin(standalone);
+      const mounted = mount({ standalone });
+      const chat = elements.at(-1);
+      await chat.setPrompt('Send on joining', { autoSend: true });
+      resumeJoin(chat);
+      await mounted;
+      await ready(other, chat);
+      expect(chat._session).to.equal(other._session);
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+      expect(other._session.controller._messages.at(-1).content).to.equal('Send on joining');
+      expect(input(chat).value).to.equal('');
     });
   });
 

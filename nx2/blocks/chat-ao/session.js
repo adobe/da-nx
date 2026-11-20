@@ -28,7 +28,7 @@ export function getAoSession({
   let state = { messages: [], loadingEpisode: true };
   let initialized = false;
   let initializing = false;
-  let accessChecked = false;
+  let startupFailed = false;
   let destroyed = false;
   let sending = false;
   const notify = () => subscribers.forEach(({ onUpdate }) => onUpdate(state));
@@ -58,8 +58,8 @@ export function getAoSession({
       controller.setContext(context);
       if (controller.checkAccess) {
         const allowed = await controller.checkAccess();
-        accessChecked = true;
         if (!allowed) {
+          startupFailed = true;
           publish({ ...state, loadingEpisode: false });
           return;
         }
@@ -70,6 +70,7 @@ export function getAoSession({
       initialized = true;
       notify();
     } catch (error) {
+      startupFailed = true;
       publish({
         messages: [{ role: 'assistant', content: `Error: ${error.message}` }],
         thinking: false,
@@ -106,8 +107,8 @@ export function getAoSession({
       return !destroyed && initialized && !sending && !state.loadingEpisode
         && !(state.thinking && !state.pendingPlanApproval);
     },
-    canQueueAutoSend() {
-      return !destroyed && !initialized && !accessChecked
+    canQueueAutoSend({ includeReady = false } = {}) {
+      return !destroyed && (!initialized || includeReady) && !startupFailed
         && !['denied', 'error'].includes(state.access?.status);
     },
     send({ context: currentContext, args }) {
