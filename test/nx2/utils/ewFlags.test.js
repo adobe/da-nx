@@ -3,7 +3,7 @@ import { HLX_ADMIN, DA_ADMIN } from '../../../nx2/utils/utils.js';
 import { fetchDaConfigs } from '../../../nx2/utils/daConfig.js';
 import {
   calls, installFetch, restoreFetch,
-} from '../../../nx2/test/mocks/fetch.js';
+} from '../mocks/fetch.js';
 import {
   getEWFlags, isEWEnabled, isEwChatDisabled, isEwChatEnabled,
   getCoworkerConfig, isCoworkerEnabled, getManifestId,

@@ -1,3 +1,31 @@
+## [1.61.1](https://github.com/adobe/da-nx/compare/v1.61.0...v1.61.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* preserve newlines in coworker user messages ([#1041](https://github.com/adobe/da-nx/issues/1041)) ([f6a7316](https://github.com/adobe/da-nx/commit/f6a731666dea831704ba8df6aae36a2e3f385927))
+
+# [1.61.0](https://github.com/adobe/da-nx/compare/v1.60.0...v1.61.0) (2026-11-20)
+
+
+### Features
+
+* add deepL connector ([#746](https://github.com/adobe/da-nx/issues/746)) ([7181809](https://github.com/adobe/da-nx/commit/7181809a3abccdcb0463d6ccd398ca2ca80e6f7d))
+
+# [1.60.0](https://github.com/adobe/da-nx/compare/v1.59.0...v1.60.0) (2026-11-20)
+
+
+### Features
+
+* move chat question card inline ([#1033](https://github.com/adobe/da-nx/issues/1033)) ([27108ee](https://github.com/adobe/da-nx/commit/27108ee2f84b3e90e50e6ce57e1d85b1e70cbb3f))
+
+# [1.59.0](https://github.com/adobe/da-nx/compare/v1.58.1...v1.59.0) (2026-11-20)
+
+
+### Features
+
+* **siteselector:** expose selected site getter ([#1027](https://github.com/adobe/da-nx/issues/1027)) ([8d018f4](https://github.com/adobe/da-nx/commit/8d018f46f2d8ec639ad696e457ebcce6dd42a607))
+
 ## [1.58.1](https://github.com/adobe/da-nx/compare/v1.58.0...v1.58.1) (2026-11-19)
 
 

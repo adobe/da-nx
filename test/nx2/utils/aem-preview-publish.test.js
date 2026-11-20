@@ -4,7 +4,7 @@ import {
   calls as sharedCalls,
   installFetch as installFetchOnce,
   restoreFetch as restoreFetchOnce,
-} from '../../../nx2/test/mocks/fetch.js';
+} from '../mocks/fetch.js';
 import {
   buildAemPathFromHashState,
   formatAemPreviewPublishError,
