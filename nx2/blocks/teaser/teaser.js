@@ -32,15 +32,21 @@ export default function init(el) {
     ?? cells.find((cell) => cell !== media && cell.textContent.trim());
 
   content?.classList.add('teaser-content');
-  if (media) media.classList.add('teaser-media');
-  else {
+  if (media) {
+    media.classList.add('teaser-media');
+  } else {
     el.classList.add('no-media');
-    cells.filter((cell) => cell !== content && !cell.children.length).forEach((c) => c.remove());
+    cells
+      .filter((cell) => cell !== content && !cell.textContent.trim() && !cell.querySelector('img, picture'))
+      .forEach((c) => c.remove());
   }
 
-  const link = [...(content?.querySelectorAll('a') ?? [])].pop();
-  if (link) {
-    link.classList.add('teaser-cta-link');
-    (link.closest('p') ?? link.parentElement).classList.add('teaser-cta');
+  const cta = [...(content?.querySelectorAll('p') ?? [])].reverse().find((p) => {
+    const a = p.querySelector('a');
+    return a && p.textContent.trim() === a.textContent.trim();
+  });
+  if (cta) {
+    cta.classList.add('teaser-cta');
+    cta.querySelector('a').classList.add('teaser-cta-link');
   }
 }

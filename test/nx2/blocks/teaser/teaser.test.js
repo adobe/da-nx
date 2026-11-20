@@ -49,15 +49,39 @@ describe('teaser init', () => {
     expect(el.classList.contains('no-media')).to.be.true;
     expect(el.querySelector('.teaser-media')).to.not.exist;
     expect(el.querySelector('.teaser-content')).to.exist;
+    expect(el.querySelectorAll(':scope > div > div').length).to.equal(1);
+  });
+
+  it('treats a cell with only an empty paragraph as empty', () => {
+    const el = document.createElement('div');
+    el.className = 'nx-teaser';
+    el.innerHTML = '<div><div><p></p></div><div><h3>T</h3></div></div>';
+    init(el);
+    expect(el.querySelectorAll(':scope > div > div').length).to.equal(1);
+  });
+
+  it('does not promote an inline link in a description paragraph', () => {
+    const el = build({ link: false });
+    el.querySelector('p').innerHTML = 'See <a href="https://example.com/i">this</a> for more';
+    init(el);
+    expect(el.querySelector('.teaser-cta')).to.not.exist;
+    expect(el.querySelector('.teaser-cta-link')).to.not.exist;
+  });
+
+  it('does not promote a link inside a heading', () => {
+    const el = build({ link: false });
+    el.querySelector('h3').innerHTML = '<a href="https://example.com/h">Title</a>';
+    init(el);
+    expect(el.querySelector('.teaser-cta')).to.not.exist;
+    expect(el.querySelector('.teaser-cta-link')).to.not.exist;
   });
 
   it('adopts the stylesheet once', () => {
-    const before = document.adoptedStyleSheets.length;
     init(build());
     init(build());
-    expect(document.adoptedStyleSheets.length - before).to.be.at.most(1);
-    const added = document.adoptedStyleSheets.slice(before);
-    expect(new Set(document.adoptedStyleSheets).size).to.equal(document.adoptedStyleSheets.length);
-    expect(added.length).to.be.at.most(1);
+    const adopted = document.adoptedStyleSheets;
+    expect(new Set(adopted).size).to.equal(adopted.length);
+    const withRules = adopted.filter((sheet) => [...sheet.cssRules].some((r) => r.cssText.includes('.nx-teaser')));
+    expect(withRules.length).to.equal(1);
   });
 });
