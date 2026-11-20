@@ -1,3 +1,10 @@
+# [1.59.0](https://github.com/adobe/da-nx/compare/v1.58.1...v1.59.0) (2026-11-20)
+
+
+### Features
+
+* **siteselector:** expose selected site getter ([#1027](https://github.com/adobe/da-nx/issues/1027)) ([8d018f4](https://github.com/adobe/da-nx/commit/8d018f46f2d8ec639ad696e457ebcce6dd42a607))
+
 ## [1.58.1](https://github.com/adobe/da-nx/compare/v1.58.0...v1.58.1) (2026-11-19)
 
 
