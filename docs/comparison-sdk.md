@@ -9,7 +9,18 @@ const { actions } = await DA_SDK;
 actions.openComparison({ candidate: 'document', baseline: 'live' });
 ```
 
-`candidate` is `document` (current editor contents) or `preview` (current staged content). `baseline` is `live`. The host determines the page from its own context; arbitrary URLs, HTML, and other pages are not accepted. Opening comparison first attempts to save the current document. If the editor is read-only, comparison opens without saving; other save failures appear in the comparison surface. Opening comparison does not update preview or publish content. `actions.closeComparison()` closes the surface without changing the editor or right-rail instance.
+`candidate` is `document` (current editor contents), `preview` (current AEM preview content), or a full DA source path. `baseline` is `live` or a full DA source path. The named modes use the host's current page; a source path identifies its own document and may belong to another org or site, subject to the current user's DA permissions.
+
+```js
+actions.openComparison({
+  candidate: '/org/site/.da/campaigns/spring.html',
+  baseline: '/org/site/campaigns/spring.html',
+});
+```
+
+Paths have the form `/org/site/document`, with an optional `.html` suffix, and are loaded through authenticated DA source with cache busting. They are not relative to the current site and do not refer to AEM preview or published content. Both operands can be paths, or either can be combined with its supported named mode. URLs, HTML, empty path segments, traversal, percent escapes, backslashes, whitespace, control characters, query strings, and fragments are not accepted. Source read failures appear in the host surface; missing source documents are errors, not empty baselines. Each document's relative URLs resolve against its own delivery origin and path. The source paths label the baseline and candidate in the host viewer.
+
+Opening a `document` or `preview` comparison first attempts to save the current document. If the editor is read-only, comparison opens without saving; other save failures appear in the comparison surface. A source-path candidate does not save or serialize the editor. Opening comparison never updates preview or publishes content. Source-to-source comparisons show saved content only, do not navigate the editor, and reread both documents on refresh. `actions.closeComparison()` closes the surface without changing the editor or right-rail instance.
 
 `openComparison()` and `closeComparison()` are synchronous, fire-and-forget actions. They return `undefined` and do not wait for a host response. They send `{ action: 'openComparison', details: { candidate, baseline } }` and `{ action: 'closeComparison' }` on the transferred MessagePort, without request IDs, response listeners, or timers. Invalid comparison options throw `TypeError('invalid-comparison')` before sending; MessagePort posting errors propagate synchronously.
 

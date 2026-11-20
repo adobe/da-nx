@@ -61,6 +61,47 @@ describe('workspace SDK actions', () => {
     expect(timers.called).to.equal(false);
   });
 
+  [
+    { candidate: '/candidate/site/.da/page.html', baseline: '/baseline/site/page' },
+    { candidate: '/candidate/site/page', baseline: 'live' },
+    { candidate: 'document', baseline: '/baseline/site/page.html' },
+    { candidate: 'preview', baseline: '/baseline/site/page.html' },
+  ].forEach((options) => {
+    it(`posts source comparison ${options.candidate} against ${options.baseline}`, () => {
+      expect(actions.openComparison(options)).to.equal(undefined);
+      expect(port.postMessage.firstCall.args[0]).to.deep.equal({
+        action: 'openComparison', details: options,
+      });
+      expect(port.addEventListener.called).to.equal(false);
+      expect(timers.called).to.equal(false);
+    });
+  });
+
+  it('rejects malformed or ambiguous source paths in either operand before posting', () => {
+    [
+      '/org/site',
+      '//org/site/page',
+      '/org/site/',
+      '/org/site/../page',
+      '/org/site/./page',
+      '/org/site//page',
+      '/org/site/%2e%2e/page',
+      '/org/site/page?version=1',
+      '/org/site/page#fragment',
+      '/org/site\\other/page',
+      '/org/site/a b',
+      '/org/site/page\u0000',
+      'https://admin.da.live/source/org/site/page',
+      42,
+    ].forEach((path) => {
+      expect(() => actions.openComparison({ candidate: path, baseline: '/org/site/page' }))
+        .to.throw(TypeError, 'invalid-comparison');
+      expect(() => actions.openComparison({ candidate: '/org/site/page', baseline: path }))
+        .to.throw(TypeError, 'invalid-comparison');
+    });
+    expect(port.postMessage.called).to.equal(false);
+  });
+
   it('sends only the supported comparison details', () => {
     actions.openComparison({ candidate: 'document', baseline: 'live', html: '<p>ignored</p>', url: 'https://example.com' });
     expect(port.postMessage.firstCall.args[0]).to.deep.equal({
