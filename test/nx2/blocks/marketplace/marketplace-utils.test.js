@@ -171,7 +171,7 @@ describe('getCategoryFilters', () => {
     expect(getCategoryFilters(items).map(({ value }) => value)).to.deep.equal(['all', 'core']);
   });
 
-  it('returns only All without items', () => {
+  it('returns only All Types without items', () => {
     expect(getCategoryFilters([])).to.deep.equal([{ value: 'all', label: 'All Types' }]);
     expect(getCategoryFilters()).to.deep.equal([{ value: 'all', label: 'All Types' }]);
   });
@@ -202,6 +202,10 @@ describe('searchItems', () => {
     expect(searchItems({ items, query: '   ' })).to.equal(items);
   });
 
+  it('treats a null query as empty', () => {
+    expect(searchItems({ items, query: null })).to.equal(items);
+  });
+
   it('returns [] without a match', () => {
     expect(searchItems({ items, query: 'zzz' })).to.deep.equal([]);
   });
@@ -211,9 +215,10 @@ describe('sortItems', () => {
   const titles = (list) => list.map(({ title }) => title);
 
   it('sorts by name case-insensitively by default', () => {
-    const items = [{ title: 'beta' }, { title: 'Alpha' }, { title: 'gamma' }];
-    expect(titles(sortItems({ items }))).to.deep.equal(['Alpha', 'beta', 'gamma']);
-    expect(titles(sortItems({ items, sort: 'name' }))).to.deep.equal(['Alpha', 'beta', 'gamma']);
+    const items = [{ title: 'beta' }, { title: 'Alpha' }, { title: 'alpha2' }, { title: 'Beta2' }];
+    const expected = ['Alpha', 'alpha2', 'beta', 'Beta2'];
+    expect(titles(sortItems({ items }))).to.deep.equal(expected);
+    expect(titles(sortItems({ items, sort: 'name' }))).to.deep.equal(expected);
   });
 
   it('sorts newest first, undated last by title, without mutating', () => {

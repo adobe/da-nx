@@ -249,6 +249,35 @@ describe('nx-marketplace', () => {
     expect(el.shadowRoot.querySelector('.empty') === null).to.equal(true);
   });
 
+  it('shows no-results when a Type filter and search combine to nothing', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [
+        { Title: 'Core App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Other App', Category: 'Other', 'Doc Url': 'https://example.com/c' },
+      ],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    [...el.shadowRoot.querySelectorAll('.rail-item')]
+      .find((b) => b.textContent.trim() === 'Core').click();
+    await el.updateComplete;
+    const search = el.shadowRoot.querySelector('nx-search');
+    search.value = 'ext';
+    search.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+
+    expect(el.shadowRoot.querySelectorAll('.item').length).to.equal(0);
+    expect(el.shadowRoot.querySelector('.no-results').textContent.trim())
+      .to.equal('No capabilities match your search.');
+    expect(el.shadowRoot.querySelector('.empty') === null).to.equal(true);
+  });
+
   it('sorts by newest via the sort menu', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
@@ -314,8 +343,13 @@ describe('nx-marketplace', () => {
     const labels = [...toggle.shadowRoot.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'));
     expect(labels).to.deep.equal(['List view', 'Grid view']);
 
-    toggle.dispatchEvent(new CustomEvent('change', { detail: { value: 'grid' } }));
+    const [listBtn, gridBtn] = toggle.shadowRoot.querySelectorAll('button');
+    gridBtn.click();
     await el.updateComplete;
+    await toggle.updateComplete;
+
+    expect(gridBtn.getAttribute('aria-pressed')).to.equal('true');
+    expect(listBtn.getAttribute('aria-pressed')).to.equal('false');
 
     expect(root.querySelector('.items.grid') !== null).to.equal(true);
     expect(root.querySelector('.items.list') === null).to.equal(true);

@@ -48,8 +48,8 @@ export function filterByCategory({ items, filter = ALL_FILTER.value }) {
 
 export const SORT_OPTIONS = [{ id: 'name', label: 'Name' }, { id: 'newest', label: 'Newest' }];
 
-export function searchItems({ items, query = '' }) {
-  const needle = query.trim().toLowerCase();
+export function searchItems({ items, query }) {
+  const needle = (query ?? '').trim().toLowerCase();
   if (!needle) return items;
   return items.filter(({ title = '', description = '' }) => (
     title.toLowerCase().includes(needle) || description.toLowerCase().includes(needle)));
