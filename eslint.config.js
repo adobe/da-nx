@@ -79,7 +79,7 @@ export default defineConfig([
   test,
   {
     // Allow console in test files
-    files: ['test/**/*.js', 'nx2/test/**/*.js'],
+    files: ['test/**/*.js'],
     rules: {
       'max-classes-per-file': 0,
       'no-console': 'off',

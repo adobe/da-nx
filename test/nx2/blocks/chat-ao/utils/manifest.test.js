@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import { fetchResolvedManifestId, resolveManifestId } from '../../../../../nx2/blocks/chat-ao/utils/manifest.js';
 import { AO_MANIFEST_ID } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { AO_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/coworker/constants.js';
-import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
+import { resetMockIms, setMockIms } from '../../../mocks/ims.js';
 
 const projectedProductContext = (tenantId) => [{ prodCtx: { owningEntity: tenantId } }];
 const cacheKey = (tenantId, userId) => `da-chat-ao-resolved-manifest--${tenantId}--${userId}`;

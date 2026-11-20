@@ -5,7 +5,7 @@ import BaseChatController from '../../../../nx2/blocks/chat-ao/base-chat-control
 import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker-chat-controller.js';
 import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
 import { AO_EVENT, AO_FRAME } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
-import { setMockIms, resetMockIms } from '../../../../nx2/test/mocks/ims.js';
+import { setMockIms, resetMockIms } from '../../mocks/ims.js';
 import { REQUIRED_SERVICE_CODES } from '../../../../nx2/utils/entitlement.js';
 
 await setConfig({ hostnames: [] });

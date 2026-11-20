@@ -3,7 +3,7 @@ import { checkCoworkerAccess } from '../../../../../nx2/blocks/chat-ao/coworker/
 import {
   resolveCoworkerAccessBase, resolveAoHttpBase,
 } from '../../../../../nx2/blocks/chat-ao/coworker/endpoints.js';
-import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
+import { resetMockIms, setMockIms } from '../../../mocks/ims.js';
 
 const orgId = 'selected@AdobeOrg';
 const uri = `/orgs/${orgId}/apps/coworker/chat/*`;

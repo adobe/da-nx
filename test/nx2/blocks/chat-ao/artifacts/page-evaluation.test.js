@@ -3,7 +3,7 @@ import { render } from 'da-lit';
 import { renderUiArtifact } from '../../../../../nx2/blocks/chat-ao/artifacts/index.js';
 import { buildSuggestionPrompt } from '../../../../../nx2/blocks/chat-ao/artifacts/page-evaluation.js';
 import { PANEL_EVENT } from '../../../../../nx2/utils/panel.js';
-import { installFetch, restoreFetch } from '../../../../../nx2/test/mocks/fetch.js';
+import { installFetch, restoreFetch } from '../../../mocks/fetch.js';
 
 async function waitUntil(predicate, timeout = 2000) {
   const start = Date.now();
