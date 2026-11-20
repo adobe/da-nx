@@ -66,6 +66,15 @@ export const aem = {
 
   publish: withArgs(({ org, site, path, forceUpdate }) => callPath({
     api: 'live', org, site, path, method: 'POST', forceUpdate,
+  }).then((resp) => {
+    // EXPERIMENTAL: trigger a structured content reindex on successful publish (opt-in via
+    // config). Fire-and-forget: errors are ignored and never affect publish.
+    if (resp?.ok) {
+      import('./sc-reindex.js')
+        .then((m) => m.notifyScReindex({ org, site, paths: [path].flat() }))
+        .catch(() => {});
+    }
+    return resp;
   })),
 
   unPublish: withArgs(({ org, site, path }) => callPath({
