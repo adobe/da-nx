@@ -10,6 +10,13 @@ import { normalizePath } from './parse-utils.js';
 import { canonicalizeMediaUrl } from '../core/urls.js';
 
 /**
+ * True for a medialog entry of an image on a saved page that may not be previewed yet.
+ */
+export function isSourcePageEntry(entry) {
+  return entry?.stage === 'source' && !!entry.resourcePath;
+}
+
+/**
  * Copies canonical display/timestamp metadata from source to target.
  */
 function copyCanonicalMetadataFields(target, source) {
@@ -26,7 +33,7 @@ export function buildCanonicalTimestampMap(medialogEntries) {
   const entriesByHash = new Map();
   medialogEntries.forEach((entry) => {
     const hash = entry.mediaHash;
-    if (!hash) return;
+    if (!hash || (entry.operation === 'unlink' && isSourcePageEntry(entry))) return;
     if (!entriesByHash.has(hash)) {
       entriesByHash.set(hash, []);
     }
@@ -57,6 +64,7 @@ export function buildPageMediaFromMedialog(
   const standaloneBuffer = [];
 
   medialogEntries.forEach((media) => {
+    if (isSourcePageEntry(media)) return;
     if (media.originalFilename && !media.resourcePath) {
       standaloneBuffer.push(media);
       return;
@@ -129,7 +137,7 @@ export function mergeMedialogChunkIntoMap(
   );
 
   entries.forEach((media) => {
-    if (!media?.path) return;
+    if (!media?.path || isSourcePageEntry(media)) return;
     if (media.resourcePath && !isUnderPath(normalizePath(media.resourcePath))) return;
 
     const key = getDedupeKey(media.path);
@@ -263,7 +271,8 @@ export function removeOrOrphanMedia(idx, entry, path, medialog) {
   const i = idx.findIndex((e) => e.hash === entry.hash && e.doc === path);
   if (i === -1) return 0;
   const { hash } = entry;
-  const hasUnlink = medialog.some((m) => m.mediaHash === hash && (m.operation === 'unlink' || m.operation === 'delete'));
+  const hasUnlink = medialog.some((m) => m.mediaHash === hash && !isSourcePageEntry(m)
+    && (m.operation === 'unlink' || m.operation === 'delete'));
   idx.splice(i, 1);
   const stillHasEntry = idx.some((e) => e.hash === hash);
   const alreadyOrphan = idx.some((e) => e.hash === hash && !e.doc);
@@ -320,7 +329,9 @@ export function processPageMediaUpdates(
     // because they're never in medialog - they come from markdown parsing
     const oldMedialogHashes = new Set();
     oldHashes.forEach((hash) => {
-      const entry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
+      const entry = updatedIndex.find(
+        (e) => e.hash === hash && e.doc === normalizedPath && e.stage !== 'source',
+      );
       if (entry) {
         const op = entry.operation || entry.source;
         const isFromMedialog = op !== 'extlinks-parsed' && op !== 'markdown-parsed' && op !== 'auditlog-parsed';
@@ -382,6 +393,100 @@ export function processPageMediaUpdates(
   });
 
   return { added, removed };
+}
+
+function getNewestByPage(entries) {
+  const byPage = new Map();
+  entries.forEach((entry) => {
+    const page = normalizePath(entry.resourcePath);
+    const newest = byPage.get(page);
+    if (!newest || entry.timestamp > newest.timestamp) {
+      byPage.set(page, { timestamp: entry.timestamp, entries: [entry] });
+    } else if (entry.timestamp === newest.timestamp) {
+      newest.entries.push(entry);
+    }
+  });
+  return byPage;
+}
+
+/**
+ * Adds and replaces the rows of images on saved pages that are not previewed yet.
+ * See docs/media-library-source-stage.md.
+ */
+export function processSourceMediaUpdates({
+  index,
+  medialog,
+  org,
+  repo,
+  existingIndex = new Map(),
+  canonicalTimestamps = new Map(),
+}) {
+  const sourceEntries = medialog.filter(isSourcePageEntry);
+  const logged = sourceEntries.filter((e) => e.operation !== 'unlink');
+  const saves = getNewestByPage(sourceEntries);
+  const previews = getNewestByPage(medialog.filter((e) => e.resourcePath && !isSourcePageEntry(e)));
+  const pages = new Map([...saves.keys(), ...previews.keys()].map((page) => {
+    const previewedAt = previews.get(page)?.timestamp ?? 0;
+    const save = saves.get(page);
+    return [page, { previewedAt, save: save?.timestamp > previewedAt ? save : null }];
+  }));
+
+  const originals = new Map();
+  const newestByHash = new Map();
+  logged.forEach((e) => {
+    if (e.originalFilename) originals.set(e.mediaHash, e.originalFilename);
+    const newest = newestByHash.get(e.mediaHash);
+    if (!newest || e.timestamp > newest.timestamp) newestByHash.set(e.mediaHash, e);
+  });
+  const toRow = (media, doc) => {
+    const url = canonicalizeMediaUrl(media.path, org, repo);
+    const existingMeta = existingIndex.get(getDedupeKey(url));
+    const originalFilename = media.originalFilename || originals.get(media.mediaHash)
+      || existingMeta?.originalPath || undefined;
+    return createMedialogEntry({ ...media, originalFilename }, {
+      doc,
+      existingMeta,
+      org,
+      repo,
+      canonicalModifiedTimestamp: canonicalTimestamps.get(media.mediaHash),
+    });
+  };
+
+  const isReplaced = (row) => {
+    const page = row.stage === 'source' && pages.get(row.doc);
+    return !!page && (!!page.save || row.timestamp <= page.previewedAt);
+  };
+  const replaced = index.filter(isReplaced);
+  const kept = index.filter((row) => !isReplaced(row));
+  index.length = 0;
+  kept.forEach((row) => index.push(row));
+
+  const previewed = new Set(index
+    .filter((row) => row.doc && row.stage !== 'source')
+    .map((row) => `${row.hash}|${row.doc}`));
+  const newRows = [...pages].flatMap(([doc, { save }]) => (save?.entries ?? [])
+    .filter((media) => media.operation !== 'unlink')
+    .map((media) => ({ ...toRow(media, doc), stage: 'source' }))
+    .filter((row) => {
+      const key = `${row.hash}|${row.doc}`;
+      if (previewed.has(key)) return false;
+      previewed.add(key);
+      return true;
+    }));
+  newRows.forEach((row) => index.push(row));
+
+  const known = new Set(index.map(({ hash }) => hash));
+  const unusedRows = [
+    ...replaced,
+    ...[...newestByHash.values()].map((media) => toRow(media, '')),
+  ].filter((row) => {
+    if (known.has(row.hash)) return false;
+    known.add(row.hash);
+    return true;
+  });
+  unusedRows.forEach(({ stage: _, ...row }) => index.push({ ...row, doc: '' }));
+
+  return { added: newRows.length + unusedRows.length, removed: replaced.length };
 }
 
 /**

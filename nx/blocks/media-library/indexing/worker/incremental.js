@@ -23,9 +23,11 @@ import {
 } from './linked-content.js';
 import {
   buildCanonicalTimestampMap,
+  isSourcePageEntry,
   mergeMedialogChunkIntoMap,
   removeOrOrphanMedia,
   processPageMediaUpdates,
+  processSourceMediaUpdates,
   processStandaloneUploads,
 } from '../medialog.js';
 import {
@@ -348,17 +350,18 @@ export async function buildIncrementalIndex(
 
   const canonicalTimestamps = buildCanonicalTimestampMap(medialogScoped);
 
-  let cleanedMedialog = medialogScoped;
-  if (pages.length > 0 && medialogScoped.length > 0) {
+  const previewMedialog = medialogScoped.filter((m) => !isSourcePageEntry(m));
+  let cleanedMedialog = previewMedialog;
+  if (pages.length > 0 && previewMedialog.length > 0) {
     const latestTimestampByPage = new Map();
-    medialogScoped.forEach((entry) => {
+    previewMedialog.forEach((entry) => {
       if (!entry.resourcePath) return;
       const page = normalizePath(entry.resourcePath);
       const current = latestTimestampByPage.get(page) || 0;
       latestTimestampByPage.set(page, Math.max(current, entry.timestamp));
     });
 
-    cleanedMedialog = medialogScoped.filter((entry) => {
+    cleanedMedialog = previewMedialog.filter((entry) => {
       if (!entry.resourcePath) return true;
       const page = normalizePath(entry.resourcePath);
       const latestTimestamp = latestTimestampByPage.get(page);
@@ -469,7 +472,8 @@ export async function buildIncrementalIndex(
     updatedIndex.forEach((entry) => {
       const op = entry.operation || entry.source;
       const isExternalMedia = op === 'extlinks-parsed' || op === 'markdown-parsed';
-      const isImage = (entry.type === 'image' || entry.type === 'video') && !isExternalMedia;
+      const isImage = (entry.type === 'image' || entry.type === 'video') && !isExternalMedia
+        && entry.stage !== 'source';
       if (isImage) totalImageEntries += 1;
 
       const hasDoc = entry.doc && entry.doc !== '';
@@ -513,6 +517,17 @@ export async function buildIncrementalIndex(
       imagePathsInMarkdown: imageToPages.size,
     };
   }
+
+  const sourceResults = processSourceMediaUpdates({
+    index: updatedIndex,
+    medialog: medialogScoped,
+    org,
+    repo,
+    existingIndex: existingIndexMap,
+    canonicalTimestamps,
+  });
+  added += sourceResults.added;
+  removed += sourceResults.removed;
 
   onProgress({
     stage: 'processing',

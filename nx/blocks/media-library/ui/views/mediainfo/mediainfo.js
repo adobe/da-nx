@@ -1142,6 +1142,7 @@ class NxMediaInfo extends LitElement {
             </svg>
             Document
           </button>
+          ${usage.stage === 'source' ? '' : html`
           <button type="button" size="small" class="icon-button preview-button" @click=${() => this.handleDocumentAction(usage.doc, 'preview')} title="View document">
             <svg class="icon" viewBox="0 0 22 20">
               <use href="#S2_Icon_AdobeExpressSolid_20_N"></use>
@@ -1154,6 +1155,7 @@ class NxMediaInfo extends LitElement {
             </svg>
             Publish
           </button>
+          `}
         </div>
       `;
     }
@@ -1243,6 +1245,7 @@ class NxMediaInfo extends LitElement {
                 <div class="document-heading">
                   <div class="document-path">
                     <p class="usage-path">${formatDocPath(doc)}</p>
+                    ${usages.every((usage) => usage.stage === 'source') ? html`<span class="usage-stage">Not previewed</span>` : ''}
                     <button
                       type="button"
                       size="small"
