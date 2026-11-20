@@ -162,7 +162,7 @@ describe('nx-marketplace', () => {
 
     const menu = full.querySelector('nx-menu');
     expect(menu.items.map(({ id, label, href }) => ({ id, label, href }))).to.deep.equal([
-      { id: 'learn', label: 'Learn more', href: 'https://example.com/a' },
+      { id: 'details', label: 'View details', href: 'https://example.com/a' },
       { id: 'try', label: 'Try out', href: 'https://example.com/try' },
     ]);
     const trigger = menu.querySelector('button[slot="trigger"]');
@@ -246,7 +246,7 @@ describe('nx-marketplace', () => {
     const titles = () => [...el.shadowRoot.querySelectorAll('.card h3')].map((h) => h.textContent);
     const control = el.shadowRoot.querySelector('nx-segmented-btn');
     expect(control.items.map(({ label }) => label))
-      .to.deep.equal(['All', 'Core', 'Extension', 'Other']);
+      .to.deep.equal(['All Types', 'Core', 'Extension', 'Other']);
     expect(control.value).to.equal('all');
     expect(titles()).to.deep.equal(['Core App', 'Ext App', 'Other App']);
 

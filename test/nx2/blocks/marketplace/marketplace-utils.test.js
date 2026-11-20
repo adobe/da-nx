@@ -6,6 +6,10 @@ import {
   filterByCategory,
   getCategoryFilters,
   getActions,
+  searchItems,
+  sortItems,
+  getVisibleItems,
+  SORT_OPTIONS,
 } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
 
 const origin = 'https://main--da-live--adobe.aem.page';
@@ -26,6 +30,7 @@ describe('normalizeItem', () => {
       Owner: ' Adobe ',
       Category: ' Core ',
       Logo: 'https://example.com/t.png',
+      Date: ' 2026-11-03 ',
     };
     expect(normalizeItem({ row, origin })).to.deep.equal({
       title: 'MSM',
@@ -34,6 +39,7 @@ describe('normalizeItem', () => {
       tryHref: 'https://da.live/app/x/msm',
       category: 'Core',
       iconHref: 'https://example.com/t.png',
+      date: '2026-11-03',
     });
   });
 
@@ -100,6 +106,7 @@ describe('normalizeItem', () => {
     const result = normalizeItem({ row, origin });
     expect(result.description).to.equal('');
     expect(result.category).to.equal('');
+    expect(result.date).to.equal('');
   });
 
   it('ignores the Type column', () => {
@@ -109,16 +116,16 @@ describe('normalizeItem', () => {
 });
 
 describe('getActions', () => {
-  it('returns learn more and try out in order', () => {
+  it('returns view details and try out in order', () => {
     const actions = getActions({ docHref: 'https://example.com/a', tryHref: 'https://example.com/t' });
     expect(actions).to.deep.equal([
-      { id: 'learn', label: 'Learn more', href: 'https://example.com/a' },
+      { id: 'details', label: 'View details', href: 'https://example.com/a' },
       { id: 'try', label: 'Try out', href: 'https://example.com/t' },
     ]);
   });
 
   it('omits actions without a url', () => {
-    expect(getActions({ docHref: 'https://example.com/a' }).map(({ id }) => id)).to.deep.equal(['learn']);
+    expect(getActions({ docHref: 'https://example.com/a' }).map(({ id }) => id)).to.deep.equal(['details']);
     expect(getActions({ tryHref: 'https://example.com/t' }).map(({ id }) => id)).to.deep.equal(['try']);
   });
 });
@@ -152,7 +159,7 @@ describe('getCategoryFilters', () => {
       { category: 'Extension' }, { category: 'Core' }, { category: 'extension' }, { category: 'Beta' },
     ];
     expect(getCategoryFilters(items)).to.deep.equal([
-      { value: 'all', label: 'All' },
+      { value: 'all', label: 'All Types' },
       { value: 'extension', label: 'Extension' },
       { value: 'core', label: 'Core' },
       { value: 'beta', label: 'Beta' },
@@ -165,8 +172,75 @@ describe('getCategoryFilters', () => {
   });
 
   it('returns only All without items', () => {
-    expect(getCategoryFilters([])).to.deep.equal([{ value: 'all', label: 'All' }]);
-    expect(getCategoryFilters()).to.deep.equal([{ value: 'all', label: 'All' }]);
+    expect(getCategoryFilters([])).to.deep.equal([{ value: 'all', label: 'All Types' }]);
+    expect(getCategoryFilters()).to.deep.equal([{ value: 'all', label: 'All Types' }]);
+  });
+});
+
+describe('SORT_OPTIONS', () => {
+  it('lists name and newest', () => {
+    expect(SORT_OPTIONS).to.deep.equal([{ id: 'name', label: 'Name' }, { id: 'newest', label: 'Newest' }]);
+  });
+});
+
+describe('searchItems', () => {
+  const items = [
+    { title: 'Anchor Links', description: 'Jump' },
+    { title: 'Tabs', description: 'Tabbed sections' },
+  ];
+
+  it('matches title, trimmed and case-insensitive', () => {
+    expect(searchItems({ items, query: '  ANCHOR ' })).to.deep.equal([items[0]]);
+  });
+
+  it('matches description', () => {
+    expect(searchItems({ items, query: 'sections' })).to.deep.equal([items[1]]);
+  });
+
+  it('returns the same array for an empty query', () => {
+    expect(searchItems({ items, query: '' })).to.equal(items);
+    expect(searchItems({ items, query: '   ' })).to.equal(items);
+  });
+
+  it('returns [] without a match', () => {
+    expect(searchItems({ items, query: 'zzz' })).to.deep.equal([]);
+  });
+});
+
+describe('sortItems', () => {
+  const titles = (list) => list.map(({ title }) => title);
+
+  it('sorts by name case-insensitively by default', () => {
+    const items = [{ title: 'beta' }, { title: 'Alpha' }, { title: 'gamma' }];
+    expect(titles(sortItems({ items }))).to.deep.equal(['Alpha', 'beta', 'gamma']);
+    expect(titles(sortItems({ items, sort: 'name' }))).to.deep.equal(['Alpha', 'beta', 'gamma']);
+  });
+
+  it('sorts newest first, undated last by title, without mutating', () => {
+    const items = [
+      { title: 'D', date: '2026-10-01' },
+      { title: 'C', date: '' },
+      { title: 'B', date: '2026-11-19' },
+      { title: 'A', date: 'nope' },
+    ];
+    const copy = [...items];
+    expect(titles(sortItems({ items, sort: 'newest' }))).to.deep.equal(['B', 'D', 'A', 'C']);
+    expect(items).to.deep.equal(copy);
+  });
+});
+
+describe('getVisibleItems', () => {
+  it('filters, searches and sorts together', () => {
+    const items = [
+      { title: 'Old ext', description: 'tool', category: 'Extension', date: '2026-01-01' },
+      { title: 'New ext', description: 'tool', category: 'Extension', date: '2026-11-01' },
+      { title: 'Core tool', description: 'tool', category: 'Core', date: '2026-12-01' },
+      { title: 'Other', description: 'x', category: 'Extension', date: '2026-12-01' },
+    ];
+    const result = getVisibleItems({
+      items, filter: 'extension', query: 'tool', sort: 'newest',
+    });
+    expect(result.map(({ title }) => title)).to.deep.equal(['New ext', 'Old ext']);
   });
 });
 
