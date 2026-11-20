@@ -372,7 +372,7 @@ da-palette .da-palette-field {
   z-index: 9998;
 }
 
-.qe-comment-box {
+.qe-comment-overlay .qe-comment-box {
   position: absolute;
   margin: 0;
   padding: 0;
@@ -382,7 +382,7 @@ da-palette .da-palette-field {
   box-sizing: border-box;
 }
 
-.qe-comment-box-text {
+.qe-comment-overlay .qe-comment-box-text {
   --da-comment-bg: var(--comment-highlight-bg);
   --da-comment-border-color: var(--comment-highlight-border);
 
@@ -395,12 +395,12 @@ da-palette .da-palette-field {
   z-index: 2;
 }
 
-.qe-comment-box.is-active {
+.qe-comment-overlay .qe-comment-box.is-active {
   --da-comment-bg: var(--comment-highlight-bg-active);
   --da-comment-border-color: var(--comment-highlight-border-active);
 }
 
-.qe-comment-box-text.is-active {
+.qe-comment-overlay .qe-comment-box-text.is-active {
   background: light-dark(
     color-mix(in srgb, var(--da-comment-bg) 55%, transparent),
     color-mix(in srgb, var(--da-comment-bg) 65%, transparent)
@@ -408,16 +408,16 @@ da-palette .da-palette-field {
   border-bottom-color: var(--da-comment-border-color);
 }
 
-.qe-comment-box-text.is-authored {
+.qe-comment-overlay .qe-comment-box-text.is-authored {
   background: color-mix(in srgb, var(--da-comment-color) 20%, transparent);
   border-bottom-color: var(--da-comment-color);
 }
 
-.qe-comment-box-text.is-authored.is-active {
+.qe-comment-overlay .qe-comment-box-text.is-authored.is-active {
   background: color-mix(in srgb, var(--da-comment-color) 34%, transparent);
 }
 
-.qe-comment-box-anchor-block {
+.qe-comment-overlay .qe-comment-box-anchor-block {
   pointer-events: none;
   z-index: 1;
   background: transparent !important;
@@ -425,11 +425,11 @@ da-palette .da-palette-field {
   outline-offset: 3px;
 }
 
-.qe-comment-box-anchor-block.is-authored {
+.qe-comment-overlay .qe-comment-box-anchor-block.is-authored {
   outline-color: var(--da-comment-color);
 }
 
-.qe-comment-bubble {
+.qe-comment-overlay .qe-comment-bubble {
   position: absolute;
   box-sizing: content-box;
   display: flex;
@@ -437,6 +437,10 @@ da-palette .da-palette-field {
   justify-content: center;
   width: 32px;
   height: 32px;
+  min-width: 0;
+  max-width: none;
+  white-space: nowrap;
+  text-overflow: clip;
   padding: 0;
   margin: 0;
   border: 2px solid #fff;
@@ -456,7 +460,7 @@ da-palette .da-palette-field {
   z-index: 9999;
 }
 
-.qe-comment-bubble:hover {
+.qe-comment-overlay .qe-comment-bubble:hover {
   filter:
     drop-shadow(0 4px 12px rgb(0 0 0 / 8%))
     drop-shadow(0 2px 6px rgb(0 0 0 / 4%))

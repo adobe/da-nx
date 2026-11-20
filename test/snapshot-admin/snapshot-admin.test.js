@@ -95,6 +95,19 @@ describe('NxSnapshotAdmin', () => {
       expect(el._error).to.not.be.undefined;
       expect(el._error.open).to.equal(true);
     });
+
+    it('Clears loading and shows an error when the request rejects', async () => {
+      window.fetch = mockFetch(originalFetch, {
+        'admin.hlx.page/snapshot/': () => Promise.reject(new Error('offline')),
+      });
+
+      el.sitePath = '/my-org/my-site';
+      document.body.appendChild(el);
+      await new Promise((r) => { setTimeout(r, 100); });
+      await el.updateComplete;
+      expect(el._loading).to.equal(false);
+      expect(el._error.message).to.equal('offline');
+    });
   });
 
   describe('handleDelete - edge cases', () => {
@@ -224,7 +237,7 @@ describe('NxSnapshotAdmin', () => {
       document.body.appendChild(el);
       await el.updateComplete;
 
-      const seeAll = el.shadowRoot.querySelector('sl-button[size="small"]');
+      const seeAll = el.shadowRoot.querySelector('.nx-snapshot-see-all');
       expect(seeAll).to.not.be.null;
     });
 
@@ -233,10 +246,10 @@ describe('NxSnapshotAdmin', () => {
       document.body.appendChild(el);
       await el.updateComplete;
 
-      const seeAll = el.shadowRoot.querySelector('sl-button[size="small"]');
+      const seeAll = el.shadowRoot.querySelector('.nx-snapshot-see-all');
       expect(seeAll).to.be.null;
 
-      const buttons = el.shadowRoot.querySelectorAll('sl-button');
+      const buttons = el.shadowRoot.querySelectorAll('button');
       const addBtn = [...buttons].find((b) => b.textContent.includes('Add new'));
       expect(addBtn).to.not.be.null;
     });
@@ -268,6 +281,26 @@ describe('NxSnapshotAdmin', () => {
 
       const h2 = el.shadowRoot.querySelector('h2');
       expect(h2.textContent).to.equal('0 snapshots');
+    });
+
+    it('Shows the empty state only when the site has no snapshots', async () => {
+      el._snapshots = [];
+      document.body.appendChild(el);
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-empty')).to.exist;
+
+      el._snapshots = [{ name: 'snap-1' }];
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-empty')).to.not.exist;
+    });
+
+    it('Shows a loading state instead of the list while fetching', async () => {
+      el._snapshots = [{ name: 'snap-1' }];
+      el._loading = true;
+      document.body.appendChild(el);
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-loading')).to.exist;
+      expect(el.shadowRoot.querySelector('h2')).to.not.exist;
     });
   });
 
