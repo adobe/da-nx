@@ -127,6 +127,22 @@ describe('NxSnapshot', () => {
       expect(el._message.heading).to.equal('Schedule Error');
       expect(posts).to.have.length(0);
     });
+
+    it('Removes every page when the URL list is cleared', async () => {
+      const bulks = [];
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (urlStr.endsWith('/*')) bulks.push(JSON.parse(opts.body));
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement({ basics: { name: 'test-snapshot', open: true } });
+      el._editUrls = true;
+      await el.updateComplete;
+      el.shadowRoot.querySelector('[name="edit-urls"]').value = '';
+      await el.handleSave();
+      expect(bulks).to.deep.equal([{ delete: true, paths: ['/page1'] }]);
+    });
   });
 
   describe('handleSave - schedule failure', () => {

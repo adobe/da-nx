@@ -188,14 +188,12 @@ class NxSnapshot extends LitElement {
   }
 
   async handleEditUrls() {
-    const textUrls = this.getValue('[name="edit-urls"]');
-    if (textUrls) {
-      const currPaths = this._manifest?.resources?.map((res) => res.path) || [];
-      const editedHrefs = textUrls?.split('\n') || [];
-      const result = await updatePaths(this.basics.name, currPaths, editedHrefs);
-      if (result.error) {
-        this._message = { heading: 'Note', message: result.error, open: true };
-      }
+    const textarea = this.shadowRoot.querySelector('[name="edit-urls"]');
+    if (!textarea) return;
+    const currPaths = this._manifest?.resources?.map((res) => res.path) || [];
+    const result = await updatePaths(this.basics.name, currPaths, textarea.value.split('\n'));
+    if (result.error) {
+      this._message = { heading: 'Note', message: result.error, open: true };
     }
   }
 
