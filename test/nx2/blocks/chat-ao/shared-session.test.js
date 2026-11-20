@@ -658,6 +658,54 @@ describe('standalone input and full AO chat sharing', () => {
     expect(full.messages[0].content).to.equal('Configured shared session');
   });
 
+  [false, true].forEach((declined) => {
+    it(`replaces the inline question with its ${declined ? 'declined' : 'answered'} response`, async () => {
+      const [standalone, full] = await pair('coworker');
+      await ready(standalone, full);
+      submit(standalone, 'Ask me');
+      await flush();
+      receive(AO_EVENT.USER_QUESTION, {
+        questions: [{
+          id: 'q1',
+          header: 'Format',
+          question: 'Which format?',
+          required: true,
+          options: [{ label: 'Short' }, { label: 'Long' }],
+        }],
+      });
+      await flush();
+      const log = full.shadowRoot.querySelector('[role="log"]');
+      const card = log.querySelector('nx-question-card');
+      expect(card).to.not.equal(null);
+      await card.updateComplete;
+      expect(full.shadowRoot.querySelector('.chat-form-wrap nx-question-card')).to.equal(null);
+      expect(log.querySelector('.chat-thinking')).to.equal(null);
+      expect(log.querySelector('.chat-waiting').textContent).to.include('Waiting for your response');
+      expect(standalone.blocked).to.equal(true);
+
+      if (declined) {
+        card.shadowRoot.querySelector('button[type="button"]').click();
+      } else {
+        card.shadowRoot.querySelector('input[type="radio"]').click();
+        await card.updateComplete;
+        card.shadowRoot.querySelector('form').requestSubmit();
+      }
+      await flush();
+
+      expect(log.querySelector('nx-question-card')).to.equal(null);
+      expect(log.querySelector('.chat-waiting')).to.equal(null);
+      expect(log.querySelector('.chat-thinking').textContent).to.equal('Thinking...');
+      const response = log.querySelector('.question-response-card');
+      expect(response.querySelector(`.question-response-${declined ? 'declined' : 'answered'}`))
+        .to.not.equal(null);
+      if (!declined) expect(response.textContent).to.include('Short');
+      expect(frameCount(AO_FRAME.QUESTION_RESPONSE)).to.equal(1);
+      const frame = sockets.flatMap((socket) => socket.frames)
+        .find((entry) => entry.type === AO_FRAME.QUESTION_RESPONSE);
+      expect(frame.declined).to.equal(declined);
+    });
+  });
+
   it('shares pending approvals, decisions, new-session and explicit resume with the standalone composer', async () => {
     const [standalone, full] = await pair('coworker');
     await ready(standalone, full);

@@ -1,20 +1,9 @@
-/*
- * Floats over the input the same way chat.js's nx-chat-interaction does: the
- * host is a normal light-DOM child of chat-ao.js's .chat-form-wrap (position:
- * relative), so this positions against it instead of pushing the form down.
- */
 :host {
-  position: absolute;
-  bottom: 10px;
-  left: -4px;
-  right: -4px;
-  z-index: 1;
   display: block;
   font-family: var(--s2-font-family);
 }
 
 .question-card {
-  max-height: 80vh;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -22,15 +11,12 @@
   background-color: var(--s2-gray-25);
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-500);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
 }
 
 .question-body {
   display: flex;
   flex-direction: column;
   gap: var(--s2-spacing-200);
-  overflow-y: auto;
-  min-height: 0;
 }
 
 .question-context {
