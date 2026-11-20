@@ -30,7 +30,7 @@ describe('chat AO input', () => {
     chat._controller = {
       destroy() {},
       reattachIfIdle() {},
-      getSkills: () => ['writeBlog'],
+      getSkills: () => [{ name: 'writeBlog' }],
       sendMessage: (...args) => sent.push(args),
       stop: () => { stopped += 1; },
       warmSession: () => { warmed += 1; },
@@ -54,6 +54,7 @@ describe('chat AO input', () => {
     await chat.updateComplete;
     await chatInput.updateComplete;
     expect(input.disabled).to.be.true;
+    chatInput.shadowRoot.querySelector('.chat-stop').focus();
     chat.thinking = false;
     await chat.updateComplete;
     await chatInput.updateComplete;
@@ -135,12 +136,12 @@ describe('chat AO input', () => {
   it('passes filtered prompts, current skills, and harness appearance to the input', async () => {
     chat._context = { view: 'edit' };
     chat._prompts = [{ area: 'all' }, { area: 'edit' }, { area: 'browse' }];
-    chat._altHarness = true;
+    chat._harness = 'cma';
     chat.requestUpdate();
     await chat.updateComplete;
     await chatInput.updateComplete;
     expect(chatInput.prompts).to.deep.equal([{ area: 'all' }, { area: 'edit' }]);
-    expect(chatInput.getSkills()).to.deep.equal(['writeBlog']);
+    expect(chatInput.getSkills()).to.deep.equal([{ name: 'writeBlog' }]);
     expect(chatInput.shadowRoot.querySelector('.coworker-chat')).to.equal(null);
   });
 

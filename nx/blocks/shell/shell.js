@@ -3,13 +3,12 @@
  * @module shell
  */
 
-import { IMS_ORIGIN, loadIms } from '../../utils/ims.js';
+import { IMS_ORIGIN, loadIms } from '../../../nx2/utils/ims.js';
+import { getConfig, loadStyle } from '../../../nx2/scripts/nx.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { getLivePreviewUrl, livePreviewLogin } from '../../utils/utils.js';
 
 const IMS_DETAILS = await loadIms();
-
-await import('../../public/sl/components.js');
 
 const TRUSTED_ORGS = ['adobe'];
 // Trusted apps keyed by `org/repo`.
@@ -69,37 +68,56 @@ function getUrl(usePreview) {
  * @param {Object} event - Load event object
  * @param {HTMLIFrameElement} event.target - The loaded iframe element
  */
-function handleLoad({ target }) {
+function handleLoad({ target }, panels) {
   const channel = new MessageChannel();
   const { port1, port2 } = channel;
+  const connection = panels?.connect(port1);
+  let disconnected = false;
 
   port1.onmessage = (e) => {
     if (e.data.action === 'setTitle') {
       document.title = e.data.details;
     }
+    connection?.onMessage(e.data);
   };
 
-  const message = {
-    ready: true,
-    token: IMS_DETAILS.accessToken?.token,
-    email: IMS_DETAILS.email,
-    context: getParts(),
-  };
-
-  setTimeout(() => {
-    target.contentWindow.postMessage(message, '*', [port2]);
+  const timer = setTimeout(async () => {
+    try {
+      await panels?.ready();
+      if (disconnected || !target.isConnected) return;
+      target.contentWindow.postMessage({
+        ready: true,
+        token: IMS_DETAILS.accessToken?.token,
+        email: IMS_DETAILS.email,
+        context: getParts(),
+        ...(panels && { capabilities: panels.capabilities }),
+      }, '*', [port2]);
+    } catch (error) {
+      getConfig().log(error);
+    }
   }, 750);
+  return () => {
+    disconnected = true;
+    clearTimeout(timer);
+    connection?.destroy();
+    port1.close();
+    port2.close();
+  };
 }
 
-async function createIframe(el) {
+async function createIframe(el, panels) {
   if (!document.querySelector('header')) document.body.classList.add('no-shell');
   const { org, repo, ref } = getParts();
   // Prefer authenticated preview.da.live; fall back to public aem.live when the
   // user is anonymous or the login handshake fails.
-  const usePreview = ref !== 'local' && await livePreviewLogin(org, repo, ref);
+  const usePreview = ref !== 'local' && await livePreviewLogin(org, repo, ref, IMS_DETAILS);
   const iframe = document.createElement('iframe');
   iframe.setAttribute('allow', 'clipboard-write *');
-  iframe.addEventListener('load', handleLoad);
+  let disconnect;
+  iframe.addEventListener('load', (event) => {
+    disconnect?.();
+    disconnect = handleLoad(event, panels);
+  });
   iframe.src = getUrl(usePreview);
   el.append(iframe);
 }
@@ -120,12 +138,14 @@ function trustApp(org, repo, ref) {
   localStorage.setItem('trustedApps', JSON.stringify(trustedApps));
 }
 
-function showDisclaimer(el) {
+async function showDisclaimer(el, panels) {
+  if (getConfig().nxBase) {
+    await import('../../../nx2/public/sl/components.js');
+  } else {
+    await import('../../public/sl/components.js');
+  }
   const { org, repo, ref, path } = getParts();
   const appName = path.split('/').pop();
-  const devWarning = ref !== 'main'
-    ? `<p><b>Note:</b> You are accessing a development version of the app on branch <b>${ref}</b>.`
-    : '';
   const disclaimer = document.createElement('div');
   disclaimer.classList.add('disclaimer');
   disclaimer.innerHTML = `
@@ -134,9 +154,9 @@ function showDisclaimer(el) {
         <h2>Warning</h2>
         <div>
         </div>
-        <p>You are about to access an app named <b>${appName}</b> hosted by <b>${org}/${repo}</b>.<br>
-        Make sure you trust the host <b>${org}/${repo}</b>. Their app may take any action on your behalf, including <b>deleting content</b> you have access to.</p>
-        ${devWarning}
+        <p>You are about to access an app named <b data-app-name></b> hosted by <b data-app-host></b>.<br>
+        Make sure you trust the host <b data-app-host></b>. Their app may take any action on your behalf, including <b>deleting content</b> you have access to.</p>
+        <p class="development-warning"><b>Note:</b> You are accessing a development version of the app on branch <b data-app-ref></b>.</p>
         <p><b>Are you sure you want to continue?</b></p>
         <div class="nx-button-group">
           <sl-button class="negative outline" name="continue">Continue</sl-button>
@@ -145,10 +165,19 @@ function showDisclaimer(el) {
       </div>
     </sl-dialog>
   `;
+  disclaimer.querySelector('[data-app-name]').textContent = appName;
+  disclaimer.querySelectorAll('[data-app-host]').forEach((host) => {
+    host.textContent = `${org}/${repo}`;
+  });
+  if (ref === 'main') {
+    disclaimer.querySelector('.development-warning').remove();
+  } else {
+    disclaimer.querySelector('[data-app-ref]').textContent = ref;
+  }
   document.body.appendChild(disclaimer);
   disclaimer.querySelector('sl-button[name="continue"]').addEventListener('click', () => {
     trustApp(org, repo, ref);
-    createIframe(el);
+    createIframe(el, panels);
     disclaimer.remove();
   });
   disclaimer.querySelector('sl-button[name="cancel"]').addEventListener('click', () => {
@@ -165,12 +194,21 @@ function showDisclaimer(el) {
  * Initializes the shell by showing a disclaimer, and if approved, creating an iframe
  * @param {HTMLElement} el - The container element for the iframe
  */
-export default function init(el) {
+export default async function init(el) {
   const { org, repo, ref } = getParts();
+  let panels;
+  if (getConfig().nxBase) {
+    const style = await loadStyle(import.meta.url);
+    if (!document.adoptedStyleSheets.includes(style)) {
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
+    }
+    const { setupPanels } = await import('./panels.js');
+    panels = await setupPanels({ org, repo });
+  }
 
   if (isAppTrusted(org, repo, ref)) {
-    createIframe(el);
+    await createIframe(el, panels);
   } else {
-    showDisclaimer(el);
+    await showDisclaimer(el, panels);
   }
 }

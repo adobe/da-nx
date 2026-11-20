@@ -31,9 +31,9 @@ function rowKey(row) {
   return row.children?.[0]?.textContent?.trim().toLowerCase();
 }
 
-export function findMetadataRow(daMetadata) {
+export function findMetadataRow(daMetadata, { metadataKey = LOC_IMAGES_KEY } = {}) {
   if (!daMetadata) return null;
-  return [...daMetadata.children].find((row) => rowKey(row) === LOC_IMAGES_KEY) || null;
+  return [...daMetadata.children].find((row) => rowKey(row) === metadataKey) || null;
 }
 
 export function isEligibleMultimodalImageUrl(src) {
@@ -86,12 +86,12 @@ export function ensureLivePreviewLogin({ org, repo, ref }) {
 }
 
 // Accepts an HTML string or an already-parsed Document (skips re-parsing when the caller has one).
-export function parseSelections(htmlOrDoc) {
+export function parseSelections(htmlOrDoc, { metadataKey = LOC_IMAGES_KEY } = {}) {
   const selections = new Set();
   const doc = parseHtml(htmlOrDoc);
   const daMetadata = doc.querySelector(DA_METADATA_SELECTOR);
   // .content is the raw value node - unlike .text, it isn't lowercased.
-  const metadata = getElementMetadata(daMetadata)[LOC_IMAGES_KEY];
+  const metadata = getElementMetadata(daMetadata)[metadataKey];
   if (!metadata) return selections;
 
   let rows;
@@ -111,7 +111,7 @@ export function parseSelections(htmlOrDoc) {
 }
 
 // Persist [] explicitly: omitting metadata may leave previous selections on the server.
-export function writeSelections(htmlOrDoc, rows) {
+export function writeSelections(htmlOrDoc, rows, { metadataKey = LOC_IMAGES_KEY } = {}) {
   const doc = parseHtml(htmlOrDoc);
   let daMetadata = doc.querySelector(DA_METADATA_SELECTOR);
 
@@ -121,10 +121,10 @@ export function writeSelections(htmlOrDoc, rows) {
     doc.body.append(daMetadata);
   }
 
-  let row = findMetadataRow(daMetadata);
+  let row = findMetadataRow(daMetadata, { metadataKey });
   if (!row) {
     const keyEl = doc.createElement('div');
-    keyEl.textContent = LOC_IMAGES_KEY;
+    keyEl.textContent = metadataKey;
     const valueEl = doc.createElement('div');
     row = doc.createElement('div');
     row.append(keyEl, valueEl);

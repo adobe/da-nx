@@ -1,14 +1,12 @@
-/* global objectHash */
-import { getPathDetails, fetchConfig } from '../utils/utils.js';
+import { hashContent, HASH_LENGTH } from './hashes.js';
 
-import './object_hash.js';
-
-const HASH_LENGTH = 12;
 const MIN_LIST_ITEMS_IN_COMMON = 2;
 const ADDED = 'added';
 const ADDED_TAG = 'da-diff-added';
 const DELETED = 'deleted';
 const DELETED_TAG = 'da-diff-deleted';
+// Matches what the editor saves, so a preview before the page is opened leaves upstream blocks out.
+const DELETED_OPEN = `<${DELETED_TAG} data-mdast="ignore">`;
 const SAME = 'same';
 
 const HLX_AEM_URL_REGEX = /\.hlx\.page\/|\.hlx\.live\/|\.aem\.page\//g;
@@ -134,7 +132,7 @@ function getLists(result) {
 
 function getListHashes(list) {
   return [...list.children].map((child) => {
-    child.hash = objectHash(child.outerHTML);
+    child.hash = hashContent(child.outerHTML);
     return child.hash;
   });
 }
@@ -144,8 +142,14 @@ const listElToBlockMap = (listItems) => [...listItems].map((item) => ({
   block: item,
 }));
 
+function createWrapper(tag) {
+  const wrapper = document.createElement(tag);
+  if (tag === DELETED_TAG) wrapper.setAttribute('data-mdast', 'ignore');
+  return wrapper;
+}
+
 function wrapContentWithElement(targetElement, wrapperElementTag) {
-  const wrapperElement = document.createElement(wrapperElementTag);
+  const wrapperElement = createWrapper(wrapperElementTag);
   while (targetElement.firstChild) {
     wrapperElement.appendChild(targetElement.firstChild);
   }
@@ -195,12 +199,29 @@ function checkLists(res) {
   return result;
 }
 
+const isDeletedItem = (item) => item.type === DELETED;
+
+// When two section breaks are matched, keep the deleted blocks in the section they came from
+function pairSectionBreak(result, i, deletedFirst) {
+  const before = result.slice(0, i);
+  const between = result.slice(i + 1);
+  const deleted = between.filter(isDeletedItem);
+  const others = between.filter((item) => !isDeletedItem(item));
+  const pairedBreak = { ...result[i], type: SAME };
+  return deletedFirst
+    ? [...before, ...others, pairedBreak, ...deleted]
+    : [...before, ...deleted, pairedBreak, ...others];
+}
+
 function addToResult(result, newItem, type) {
   for (let i = 0; i < result.length; i += 1) {
     const resultItem = result[i];
     if (resultItem.hash !== newItem.hash || resultItem.type === SAME) {
       // eslint-disable-next-line no-continue
       continue;
+    }
+    if (newItem.sectionNumber && type !== SAME && resultItem.type !== type) {
+      return pairSectionBreak(result, i, resultItem.type === DELETED);
     }
     if (resultItem.type === DELETED) {
       if (type === ADDED) {
@@ -286,37 +307,77 @@ function groupBlocks(blocks) {
 
 const isNotEmptyParagraphEl = (el) => !(el.nodeName === 'P' && !el.childNodes.length && el.textContent === '');
 
-function getBlockMap(dom) {
+const preText = (el) => (el.matches?.('pre') ? [el] : [...(el.querySelectorAll?.('pre') || [])])
+  .map((pre) => pre.textContent).join('\u0000');
+
+// `smart` (smart-overwrite) needs a lossless block list: every section break, every element, and
+// whitespace inside <pre> counted as content.
+// keepAllBreaks: also keep the breaks of empty sections at the top of the page
+function getBlocks(dom, { smart = false, keepAllBreaks = false } = {}) {
   const sections = [...dom.querySelectorAll('main > div')];
 
   // flatten sections so that they are just dividers between blocks
-  let blocks = sections.reduce((acc, section) => {
-    const sectionBlocks = [...section.children]
+  const blocks = sections.reduce((acc, section, index) => {
+    const sectionBlocks = smart ? [...section.children] : [...section.children]
       .filter(isNotEmptyParagraphEl);
-    const sectionArr = acc.length ? [sectionBlock] : [];
+    const marker = smart
+      ? { ...sectionBlock, openTag: section.cloneNode(false).outerHTML.replace(/<\/div>$/, '') }
+      : sectionBlock;
+    const sectionArr = smart || (keepAllBreaks ? index : acc.length) ? [marker] : [];
     return [...acc, ...sectionArr, ...sectionBlocks];
   }, []);
+  return groupBlocks(blocks);
+}
 
-  blocks = groupBlocks(blocks);
+function hashBlock(block, { smart = false } = {}) {
+  const toHashString = (el) => {
+    const normalized = normalizeHTMLFromElement(el);
+    if (!smart) return normalized;
+    if (el.isSection) return `${normalized}${el.openTag}`;
+    const pre = preText(el);
+    return pre ? `${normalized}${pre}` : normalized;
+  };
+  const stringToHash = Array.isArray(block)
+    ? block.map(toHashString).join('')
+    : toHashString(block);
+  return hashContent(stringToHash);
+}
 
-  return blocks.map((block) => {
-    const stringToHash = Array.isArray(block)
-      ? block.map(normalizeHTMLFromElement).join('')
-      : normalizeHTMLFromElement(block);
-    const hash = objectHash(stringToHash);
-    return { block, hash };
+const countSectionBreaks = (blocks) => blocks.filter((block) => block.isSection).length;
+
+// alignSections: both documents have the same number of section breaks, so they line up in order
+function getBlockMap(blocks, alignSections) {
+  return blocks.map((block, index) => {
+    // Number each section break so the 1st break only matches the 1st break, the 2nd the 2nd, etc.
+    if (block.isSection && alignSections) {
+      const sectionNumber = countSectionBreaks(blocks.slice(0, index + 1));
+      return { block, sectionNumber, hash: hashContent(`${block.outerHTML}-${sectionNumber}`) };
+    }
+    return { block, hash: hashBlock(block) };
   });
 }
 
+// Smart hashes never number section breaks, so adding a section doesn't change other baselines.
+function getSmartBlockMap(dom) {
+  const options = { smart: true };
+  return getBlocks(dom, options).map((block) => ({ block, hash: hashBlock(block, options) }));
+}
+
 function htmldiff(originalDOM, modifiedDOM) {
-  const original = getBlockMap(originalDOM);
-  const modified = getBlockMap(modifiedDOM);
-  const diffArr = blockDiff(original, modified);
+  const originalBlocks = getBlocks(originalDOM, { keepAllBreaks: true });
+  const modifiedBlocks = getBlocks(modifiedDOM, { keepAllBreaks: true });
+  const alignSections = countSectionBreaks(originalBlocks) === countSectionBreaks(modifiedBlocks);
+  const original = alignSections ? originalBlocks : getBlocks(originalDOM);
+  const modified = alignSections ? modifiedBlocks : getBlocks(modifiedDOM);
+  const diffArr = blockDiff(
+    getBlockMap(original, alignSections),
+    getBlockMap(modified, alignSections),
+  );
   return diffArr;
 }
 
 function wrapElement(targetElement, wrapperElementTag) {
-  const wrapperElement = document.createElement(wrapperElementTag);
+  const wrapperElement = createWrapper(wrapperElementTag);
   wrapperElement.appendChild(targetElement);
   return wrapperElement;
 }
@@ -343,7 +404,9 @@ function getGroupInnerHtml(blockGroup, { sectionSeparator = SECTION_DIV_BREAK } 
 function diffEntryNeedsSectionBreakBefore(diff, index) {
   if (index === 0) return false;
   const prev = diff[index - 1];
-  return Boolean(prev && !prev.block?.isSection);
+  // A changed group before this one has already added a break after itself
+  const prevIsChangedGroup = Array.isArray(prev?.block) && prev.type !== SAME;
+  return Boolean(prev && !prev.block?.isSection && !prevIsChangedGroup);
 }
 
 function diffEntryNeedsSectionBreakAfter(diff, index, consumedCount) {
@@ -360,14 +423,14 @@ function appendPairedDiffedBlockGroupsHtml({
   const deletedInner = getGroupInnerHtml(deletedGroup, diffSep);
   addedGroup[0]?.setAttribute(ADDED_TAG, '');
   const addedInner = getGroupInnerHtml(addedGroup, diffSep);
-  return `${htmlText}<${DELETED_TAG}>${deletedInner}</${DELETED_TAG}>${addedInner}`;
+  return `${htmlText}${DELETED_OPEN}${deletedInner}</${DELETED_TAG}>${addedInner}`;
 }
 
 function appendSingleDiffedBlockGroupHtml({ htmlText, type, blockGroup }) {
   const diffSep = { sectionSeparator: DIFF_INNER_SECTION_MARK };
   if (type === DELETED) {
     const inner = getGroupInnerHtml(blockGroup, diffSep);
-    return `${htmlText}<${DELETED_TAG}>${inner}</${DELETED_TAG}>`;
+    return `${htmlText}${DELETED_OPEN}${inner}</${DELETED_TAG}>`;
   }
   blockGroup[0]?.setAttribute(ADDED_TAG, '');
   const inner = getGroupInnerHtml(blockGroup, diffSep);
@@ -381,7 +444,7 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
     let modifiedBlock = item.block;
     const hash = item.hash.substring(0, HASH_LENGTH);
 
-    if (item.block.isSection && i !== 0) {
+    if (item.block.isSection) {
       htmlText += SECTION_DIV_BREAK;
       // eslint-disable-next-line no-continue
       continue;
@@ -453,14 +516,19 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
   return modified;
 }
 
+// List items wrap added content in a <da-diff-added> element instead of using the attribute.
+export const LOC_MARKERS = `${DELETED_TAG}, ${ADDED_TAG}, [${ADDED_TAG}], da-loc-added, da-loc-deleted, [loc-temp-dom]`;
+
+export const isSnapshotPath = (path) => path.includes('/.snapshots/');
+
 // Remove all diff tags - document is updated to only keep local changes, upstream is deleted
 export const removeLocTags = (html) => {
   // TODO: Remove da-loc-deleted once we've migrated all regional edits to the new loc tags
   const locElsToRemove = html.querySelectorAll(`${DELETED_TAG}, [loc-temp-dom], da-loc-deleted`);
   locElsToRemove.forEach((el) => el.remove());
 
-  // Temp code to support old regional edits
-  const daLocAddedEls = html.querySelectorAll('da-loc-added');
+  // Keep added content: old regional edits (da-loc-added) and list items (<li><da-diff-added>)
+  const daLocAddedEls = html.querySelectorAll(`da-loc-added, ${ADDED_TAG}`);
   daLocAddedEls.forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
@@ -476,17 +544,147 @@ export const removeLocTags = (html) => {
   });
 };
 
+const getEquivalentSites = (config) => {
+  const hostnames = findConfigValue(config, 'source.fragment.hostnames')?.split?.(',') || [];
+  return new Set(hostnames.map((hostname) => hostname.split('--')[1]));
+};
+
+const shortHash = (item) => item.hash.substring(0, HASH_LENGTH);
+
+// Like merge, rejections only apply to single upstream blocks (never to groups or list items).
+const isSingleBlock = (block) => !block.isSection && !Array.isArray(block);
+
+// Hashes (and merge's reviewHash, single blocks only) come from a link-normalized copy.
+async function getHashedBlocks(doc, { site, config, withReviewHash = false }) {
+  const options = { smart: true };
+  const normalized = await normalizeLinks(doc.cloneNode(true), site, getEquivalentSites(config));
+  const hashed = getSmartBlockMap(normalized);
+  return getBlocks(doc, options).map((block, idx) => ({
+    block,
+    hash: shortHash(hashed[idx]),
+    ...(withReviewHash && isSingleBlock(block)
+      ? { reviewHash: shortHash({ hash: hashBlock(hashed[idx].block) }) } : {}),
+  }));
+}
+
+const isRejectedBlock = (rejected) => ({ reviewHash }) => !!reviewHash
+  && rejected.includes(reviewHash);
+
+export async function removeRejectedBlocks({
+  doc, rejected = [], site, config,
+}) {
+  const copy = doc.cloneNode(true);
+  if (!rejected.length) return copy;
+  const blocks = await getHashedBlocks(copy, { site, config, withReviewHash: true });
+  blocks.filter(isRejectedBlock(rejected)).forEach(({ block }) => {
+    const section = block.parentElement;
+    block.remove();
+    const emptied = section && !section.children.length && !section.textContent.trim();
+    // The last section stays: a saved empty page still has one.
+    if (emptied && section.parentElement.children.length > 1) section.remove();
+  });
+  return copy;
+}
+
+export async function getBlockHashes({ doc, site, config }) {
+  const blocks = await getHashedBlocks(doc, { site, config });
+  return blocks.map(({ hash }) => hash);
+}
+
+export async function getContentHashes({ doc, site, config }) {
+  const blocks = await getHashedBlocks(doc, { site, config });
+  return blocks.filter(({ block }) => !block.isSection).map(({ hash }) => hash);
+}
+
+const partHtml = (part) => (Array.isArray(part) ? getGroupInnerHtml(part) : part.outerHTML);
+
+// Like merge, each added block (or block group) carries the attribute on its first element.
+const addedHtml = (part) => {
+  const [first, ...rest] = Array.isArray(part) ? part : [part];
+  const added = first.cloneNode(true);
+  added.setAttribute(ADDED_TAG, '');
+  return partHtml([added, ...rest]);
+};
+
+function markedHtml({ parts, mark }) {
+  if (mark !== 'upstream') return parts.map(addedHtml).join('');
+  return `${DELETED_OPEN}${parts.map(partHtml).join('')}</${DELETED_TAG}>`;
+}
+
+const groupMarks = (blocks) => blocks.reduce((groups, entry) => {
+  const prev = groups.at(-1);
+  if (!entry.mark) return [...groups, entry];
+  if (prev?.mark !== entry.mark || prev.group !== entry.group) {
+    return [...groups, { ...entry, parts: [entry.block] }];
+  }
+  return [...groups.slice(0, -1), { ...prev, parts: [...prev.parts, entry.block] }];
+}, []);
+
+function buildHtmlFromBlocks(blocks) {
+  const inner = groupMarks(blocks).reduce((html, { block, mark, parts }, idx) => {
+    if (block.isSection) return `${html}${idx ? '</div>' : ''}${block.openTag || '<div>'}`;
+    if (mark) return `${html}${markedHtml({ parts, mark })}`;
+    if (Array.isArray(block)) {
+      const group = block.map((el) => (el.isSection ? `</div>${el.openTag || '<div>'}` : el.outerHTML));
+      return `${html}${group.join('')}`;
+    }
+    return `${html}${block.outerHTML}`;
+  }, '');
+  return blocks[0]?.block.isSection ? `${inner}</div>` : `<div>${inner}</div>`;
+}
+
+/**
+ * Block-level three-way merge. Applies upstream (source) changes made since the
+ * base to the destination, keeping destination edits. When both sides changed
+ * the same region, the destination wins and the change is counted as skipped, or, when
+ * uncertain, counted in `review` with `da-diff-*` markers in `html`.
+ * @param {Object} params
+ * @param {String[]} params.base ordered block hashes of the source at the last rollout
+ * @param {Document} params.source the current upstream document
+ * @param {Document} params.dest the current destination document
+ * @param {String[]} [params.rejected] block hashes the author rejected in a merge review
+ * @param {String} params.site the DA site, used for link normalization
+ * @param {Object} params.config the translation config (equivalent fragment hostnames)
+ * @returns {Promise<{ html: String, skipped: Number, review: Boolean, removedUpstream: Number,
+ *   reordered: Boolean, swaps: String[], swapsAsBase: String[], sourceHashes: String[] }>}
+ *   sourceHashes is the next baseline. Other fields: see threeWayMerge.
+ */
+export async function smartMerge({
+  base, source, dest, rejected = [], site, config,
+}) {
+  const withReviewHash = rejected.length > 0;
+  const sourceBlocks = await getHashedBlocks(source, { site, config, withReviewHash });
+  const destBlocks = await getHashedBlocks(dest, { site, config });
+  const rejectedBlocks = sourceBlocks.filter(isRejectedBlock(rejected));
+  const { default: threeWayMerge } = await import('./smart-merge.js');
+  const {
+    blocks, skipped, review, removedUpstream, reordered, swaps, swapsAsBase, baseline,
+  } = threeWayMerge({
+    base,
+    source: sourceBlocks,
+    dest: destBlocks,
+    rejected: new Set(rejectedBlocks.map(({ hash }) => hash)),
+  });
+  return {
+    html: buildHtmlFromBlocks(blocks),
+    skipped,
+    review: review > 0,
+    removedUpstream,
+    reordered,
+    swaps,
+    swapsAsBase,
+    sourceHashes: baseline,
+  };
+}
+
 export async function regionalDiff(
   original,
   modified,
   acceptedHashes,
   rejectedHashes,
-  { normalizeImages } = {},
+  { normalizeImages, site, config } = {},
 ) {
-  const { org, site } = getPathDetails();
-  const translateConfig = await fetchConfig(org, site);
-  const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
-  const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
+  const equivalentSites = getEquivalentSites(config);
 
   const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
   const normalizedModified = await normalizeLinks(modified, site, equivalentSites);

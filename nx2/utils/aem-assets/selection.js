@@ -13,7 +13,7 @@
 import { applySiteImageModifiers } from './image-modifiers.js';
 import {
   buildAuthorUrl, buildDeliveryUrl, buildDmUrl,
-  getAssetAlt, getDmApprovalStatus, getScene7PublishStatus,
+  getAssetAlt, getDmApprovalStatus,
 } from './urls.js';
 
 export const MISSING_FORMAT_ERROR_MSG = 'The selected asset has no format and cannot be used.';
@@ -42,25 +42,62 @@ function isApprovedForDelivery(asset) {
   return status === 'approved' && (!activationTarget || activationTarget === 'delivery');
 }
 
-function isPublished(asset) {
-  const scene7Status = getScene7PublishStatus(asset);
-  return !scene7Status || scene7Status === 'PublishComplete';
+function isPublishedToAemPublish(asset) {
+  return (asset.isPublishedToAemPublish ?? asset['aem:published']) === true;
+}
+
+function checkAvailability(asset, repoConfig) {
+  if (repoConfig.tierType !== 'author') {
+    return null;
+  }
+
+  if (repoConfig.isDmEnabled) {
+    return isApprovedForDelivery(asset) ? null : DM_ERROR_MSG;
+  }
+
+  return isPublishedToAemPublish(asset) ? null : PUBLISH_ERROR_MSG;
 }
 
 export function resolveAssetSelection({ asset, repoConfig }) {
-  if (!asset?.['aem:formatName']) return { error: MISSING_FORMAT_ERROR_MSG };
+  if (!asset?.['aem:formatName']) {
+    return { error: MISSING_FORMAT_ERROR_MSG };
+  }
 
-  if (repoConfig.tierType === 'author') {
-    if (repoConfig.isDmEnabled && !isApprovedForDelivery(asset)) {
-      return { error: DM_ERROR_MSG };
-    }
-    if (!repoConfig.isDmEnabled && !isPublished(asset)) return { error: PUBLISH_ERROR_MSG };
+  const error = checkAvailability(asset, repoConfig);
+  if (error) {
+    return { error };
   }
 
   const mimetype = asset.mimetype || asset['dc:format'] || '';
+
   return {
     href: resolveAssetUrl(asset, repoConfig),
     isImage: mimetype.toLowerCase().startsWith('image/'),
     alt: getAssetAlt(asset),
   };
+}
+
+/**
+ * Describes the document node to insert for a selected AEM asset.
+ *
+ * Assets only: file uploads never use this and never set `editAs`. An upload is a DA
+ * media file (a plain image), whatever `imageType` the site has.
+ *
+ * imageType values:
+ * - null: images insert as images, non-images as links.
+ * - 'link': everything inserts as a link.
+ * - 'editable-link': images insert as images flagged `editAs: 'image'`
+ *   (published as links, edited as images); non-images insert as links.
+ *
+ * @returns {{ kind: 'link', href: string }
+ *   | { kind: 'image', attrs: { src: string, alt?: string, editAs?: 'image' } }}
+ */
+export function assetNodeSpec({
+  href, isImage, alt, imageType,
+}) {
+  if (!isImage || imageType === 'link') return { kind: 'link', href };
+  const attrs = { src: href };
+  if (alt) attrs.alt = alt;
+  if (imageType === 'editable-link') attrs.editAs = 'image';
+  return { kind: 'image', attrs };
 }

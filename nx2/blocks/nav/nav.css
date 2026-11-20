@@ -33,6 +33,10 @@
   gap: var(--s2-spacing-100);
 }
 
+.brand-cluster:has(.brand-icon) {
+  gap: var(--s2-spacing-200);
+}
+
 .brand-area {
   flex-shrink: 0;
   display: inline-flex;
@@ -48,6 +52,34 @@
   max-height: var(--s2-nav-height, 56px);
   width: auto;
   flex-shrink: 0;
+}
+
+.brand-area:has(.brand-icon) {
+  gap: var(--s2-spacing-200);
+  padding-inline-start: var(--s2-spacing-200);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-m-bold-font-size);
+  font-weight: var(--s2-component-m-bold-font-weight);
+  line-height: var(--s2-component-m-bold-line-height);
+}
+
+.brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+
+  img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+  }
+}
+
+.brand-label {
+  display: var(--nx-nav-brand-label-display, none);
 }
 
 .site-nav {
@@ -100,14 +132,18 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0;
-    padding: 0;
+    margin: -4px;
+    padding: 4px;
     list-style: none;
     overflow: auto hidden;
   }
 
   li {
     flex-shrink: 0;
+
+    &:has(> nx-siteselector[hidden]) {
+      display: none;
+    }
   }
 
   button {

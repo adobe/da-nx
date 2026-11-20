@@ -1,9 +1,10 @@
 import { hashChange } from './utils.js';
-import { getCoworkerConfig } from './ewFlags.js';
+import { resolveHarness } from './ewFlags.js';
 
 export const CHAT_EVENT = {
   // Chat -> document: notifications chat dispatches when something happened.
   AGENT_CHANGE: 'nx-agent-change',
+  TURN_COMPLETED: 'nx-chat-turn-completed',
   HIGHLIGHT_SELECTION: 'nx-highlight-selection',
 
   // document -> chat: commands other components dispatch for chat to act on.
@@ -11,16 +12,27 @@ export const CHAT_EVENT = {
   SET_PROMPT: 'nx-set-prompt', // see docs/chat-ui-component.md#setting-a-prompt-programmatically
 };
 
+// Href for the ew-extensions skills app (/apps/skills) for an org/site, optional tab.
+export function skillsAppHref({ org, site, tab } = {}) {
+  const url = new URL(window.location.href);
+  url.pathname = '/apps/skills';
+  url.search = tab ? `?tab=${tab}` : '';
+  url.hash = `#/${org}/${site}`;
+  return url.href;
+}
+
 // Dev override, not persisted: ?nx-chat-ao=true forces AO for this load regardless
 // of the org/site's `ew.coworker` flag. Anything else falls through to the flag.
 const AO_CHAT_KEY = 'nx-chat-ao';
 
-async function resolveAoChatConfig() {
+async function resolveAoChatConfig(context) {
   const query = new URLSearchParams(window.location.search).get(AO_CHAT_KEY);
 
-  let state;
-  const unsubscribe = hashChange.subscribe((s) => { state = s; });
-  unsubscribe();
+  let state = context;
+  if (!state) {
+    const unsubscribe = hashChange.subscribe((s) => { state = s; });
+    unsubscribe();
+  }
 
   const { org, site } = state ?? {};
   const key = org && site ? `${org}/${site}` : null;
@@ -28,17 +40,15 @@ async function resolveAoChatConfig() {
     return {
       useAoChat: query === 'true',
       key,
-      altHarness: false,
-      activationKey: null,
+      harness: 'legacy',
     };
   }
 
-  const { enabled, altHarness, activationKey } = await getCoworkerConfig({ org, site });
+  const harness = await resolveHarness({ org, site });
   return {
-    useAoChat: query === 'true' || enabled,
+    useAoChat: query === 'true' || harness !== 'legacy',
     key,
-    altHarness,
-    activationKey,
+    harness,
   };
 }
 
@@ -47,17 +57,12 @@ export async function useAoChat() {
   return enabled;
 }
 
-export async function loadChat() {
-  const {
-    useAoChat: enabled,
-    key,
-    altHarness,
-    activationKey,
-  } = await resolveAoChatConfig();
+export async function loadChat({ context } = {}) {
+  const { useAoChat: enabled, key, harness } = await resolveAoChatConfig(context);
   if (enabled) {
     await import('../blocks/chat-ao/chat-ao.js');
     const chat = document.createElement('nx-chat-ao');
-    chat.harnessConfig = { key, altHarness, activationKey };
+    chat.harnessConfig = { key, harness };
     return chat;
   }
   await import('../blocks/chat/chat.js');

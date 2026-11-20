@@ -1,10 +1,16 @@
 import { AEM_ORIGIN, DA_ORIGIN } from '../../../../nx2/public/utils/constants.js';
 import { daFetch, source } from '../../../../nx2/utils/api.js';
 import { loadIms } from '../../../../nx2/utils/ims.js';
-import { mergeCopy, overwriteCopy } from '../../loc/project/index.js';
+import { createCopy } from '../../../public/loc/copy.js';
 import { Queue } from '../../../../nx2/public/utils/tree.js';
 
 const SNAPSHOT_SCHEDULER_URL = 'https://helix-snapshot-scheduler-prod.adobeaem.workers.dev';
+
+const copy = createCopy({
+  fetch: (url, opts) => daFetch({ url, opts }),
+  daOrigin: DA_ORIGIN,
+  saveSource: source.save,
+});
 
 let org;
 let site;
@@ -137,6 +143,23 @@ export async function deleteSnapshotFiles(name, paths = ['/*']) {
   return { success: true };
 }
 
+async function deleteSchedule(name) {
+  try {
+    const { accessToken } = await loadIms();
+    // daFetch does not send the IMS token to the scheduler, but its DELETE route needs it.
+    const headers = { Authorization: `Bearer ${accessToken?.token}` };
+    const url = `${SNAPSHOT_SCHEDULER_URL}/schedule/snapshot/${org}/${site}/${name}`;
+    const resp = await daFetch({ url, opts: { method: 'DELETE', headers } });
+    if (!resp.ok && resp.status !== 404) {
+      // eslint-disable-next-line no-console
+      console.warn(`Could not remove schedule for snapshot ${name}. Status: ${resp.status}`);
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn(`Could not remove schedule for snapshot ${name}`, error);
+  }
+}
+
 export async function deleteSnapshot(name, paths = []) {
   const result = await deleteSnapshotFiles(name, paths);
   if (!result.success) return result;
@@ -148,6 +171,8 @@ export async function deleteSnapshot(name, paths = []) {
   const opts = { method: 'DELETE' };
   const resp = await daFetch({ url: `${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`, opts });
   if (!resp.ok) return formatError(resp);
+
+  await deleteSchedule(name);
   return { success: true };
 }
 
@@ -223,12 +248,12 @@ export async function copyManifest(name, resources, direction, mode = 'merge') {
       return;
     }
     if (mode === 'overwrite') {
-      await overwriteCopy(url, `Snapshot ${direction}`);
+      await copy.overwriteCopy(url, `Snapshot ${direction}`);
     } else {
       const labels = (direction === 'fork')
         ? { labelLocal: 'Snapshot', labelUpstream: 'Main' }
         : { labelLocal: 'Main', labelUpstream: 'Snapshot' };
-      await mergeCopy(url, `Snapshot ${direction}`, labels);
+      await copy.mergeCopy(url, `Snapshot ${direction}`, labels);
     }
   };
 
@@ -270,9 +295,12 @@ export async function updateSchedule(snapshotId, approved = false) {
     userId: imsProfile?.email,
   };
   const headers = { 'content-type': 'application/json' };
-  const resp = await daFetch({ url: adminURL, opts: { method: 'POST', headers, body: JSON.stringify(body) } });
-  const result = resp.headers.get('X-Error');
-  return { status: resp.status, text: result };
+  try {
+    const resp = await daFetch({ url: adminURL, opts: { method: 'POST', headers, body: JSON.stringify(body) } });
+    return { status: resp.status, text: resp.headers?.get('X-Error') };
+  } catch {
+    return { status: 0 };
+  }
 }
 
 export async function getUserPublishPermission(path = '/') {
