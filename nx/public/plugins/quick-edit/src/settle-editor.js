@@ -2,7 +2,7 @@ import { parseIcons, removeEditorArtifacts } from 'https://da.live/blocks/shared
 import { setRemoteCursors } from './cursors.js';
 import { setupImageDropListeners } from './images.js';
 
-const COPIED_ATTRS = ['data-prose-index', 'data-cursor-remote', 'data-cursor-remote-color'];
+const COPIED_ATTRS = ['data-prose-index', 'data-diff', 'data-cursor-remote', 'data-cursor-remote-color'];
 const INDEX_ATTRS = ['data-prose-index', 'data-image-index', 'data-block-index'];
 const TRANSIENT_CLASSES = ['ProseMirror-selectednode', 'image-uploading', 'image-drop-target'];
 

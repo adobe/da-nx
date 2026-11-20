@@ -52,6 +52,19 @@ describe('quick-edit on-demand editors', () => {
     });
   });
 
+  it('keeps the data-diff marker through editor creation and settling', async () => {
+    ctx.readOnly = true;
+    ctx.partialReload = true;
+    ctx.reload = () => {};
+    const element = document.querySelector('[data-prose-index="1"]');
+    element.setAttribute('data-diff', 'local');
+    setEditorState(1, paragraph('Hello world'), ctx);
+    const editorParent = document.querySelector('.prosemirror-editor');
+    expect(editorParent.getAttribute('data-diff')).to.equal('local');
+    await settleEditor(editorParent, ctx);
+    expect(document.querySelector('p[data-prose-index="1"]').getAttribute('data-diff')).to.equal('local');
+  });
+
   it('does not request an editor on mousedown', () => {
     document.querySelector('[data-prose-index="1"]')
       .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
