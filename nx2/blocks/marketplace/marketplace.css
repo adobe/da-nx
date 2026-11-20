@@ -121,12 +121,14 @@
   width: 64px;
   height: 64px;
   box-sizing: border-box;
-  padding: 11px;
-  border: 1px solid var(--s2-gray-200);
   border-radius: 12px;
-  background-color: var(--s2-gray-75);
   overflow: hidden;
-  object-fit: contain;
+  object-fit: cover;
+}
+
+.item-icon.placeholder {
+  border: 1px solid var(--s2-gray-200);
+  background-color: var(--s2-gray-75);
 }
 
 .content {
