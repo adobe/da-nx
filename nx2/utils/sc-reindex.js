@@ -1,6 +1,6 @@
 import { fetchDaConfigs, getFirstSheet } from './daConfig.js';
 
-export const SC_REINDEX_URL_KEY = 'sc.reindex.url';
+export const SC_REINDEX_URL_KEY = 'sc.graphql.url';
 const MAX_PATHS = 50;
 // Structured content editor routes, e.g. `/form#`, `https://da.live/form#`, `.../sc-editor/form#`.
 const SC_EDITOR = /\/form#$/;
