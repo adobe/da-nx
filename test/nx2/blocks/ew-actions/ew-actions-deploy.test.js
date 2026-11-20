@@ -420,7 +420,12 @@ describe('nx-ew-actions preflight gate (Gate #1)', () => {
 
   describe('publish gate dialog', () => {
     async function publishWith(result) {
-      const el = make({ org: 'org', site: 'site', path: '/page' });
+      const el = make();
+      // _runAemAction bails out for detached elements, so mount it. Set the hash
+      // state afterwards: connecting subscribes to hashChange, which overwrites it.
+      document.body.append(el);
+      el._hashState = { org: 'org', site: 'site', path: '/page' };
+      await el.updateComplete;
       el._enforcePreflight = true;
       el.requestPreflight = async () => result;
       let shown;
@@ -428,6 +433,7 @@ describe('nx-ew-actions preflight gate (Gate #1)', () => {
         shown = { action, message, details };
       };
       await el._runAemAction('publish');
+      el.remove();
       return shown;
     }
 

@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../nx2/scripts/nx.js';
+import { formatLocalDate } from '../../nx/blocks/snapshot-admin/utils/utils.js';
 
 await setConfig({ hostnames: [] });
 await import('../../nx/blocks/snapshot-admin/snapshot-admin.js');
@@ -177,7 +178,8 @@ describe('NxSnapshot', () => {
       mockScheduleFailure([]);
       const el = await createElement({ isRegistered: true, userPermissions: true });
       const input = el.shadowRoot.querySelector('[name="scheduler"]');
-      input.value = future.slice(0, 16);
+      // datetime-local is local time; slicing the UTC ISO string breaks east of UTC.
+      input.value = formatLocalDate(future);
       await el.handleReview('approve');
       await el.updateComplete;
       expect(el._message.heading).to.equal('Schedule Error');

@@ -1,7 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { setConfig } from '../../../nx2/scripts/nx.js';
-import { setMockIms, resetMockIms } from '../mocks/ims.js';
 import {
   SUPPORTED_FILES,
   DA_ADMIN,
@@ -18,6 +17,12 @@ import {
   withSiteHash,
 } from '../../../nx2/utils/utils.js';
 import { daFetch, signout } from '../../../nx2/utils/api.js';
+
+// Runtime-built import so the dev server doesn't append ?wds-import-map=0: the
+// browser importmap then resolves it to the exact URL api.js loads, so both
+// share one mock IMS instance (see test/nx2/utils/api.test.js).
+const imsPath = '../../../nx2/utils/ims.js';
+const { setMockIms, resetMockIms } = await import(imsPath);
 
 // ─── SUPPORTED_FILES ────────────────────────────────────────────────────────
 
@@ -141,13 +146,14 @@ describe('hashChange', () => {
     unsub();
   });
 
-  it('strips /index suffix from hash via replaceState', () => {
+  it('keeps an /index suffix as part of the path', () => {
     window.location.hash = '#/org/site/path/index';
     let result;
     const unsub = hashChange.subscribe((state) => { result = state; });
-    expect(window.location.hash).to.not.include('index');
+    expect(window.location.hash).to.equal('#/org/site/path/index');
     expect(result.org).to.equal('org');
     expect(result.site).to.equal('site');
+    expect(result.path).to.equal('path/index');
     unsub();
   });
 
