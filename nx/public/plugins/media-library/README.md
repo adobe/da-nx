@@ -46,4 +46,4 @@ Register in your DA site config library sheet:
 
 ## Media Library Index
 
-The plugin reads from your site's media library index located at `/.milo/media-library.json`. This index is automatically maintained by the DA media library indexing system and includes all media assets across your site.
+The plugin reads your site's media index from the `/.da/media-insights/` folder (`index-meta.json` and the index files next to it). The DA media library app builds the index the first time it opens a site. Content created before February 2026 needs a bulk index from Adobe; see [Media Library](https://www.aem.live/docs/ew/administering/media-library).
