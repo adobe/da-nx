@@ -230,6 +230,29 @@ export function formatLangs(langs, config) {
   });
 }
 
+export function restoreLangs({ langs, savedLangs }) {
+  if (!savedLangs) return langs;
+  return langs.map((lang) => {
+    const saved = savedLangs.find((entry) => entry.code === lang.code);
+    const activeAction = lang.orderedActions.find((action) => action.value === saved?.action)
+      || lang.orderedActions.find((action) => action.value === 'skip');
+    const locales = Array.isArray(saved?.locales) ? lang.locales?.map((locale) => ({
+      ...locale,
+      active: saved.locales.some(({ code }) => code === locale.code),
+    })) : lang.locales;
+    return { ...lang, activeAction, locales };
+  });
+}
+
+export function restoreOptions({ options, savedOptions, config }) {
+  if (!savedOptions) return options;
+  return DEFAULT_PROPS.reduce((restored, { key, value }) => {
+    const offered = (config[key] || value).split(',').map((item) => item.trim());
+    if (offered.includes(savedOptions[key])) restored[key] = savedOptions[key];
+    return restored;
+  }, { ...options });
+}
+
 export function finalizeOptions(
   config,
   suppliedOptions,

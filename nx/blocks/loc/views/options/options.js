@@ -11,6 +11,8 @@ import {
   getCustomOptions,
   filterLangsBySource,
   getProjectSource,
+  restoreLangs,
+  restoreOptions,
 } from './utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
@@ -58,13 +60,11 @@ class NxLocOptions extends LitElement {
     // Config is all available configs available from the site
     this._siteConfig = config;
 
-    // Site options that can hold current selections
-    this._siteOptions = options;
-
-    // Langs have information inside them
-    this._siteLangs = formatLangs(sheets.languages.data, config);
+    this._siteLangs = formatLangs(sheets.languages.data.map((lang) => ({ ...lang })), config);
 
     this.detectSource({ options, enabled: isSourceDetectEnabled(config['source.language.detect']) });
+    this._siteOptions = restoreOptions({ options, savedOptions: this.project.options, config });
+    this._siteLangs = restoreLangs({ langs: this._siteLangs, savedLangs: this.project.langs });
 
     // Distill down available lang actions into a single list.
     this._actions = getAllActions(this._siteLangs);
@@ -312,7 +312,7 @@ class NxLocOptions extends LitElement {
     return html`
       <div class="nx-loc-fieldgroup">
         <p>${label}</p>
-        <sl-select name="${property}" value="${values[0]}" @change=${this.handleChangeOption}>
+        <sl-select name="${property}" value="${this._siteOptions[property] ?? values[0]}" @change=${this.handleChangeOption}>
           ${values.map((value) => html`<option>${value}</option>`)}
         </sl-select>
       </div>`;
