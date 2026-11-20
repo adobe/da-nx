@@ -322,7 +322,7 @@ export async function buildIncrementalIndex(
   perf.medialog.resourcePathCount = medialogResourcePathCount;
   perf.medialog.standalone = medialogStandaloneCount;
 
-  if (pages.length === 0 && medialogScoped.length === 0) {
+  if (validEntries.length === 0 && medialogScoped.length === 0) {
     perf.indexEntries = existingIndex.length;
     perf.totalDurationMs = Date.now() - t0;
     perf.collectedAt = new Date().toISOString();
