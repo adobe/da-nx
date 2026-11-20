@@ -1,3 +1,25 @@
+# [1.60.0](https://github.com/adobe/da-nx/compare/v1.59.0...v1.60.0) (2026-11-20)
+
+
+### Features
+
+* move chat question card inline ([#1033](https://github.com/adobe/da-nx/issues/1033)) ([27108ee](https://github.com/adobe/da-nx/commit/27108ee2f84b3e90e50e6ce57e1d85b1e70cbb3f))
+
+# [1.59.0](https://github.com/adobe/da-nx/compare/v1.58.1...v1.59.0) (2026-11-20)
+
+
+### Features
+
+* **siteselector:** expose selected site getter ([#1027](https://github.com/adobe/da-nx/issues/1027)) ([8d018f4](https://github.com/adobe/da-nx/commit/8d018f46f2d8ec639ad696e457ebcce6dd42a607))
+
+## [1.58.1](https://github.com/adobe/da-nx/compare/v1.58.0...v1.58.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **loc:** correctly apply DNT content rules ([#733](https://github.com/adobe/da-nx/issues/733)) ([d962deb](https://github.com/adobe/da-nx/commit/d962deb81fcdc1f14f43101575408a97c3b0aca3))
+* **loc:** show GlobalLink error details and record failed submissions ([#824](https://github.com/adobe/da-nx/issues/824)) ([eae84a0](https://github.com/adobe/da-nx/commit/eae84a0e913265451f37d0ed653cb4871d37af8d))
+
 # [1.58.0](https://github.com/adobe/da-nx/compare/v1.57.2...v1.58.0) (2026-11-19)
 
 
