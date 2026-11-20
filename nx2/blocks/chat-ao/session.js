@@ -28,6 +28,7 @@ export function getAoSession({
   let state = { messages: [], loadingEpisode: true };
   let initialized = false;
   let initializing = false;
+  let accessChecked = false;
   let destroyed = false;
   let sending = false;
   const notify = () => subscribers.forEach(({ onUpdate }) => onUpdate(state));
@@ -55,9 +56,13 @@ export function getAoSession({
     initializing = true;
     try {
       controller.setContext(context);
-      if (controller.checkAccess && !await controller.checkAccess()) {
-        publish({ ...state, loadingEpisode: false });
-        return;
+      if (controller.checkAccess) {
+        const allowed = await controller.checkAccess();
+        accessChecked = true;
+        if (!allowed) {
+          publish({ ...state, loadingEpisode: false });
+          return;
+        }
       }
       if (destroyed) return;
       await Promise.all([controller.loadEpisodes(), controller.loadSkills()]);
@@ -100,6 +105,10 @@ export function getAoSession({
     canSend() {
       return !destroyed && initialized && !sending && !state.loadingEpisode
         && !(state.thinking && !state.pendingPlanApproval);
+    },
+    canQueueAutoSend() {
+      return !destroyed && !initialized && !accessChecked
+        && !['denied', 'error'].includes(state.access?.status);
     },
     send({ context: currentContext, args }) {
       if (!session.canSend()) return false;

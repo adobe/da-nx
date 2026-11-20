@@ -204,8 +204,10 @@ describe('standalone input and full AO chat sharing', () => {
     history = [{ id: 'existing', updated_at: new Date().toISOString() }];
     const [standalone, full] = await pair('coworker');
     await flush();
+    expect(standalone.checkVisibility()).to.equal(false);
+    expect(standalone.shadowRoot.querySelector('.chat-status')).to.equal(null);
+    expect(full.shadowRoot.querySelector('.chat-status').textContent).to.include('Checking Coworker access');
     [standalone, full].forEach((chat) => {
-      expect(chat.shadowRoot.querySelector('.chat-status').textContent).to.include('Checking Coworker access');
       expect(input(chat).disabled).to.equal(true);
       expect(composer(chat).shadowRoot.querySelector('.chat-stop').hidden).to.equal(true);
       expect(chat._session.canSend()).to.equal(false);
@@ -218,6 +220,7 @@ describe('standalone input and full AO chat sharing', () => {
     expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
     accessWait.resolve();
     await ready(standalone, full);
+    expect(standalone.checkVisibility()).to.equal(true);
     expect(episodeLoads).to.equal(1);
     expect(skillLoads).to.equal(1);
     expect(input(full).disabled).to.equal(false);
@@ -242,12 +245,14 @@ describe('standalone input and full AO chat sharing', () => {
     history = [{ id: 'existing', updated_at: new Date().toISOString() }];
     const [standalone, full] = await pair('coworker');
     await ready(standalone, full);
+    expect(standalone.checkVisibility()).to.equal(false);
+    expect(standalone.shadowRoot.querySelector('.chat-status')).to.equal(null);
+    const status = full.shadowRoot.querySelector('.chat-status');
+    expect(status.textContent).to.include('Coworker unavailable');
+    expect(status.textContent).to.include('correct user');
+    const action = status.querySelector('button');
+    expect(action.textContent).to.equal('Open Profile');
     [standalone, full].forEach((chat) => {
-      const status = chat.shadowRoot.querySelector('.chat-status');
-      expect(status.textContent).to.include('Coworker unavailable');
-      expect(status.textContent).to.include('correct user');
-      const action = status.querySelector('button');
-      expect(action.textContent).to.equal('Open Profile');
       action.click();
       expect(menu.matches(':popover-open')).to.equal(true);
       expect(profileRoot.activeElement).to.equal(orgButton);
@@ -262,36 +267,112 @@ describe('standalone input and full AO chat sharing', () => {
   });
 
   [false, true].forEach((standalone) => {
-    it(`${standalone ? 'compact' : 'full'}: retries a failed access check and sends the queued draft once`, async () => {
+    const view = standalone ? 'compact' : 'full';
+
+    ['denied', 'error'].forEach((outcome) => {
+      it(`${view}: cancels an initial auto-send on ${outcome} and preserves the draft`, async () => {
+        accessEffect = outcome === 'denied' ? 'deny' : 'permit';
+        accessStatus = outcome === 'error' ? 503 : 200;
+        accessWait = deferred();
+        const chat = await mount({ standalone });
+        await chat.setPrompt('Draft from page A', { autoSend: true });
+        expect(chat._pendingAutoSend).not.to.equal(undefined);
+        accessWait.resolve();
+        await ready(chat);
+        if (standalone) {
+          expect(chat.checkVisibility()).to.equal(false);
+          expect(chat.shadowRoot.querySelector('.chat-status')).to.equal(null);
+        }
+        expect(chat._pendingAutoSend).to.equal(undefined);
+        expect(input(chat).value).to.equal('Draft from page A');
+        expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+        expect(episodeLoads).to.equal(0);
+        expect(skillLoads).to.equal(0);
+        if (outcome === 'denied') {
+          await chat.setPrompt('Unavailable draft', { autoSend: true });
+          expect(chat._pendingAutoSend).to.equal(undefined);
+          expect(input(chat).value).to.equal('Unavailable draft');
+          return;
+        }
+
+        chat.context = { ...chat._context, path: '/page-b' };
+        accessStatus = 200;
+        accessWait = deferred();
+        const retryChat = standalone ? await mount({ context: { path: '/page-b' } }) : chat;
+        await flush();
+        const retry = retryChat.shadowRoot.querySelector('.chat-status button');
+        retry.click();
+        retry.click();
+        await flush();
+        expect(accessChecks).to.equal(2);
+        expect(input(chat).disabled).to.equal(true);
+        if (standalone) expect(chat.checkVisibility()).to.equal(false);
+        accessWait.resolve();
+        await ready(chat);
+        await flush();
+        expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+        expect(input(chat).value).to.equal('Draft from page A');
+        expect(input(chat).disabled).to.equal(false);
+        if (standalone) expect(chat.checkVisibility()).to.equal(true);
+        submit(chat, input(chat).value);
+        await flush();
+        expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+        expect(chat._session.controller._context.path).to.equal('/page-b');
+        expect(input(chat).value).to.equal('');
+      });
+    });
+
+    it(`${view}: never queues new auto-sends while unavailable or retrying access`, async () => {
       accessStatus = 503;
       const chat = await mount({ standalone });
       await ready(chat);
-      const status = chat.shadowRoot.querySelector('.chat-status');
-      expect(status.querySelector('button').textContent).to.equal('Retry');
-      expect(status.textContent).not.to.include('correct user');
-      await chat.setPrompt('Draft waiting for access', { autoSend: true });
-      await flush();
-      expect(episodeLoads).to.equal(0);
-      expect(skillLoads).to.equal(0);
-      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+      await chat.setPrompt('Unavailable draft', { autoSend: true });
+      expect(chat._pendingAutoSend).to.equal(undefined);
+      expect(input(chat).value).to.equal('Unavailable draft');
       accessStatus = 200;
       accessWait = deferred();
       const retryChat = standalone ? await mount() : chat;
+      retryChat.shadowRoot.querySelector('.chat-status button').click();
       await flush();
-      const retry = retryChat.shadowRoot.querySelector('.chat-status button');
-      retry.click();
-      retry.click();
-      await flush();
-      expect(accessChecks).to.equal(2);
-      expect(input(chat).disabled).to.equal(true);
+      await chat.setPrompt('Review after Retry', { autoSend: true });
+      expect(chat._pendingAutoSend).to.equal(undefined);
       accessWait.resolve();
       await ready(chat);
       await flush();
-      expect(episodeLoads).to.equal(2, 'initial history load and new-episode refresh');
+      expect(episodeLoads).to.equal(1);
       expect(skillLoads).to.equal(1);
-      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
-      expect(chat._session.controller._messages.at(-1).content).to.equal('Draft waiting for access');
-      expect(input(chat).value).to.equal('');
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+      expect(input(chat).value).to.equal('Review after Retry');
+      expect(input(chat).disabled).to.equal(false);
+    });
+
+    it(`${view}: cancels a pending access-gated send when only the document changes`, async () => {
+      accessWait = deferred();
+      const chat = await mount({ standalone });
+      await chat.setPrompt('Original document draft', { autoSend: true });
+      const session = chat._session;
+      chat.context = { ...chat._context, path: '/page-b' };
+      accessWait.resolve();
+      await ready(chat);
+      await flush();
+      expect(chat._session).to.equal(session);
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+      expect(input(chat).value).to.equal('Original document draft');
+      expect(input(chat).disabled).to.equal(false);
+    });
+
+    it(`${view}: does not queue a new auto-send once initial access is granted`, async () => {
+      const pending = deferred();
+      patch(BaseChatController.prototype, 'loadSkills', () => pending.promise);
+      const chat = await mount({ standalone });
+      await flush();
+      expect(accessChecks).to.equal(1);
+      expect(chat._session.canSend()).to.equal(false);
+      await chat.setPrompt('Review after startup', { autoSend: true });
+      pending.resolve();
+      await ready(chat);
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+      expect(input(chat).value).to.equal('Review after startup');
     });
   });
 
@@ -311,9 +392,10 @@ describe('standalone input and full AO chat sharing', () => {
 
   it('leaves CMA startup independent of Coworker access', async () => {
     accessEffect = 'deny';
-    const chat = await mount({ harness: 'cma' });
-    await ready(chat);
+    const [standalone, chat] = await pair('cma');
+    await ready(standalone, chat);
     expect(accessChecks).to.equal(0);
+    expect(standalone.checkVisibility()).to.equal(true);
     expect(chat.shadowRoot.querySelector('.chat-status')).to.equal(null);
     expect(input(chat).disabled).to.equal(false);
     submit(chat, 'CMA is unchanged');
@@ -326,7 +408,8 @@ describe('standalone input and full AO chat sharing', () => {
       const view = standalone ? 'compact' : 'full';
       const holdStartup = () => {
         const pending = deferred();
-        patch(BaseChatController.prototype, 'loadSkills', () => pending.promise);
+        if (harness === 'coworker') accessWait = pending;
+        else patch(BaseChatController.prototype, 'loadSkills', () => pending.promise);
         return pending;
       };
       const userFrames = () => sockets.flatMap((socket) => socket.frames)
@@ -737,9 +820,9 @@ describe('standalone input and full AO chat sharing', () => {
       .to.deep.equal(['artifact']);
   });
 
-  it('holds an auto-send prompt received before initialization and sends it once ready', async () => {
+  it('holds an auto-send during the initial access check and sends it once ready', async () => {
     const pending = deferred();
-    patch(CoworkerChatController.prototype, '_fetchEpisodes', () => pending.promise);
+    accessWait = pending;
     const full = await mount();
     await full.setPrompt('Fix this check', { autoSend: true });
     await flush();

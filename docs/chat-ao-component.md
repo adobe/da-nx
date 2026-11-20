@@ -23,14 +23,15 @@ including restored episode history. This applies to both Coworker and CMA,
 in full chat and standalone inputs. Only the latest startup prompt is submitted.
 Manual prompts still prefill immediately without sending.
 
-If `autoSend` arrives before the shared session can accept a message (e.g. the
-chat panel was just opened and episodes are still loading), `nx-chat-ao` fills
+If `autoSend` arrives during the initial Coworker access check or CMA
+initialization, `nx-chat-ao` fills
 the input and submits the draft on the first session update where
 `session.canSend()` is true, instead of dropping the send. Edits made while
 waiting are preserved in that submission. `setPrompt` resolves `true` when the
 prompt is accepted, without waiting for initialization or acknowledging delivery.
 Replacing it with a manual prompt, changing the session scope, or removing the
-input/chat cancels the queued submission. Initialization errors remain visible.
+input/chat cancels the queued submission. Changing documents also cancels it,
+even within the same org/site. Initialization errors remain visible in the full chat panel.
 While a turn is
 running (unless a plan approval is pending) the input is blocked, so the prompt
 is rejected (`setPrompt` resolves `false`): the draft is left untouched, no
@@ -44,12 +45,17 @@ and organization, returning `{ allowed }` or `{ error, status? }`. ACS uses
 the AO region with a VA7 fallback; only production is supported.
 
 Coworker session startup checks access before loading history or skills and
-opening connections. Checking, denied, and verification-error states disable
-the composer; errors offer Retry. The decision is shared by the session's views.
+opening connections. The standalone input stays hidden until access is permitted,
+preserving its draft and attachments. The full panel shows checking, denied, and
+verification-error states with a disabled composer; errors offer Retry.
+The decision is shared by the session's views.
+Auto-send can queue during the initial access check, but not after it completes
+or during Retry. Denials and failed checks cancel queued sends without clearing
+the draft. Retry only checks access; after permission, review the draft and Send.
 Denials offer Open Profile to check the signed-in user and selected Adobe org.
 Switching org reloads the page and checks access again.
-CMA startup is unchanged. Both views use the presentation-only
-`renderChatStatus()` renderer in `shared/chat/status.js`. Default status
+CMA startup is unchanged. The full panel uses the presentation-only
+`renderChatStatus()` renderer in `shared/chat/status/status.js`. Default status
 mapping and wording live in `shared/chat/access.js` for either harness to reuse;
 the ACS request remains Coworker-specific.
 

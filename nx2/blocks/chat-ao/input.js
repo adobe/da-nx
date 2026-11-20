@@ -1,6 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { openProfileMenu } from '../../utils/profile.js';
 import { getConfig } from '../../scripts/nx.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
@@ -8,7 +7,6 @@ import { buildAttachmentItems } from '../shared/chat/files.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
 import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
-import { renderChatStatus, chatStatusStyle } from '../shared/chat/status/status.js';
 import { AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES, ADD_MENU_ITEMS } from './ao-constants.js';
 import { ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { sampleRUM } from '../../deps/rum.js';
@@ -74,6 +72,10 @@ export default class NxAoInput extends LitElement {
 
   _syncSession() {
     if (!this.isConnected) return;
+    if (this._pendingAutoSend && this._pendingAutoSend.documentKey !== this._documentKey) {
+      this._pendingAutoSend = undefined;
+      this._promptRequest = undefined;
+    }
     const { org, site } = this._context ?? {};
     const identity = JSON.stringify([
       org, site, !!this.onSubmit, this.isolated, this._harnessConfig,
@@ -117,6 +119,10 @@ export default class NxAoInput extends LitElement {
         onUpdate: (state) => {
           this.blocked = !!state.thinking && !state.pendingPlanApproval;
           this._access = state.access;
+          if (this._pendingAutoSend && ['denied', 'error'].includes(state.access?.status)) {
+            this._pendingAutoSend = undefined;
+            this._promptRequest = undefined;
+          }
           if (this._pendingAutoSend && this._session.canSend()) {
             this._submitWhenReady(this._pendingAutoSend)
               .catch((error) => showToast({ text: error.message, variant: 'error' }));
@@ -158,11 +164,13 @@ export default class NxAoInput extends LitElement {
   async setPrompt(text, { autoSend = false } = {}) {
     const request = {};
     const sessionRequest = this._sessionRequest;
+    const documentKey = this._documentKey;
     this._promptRequest = request;
     this._pendingAutoSend = undefined;
     await this.updateComplete;
     if (!this.isConnected || this._promptRequest !== request
-      || this._sessionRequest !== sessionRequest || !text) return false;
+      || this._sessionRequest !== sessionRequest
+      || this._documentKey !== documentKey || !text) return false;
     if (this.blocked) {
       showToast({ text: 'Wait for the current response to finish', variant: 'warning' });
       return false;
@@ -174,9 +182,16 @@ export default class NxAoInput extends LitElement {
       return true;
     }
     if (this._standalone) {
-      this._pendingAutoSend = { request, sessionRequest };
-      this._submitWhenReady(this._pendingAutoSend)
-        .catch((error) => showToast({ text: error.message, variant: 'error' }));
+      if (this._session?.canSend()) {
+        this._promptRequest = undefined;
+        this.shadowRoot.querySelector('form').requestSubmit();
+      } else if (!this._session || this._session.canQueueAutoSend()) {
+        this._pendingAutoSend = { request, sessionRequest, documentKey };
+        this._submitWhenReady(this._pendingAutoSend)
+          .catch((error) => showToast({ text: error.message, variant: 'error' }));
+      } else {
+        this._promptRequest = undefined;
+      }
     } else {
       this._promptRequest = undefined;
       this.shadowRoot.querySelector('form').requestSubmit();
@@ -184,12 +199,13 @@ export default class NxAoInput extends LitElement {
     return true;
   }
 
-  async _submitWhenReady({ request, sessionRequest }) {
+  async _submitWhenReady({ request, sessionRequest, documentKey }) {
     await this._sessionReady;
     const session = this._session;
     await session?.ready;
     if (!this.isConnected || this._promptRequest !== request
       || this._sessionRequest !== sessionRequest || this._session !== session
+      || this._documentKey !== documentKey
       || !session?.canSend() || this.blocked) return;
     this._promptRequest = undefined;
     this._pendingAutoSend = undefined;
@@ -198,6 +214,11 @@ export default class NxAoInput extends LitElement {
 
   get _disabled() {
     return this.disabled || !!this._access;
+  }
+
+  get _documentKey() {
+    const { org, site, path } = this._context ?? {};
+    return JSON.stringify([org, site, path]);
   }
 
   openPrompts() {
@@ -211,7 +232,7 @@ export default class NxAoInput extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEvent ??= `nx-ao-input-${crypto.randomUUID()}`;
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle, chatStatusStyle];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle];
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
@@ -250,6 +271,11 @@ export default class NxAoInput extends LitElement {
     this._session = undefined;
     this._sessionIdentity = undefined;
     this._sessionRequest = undefined;
+  }
+
+  willUpdate() {
+    this.toggleAttribute('data-access-unavailable', this._standalone
+      && (!this._session || !!this._access));
   }
 
   updated(changed) {
@@ -355,10 +381,6 @@ export default class NxAoInput extends LitElement {
 
   render() {
     return html`
-      ${this._access ? renderChatStatus({
-      ...this._access,
-      onAction: this._access.status === 'denied' ? openProfileMenu : () => this._session.retryAccess(),
-    }) : nothing}
       <nx-popover class="prompts-popover">
         <nx-prompts .prompts=${this.prompts ?? []} .onSend=${(p) => this.setPrompt(p)}></nx-prompts>
       </nx-popover>

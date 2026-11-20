@@ -82,17 +82,24 @@ export default class NxChatAo extends LitElement {
   async setPrompt(text, { autoSend = false } = {}) {
     const request = {};
     const context = this._context;
+    const documentKey = this._documentKey;
     this._promptRequest = request;
     this._pendingAutoSend = undefined;
     await this.updateComplete;
     if (!this.isConnected || this._promptRequest !== request
-      || this._context !== context) return false;
+      || this._context !== context || this._documentKey !== documentKey) return false;
     const defer = autoSend && !this._canSend;
+    const pending = defer && (!this._session || this._session.canQueueAutoSend())
+      ? {
+        request, context, documentKey, session: this._session,
+      } : undefined;
+    this._pendingAutoSend = pending;
     const accepted = !!(await this._input?.setPrompt(text, { autoSend: autoSend && !defer }));
     if (!this.isConnected || this._promptRequest !== request
-      || this._context !== context) return false;
-    this._pendingAutoSend = accepted && defer
-      ? { request, context, session: this._session } : undefined;
+      || this._context !== context || this._documentKey !== documentKey) return false;
+    if (this._pendingAutoSend === pending) {
+      this._pendingAutoSend = accepted && pending ? { ...pending, accepted: true } : undefined;
+    }
     this._flushPendingAutoSend();
     return accepted;
   }
@@ -101,16 +108,22 @@ export default class NxChatAo extends LitElement {
     return this._session ? this._session.canSend() : !!this._controller;
   }
 
+  get _documentKey() {
+    const { org, site, path } = this._context ?? {};
+    return JSON.stringify([org, site, path]);
+  }
+
   // Submits the draft (not the original text) so edits made while waiting are kept.
   _flushPendingAutoSend() {
     const prompt = this._pendingAutoSend;
     if (!prompt) return;
     if (!this.isConnected || this._promptRequest !== prompt.request
-      || this._context !== prompt.context || (prompt.session && this._session !== prompt.session)) {
+      || this._context !== prompt.context || this._documentKey !== prompt.documentKey
+      || (prompt.session && this._session !== prompt.session)) {
       this._pendingAutoSend = undefined;
       return;
     }
-    if (!this._canSend) return;
+    if (!prompt.accepted || !this._canSend) return;
     this._pendingAutoSend = undefined;
     this._input?.setPrompt(this._input.draft, { autoSend: true })
       .catch((error) => showToast({ text: error.message, variant: 'error' }));
@@ -142,6 +155,7 @@ export default class NxChatAo extends LitElement {
 
   _applyContext(value) {
     this._context = value;
+    this._flushPendingAutoSend();
     this._initController();
     this._loadConfig();
   }
@@ -191,6 +205,10 @@ export default class NxChatAo extends LitElement {
     this.loadingEpisode = loadingEpisode;
     this.staleEpisode = staleEpisode;
     this.access = access;
+    if (this._pendingAutoSend && ['denied', 'error'].includes(access?.status)) {
+      this._pendingAutoSend = undefined;
+      this._promptRequest = undefined;
+    }
     this._flushPendingAutoSend();
   }
 
