@@ -170,11 +170,28 @@ class NxMarketplace extends LitElement {
 
     if (this._items === undefined) {
       return html`
-        <div class="toolbar-skeleton" aria-hidden="true"></div>
+        <div class="toolbar-skeleton" aria-hidden="true">
+          <span class="skeleton-bar"></span>
+          <div class="controls">
+            <span class="skeleton-block"></span>
+            <span class="skeleton-block"></span>
+            <span class="skeleton-block wide"></span>
+          </div>
+        </div>
         <div class="body has-rail">
-          <div class="rail-skeleton" aria-hidden="true"></div>
+          <div class="rail-skeleton" aria-hidden="true">
+            ${[0, 1, 2, 3].map(() => html`<span class="skeleton-bar"></span>`)}
+          </div>
           <ul class="items list loading" role="list" aria-busy="true">
-            ${[0, 1, 2].map(() => html`<li class="item skeleton" aria-hidden="true"></li>`)}
+            ${[0, 1, 2].map(() => html`
+              <li class="item skeleton" aria-hidden="true">
+                <span class="item-icon"></span>
+                <div class="content">
+                  <span class="skeleton-bar"></span>
+                  <span class="skeleton-bar"></span>
+                </div>
+              </li>
+            `)}
           </ul>
         </div>
       `;
