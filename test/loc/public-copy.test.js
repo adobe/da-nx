@@ -144,6 +144,33 @@ describe('Shared loc copy', () => {
     expect(loadConfig.firstCall.args[0]).to.deep.equal({ org: 'target-org', site: 'target-site' });
   });
 
+  it('keeps reviewed content and metadata when it merges the same source again', async () => {
+    const accepted = loc.getDiffHash('<h1>Local</h1>');
+    const rejected = loc.getDiffHash('<h1>Upstream</h1>');
+    const upstream = '<body><main><div><h1 id="upstream">Upstream</h1></div></main></body>';
+    let target = `<body><main><div><h1>Local</h1></div></main><div class="da-metadata">
+      <div><div>acceptedhashes</div><div>${accepted}</div></div>
+      <div><div>acceptedHashes</div><div>0123456789ab</div></div>
+      <div><div>rejectedHashes</div><div>${rejected}</div></div>
+      <div><div>rejectedhashes</div><div>ba9876543210</div></div>
+    </div></body>`;
+    fetch.callsFake(async (href, opts) => {
+      if (opts?.method === 'POST') {
+        if (href.endsWith(`/source${DESTINATION}`)) target = await opts.body.get('data').text();
+        return new Response('{}');
+      }
+      return new Response(href.endsWith(SOURCE) ? upstream : target);
+    });
+
+    await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge');
+    await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge again');
+
+    expect(target).to.include('<main><div><h1>Local</h1></div></main>');
+    expect(target).to.include(`<div><div>acceptedHashes</div><div>${accepted},0123456789ab</div></div>`);
+    expect(target).to.include(`<div><div>rejectedHashes</div><div>${rejected},ba9876543210</div></div>`);
+    expect(target).not.to.match(/acceptedhashes|rejectedhashes|da-diff-/);
+  });
+
   it('rolls out into an existing empty destination without overwriting its metadata', async () => {
     fetch.callsFake(async (href, opts) => {
       if (opts?.method === 'POST') return new Response('{}');
