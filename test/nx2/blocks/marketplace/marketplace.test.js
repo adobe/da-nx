@@ -292,6 +292,36 @@ describe('nx-marketplace', () => {
     expect(el.shadowRoot.querySelectorAll('.item').length).to.equal(3);
   });
 
+  it('toggles between list and grid view', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [
+        { Title: 'A', Description: 'd', 'Doc Url': 'https://example.com/a' },
+        { Title: 'B', Description: 'd', 'Doc Url': 'https://example.com/b' },
+      ],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+    const root = el.shadowRoot;
+
+    expect(root.querySelector('.items.list') !== null).to.equal(true);
+    const toggle = root.querySelector('nx-segmented-btn');
+    expect(toggle).to.not.equal(null);
+    await toggle.updateComplete;
+    const labels = [...toggle.shadowRoot.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'));
+    expect(labels).to.deep.equal(['List view', 'Grid view']);
+
+    toggle.dispatchEvent(new CustomEvent('change', { detail: { value: 'grid' } }));
+    await el.updateComplete;
+
+    expect(root.querySelector('.items.grid') !== null).to.equal(true);
+    expect(root.querySelector('.items.list') === null).to.equal(true);
+    expect(root.querySelectorAll('.item').length).to.equal(2);
+  });
+
   it('shows error message', async () => {
     restoreFetch = installFetch(() => new Response('', { status: 500 }));
     div = document.createElement('div');

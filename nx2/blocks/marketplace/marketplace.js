@@ -19,6 +19,15 @@ const [buttonStyle, style] = await Promise.all([
 
 const SORT_ICON_HREF = `${codeBase}/img/icons/s2-icon-sortdown-20-n.svg#icon`;
 
+const VIEW_ITEMS = [
+  {
+    value: 'list', label: 'List view', icon: `${codeBase}/img/icons/s2-icon-viewlist-20-n.svg`, iconOnly: true,
+  },
+  {
+    value: 'grid', label: 'Grid view', icon: `${codeBase}/img/icons/s2-icon-viewgrid-20-n.svg`, iconOnly: true,
+  },
+];
+
 class NxMarketplace extends LitElement {
   static properties = {
     _items: { state: true },
@@ -109,6 +118,13 @@ class NxMarketplace extends LitElement {
       <header class="toolbar">
         <h2>All Capabilities</h2>
         <div class="controls">
+          <nx-segmented-btn
+            .items=${VIEW_ITEMS}
+            .value=${this._view}
+            label="View"
+            size="m"
+            @change=${({ detail: { value } }) => { this._view = value; }}
+          ></nx-segmented-btn>
           <nx-menu
             .items=${SORT_OPTIONS}
             size="m"
