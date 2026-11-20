@@ -201,6 +201,28 @@ describe('nx-loc-rollout smart overwrite', () => {
     expect(good.rollout.status).to.equal('complete');
   });
 
+  it('keeps both rollout errors and clears only the language that succeeds on retry', async () => {
+    const english = newLang();
+    const french = { ...newLang(), code: 'fr', name: 'French', location: '/langstore/fr' };
+    const el = newRollout('merge', english);
+    el._langs = [english, french];
+    el._sortedLangs = el._langs;
+    sourcePage = undefined;
+
+    await el.handleRolloutGroup({ langs: [english, french] });
+
+    expect(el._errors.map(({ error }) => error)).to.have.lengthOf(2);
+    expect(el._errors[0].error).to.include('/langstore/en/');
+    expect(el._errors[1].error).to.include('/langstore/fr/');
+
+    sourcePage = SOURCE;
+    await el.handleRolloutLang(english);
+
+    expect(english.rollout.status).to.equal('complete');
+    expect(el._errors).to.have.lengthOf(1);
+    expect(el._errors[0].error).to.include('/langstore/fr/');
+  });
+
   it('recovers when reading the language pages fails', async () => {
     siteConfig = OPTED_IN;
     sourcePage = undefined;
