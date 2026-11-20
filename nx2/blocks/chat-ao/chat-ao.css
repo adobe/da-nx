@@ -622,6 +622,37 @@
     padding-bottom: 0;
   }
 
+  .permission-row-details {
+    summary {
+      display: flex;
+      align-items: center;
+      gap: var(--s2-spacing-100);
+      width: fit-content;
+      padding: 0 var(--s2-spacing-100);
+      font-size: var(--s2-body-size-xs);
+      color: var(--s2-gray-700);
+      cursor: pointer;
+      list-style: none;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+    }
+
+    .permission-details-chevron {
+      display: block;
+      width: 10px;
+      height: 10px;
+      flex-shrink: 0;
+      fill: currentcolor;
+      transform: rotate(0deg);
+    }
+
+    &[open] .permission-details-chevron {
+      transform: rotate(90deg);
+    }
+  }
+
   .permission-row-detail {
     display: block;
     font-size: var(--s2-body-size-xs);
