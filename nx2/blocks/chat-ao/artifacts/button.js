@@ -74,7 +74,8 @@ function renderButton({
     return html`<a class=${className} href=${href} target=${openInNewTab ? '_blank' : '_self'}
       rel="noopener noreferrer" aria-label=${ariaLabel ?? nothing} title=${tooltip ?? nothing}>${content}</a>`;
   }
-  const disabled = isDisabled || !action || typeof ctx.onAction !== 'function';
+  const disabled = isDisabled || !action || typeof ctx.onAction !== 'function'
+    || (ctx.actionNames !== undefined && !ctx.actionNames.includes(action.event.name));
   return html`<button class=${className} type="button" ?disabled=${disabled}
     aria-label=${ariaLabel ?? nothing} title=${tooltip ?? nothing}
     @click=${() => {

@@ -147,7 +147,10 @@ describe('episodes.js', () => {
           artifacts: [{
             id: 'a1',
             turn_id: 't1',
-            a2ui_surface: { components: [{ id: 'root', component: 'TableView', columns: [], items: [] }] },
+            a2ui_surface: {
+              components: [{ id: 'root', component: 'TableView', columns: [], items: [] }],
+              data_model: { proposals: { page1: '/org/site/.da/page.html' } },
+            },
             text_fallback: 'a table',
             display_hints: { title: 'Results' },
           }],
@@ -164,6 +167,7 @@ describe('episodes.js', () => {
           uiArtifact: {
             id: 'a1',
             components: [{ id: 'root', component: 'TableView', columns: [], items: [] }],
+            dataModel: { proposals: { page1: '/org/site/.da/page.html' } },
             textFallback: 'a table',
             title: 'Results',
           },

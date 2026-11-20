@@ -444,7 +444,10 @@ describe('ao-controller ui artifacts', () => {
       data: {
         artifact: {
           id: 'artifact-1',
-          a2ui_surface: { components: [{ type: 'Markdown', props: { content: 'hi' } }] },
+          a2ui_surface: {
+            components: [{ type: 'Markdown', props: { content: 'hi' } }],
+            data_model: { proposals: { page1: '/org/site/.da/page.html' } },
+          },
           text_fallback: 'hi',
           display_hints: { title: 'Summary' },
         },
@@ -456,6 +459,7 @@ describe('ao-controller ui artifacts', () => {
       uiArtifact: {
         id: 'artifact-1',
         components: [{ type: 'Markdown', props: { content: 'hi' } }],
+        dataModel: { proposals: { page1: '/org/site/.da/page.html' } },
         textFallback: 'hi',
         title: 'Summary',
       },
