@@ -1,16 +1,19 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { PANEL_EVENT, registerPanelSection } from '../../../../nx2/utils/panel.js';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
 import { calls, installFetch, restoreFetch } from '../../../../nx2/test/mocks/fetch.js';
 
 await setConfig({ hostnames: [] });
 await import('../../../../nx2/blocks/sidenav/sidenav.js');
+const frameStyle = await loadStyle(new URL('../../../../nx2/styles/styles.css', import.meta.url).href);
 
 describe('sidenav chat action', () => {
   let sidenav;
   let main;
   let originalHref;
   let storageDescriptor;
+  let originalStyles;
   let org;
   let checks;
   let siteNumber = 0;
@@ -32,6 +35,8 @@ describe('sidenav chat action', () => {
   };
 
   beforeEach(async () => {
+    originalStyles = document.adoptedStyleSheets;
+    document.adoptedStyleSheets = [...originalStyles, frameStyle];
     storageDescriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
     const storage = new Map();
     Object.defineProperty(window, 'localStorage', {
@@ -61,7 +66,7 @@ describe('sidenav chat action', () => {
       sidenav._navLinks = ['Home', 'Apps'].map((text) => ({
         text,
         href: `${window.location.origin}/${text.toLowerCase()}`,
-        icon: document.createElement('span'),
+        icon: Object.assign(document.createElement('span'), { className: 'icon' }),
       }));
     };
     document.body.append(sidenav);
@@ -76,6 +81,38 @@ describe('sidenav chat action', () => {
     history.replaceState(null, '', originalHref);
     restoreFetch();
     Object.defineProperty(window, 'localStorage', storageDescriptor);
+    document.adoptedStyleSheets = originalStyles;
+  });
+
+  it('shows labels and reflows content alongside the expanded sidenav', async () => {
+    const meta = document.createElement('meta');
+    meta.name = 'template';
+    meta.content = 'app-frame';
+    const nav = document.createElement('nav');
+    document.head.append(meta);
+    document.body.append(nav);
+    nav.append(sidenav);
+    try {
+      await checks.at(-1);
+      await sidenav.updateComplete;
+      const label = sidenav.shadowRoot.querySelector('.label');
+      const collapsedLeft = main.getBoundingClientRect().left;
+      expect(label.getBoundingClientRect().width).to.equal(0);
+      expect(nav.getBoundingClientRect().width).to.equal(56);
+      sidenav.expanded = true;
+      await sidenav.updateComplete;
+      expect(label.getBoundingClientRect().width).to.be.greaterThan(0);
+      expect(nav.getBoundingClientRect().width).to.equal(320);
+      expect(main.getBoundingClientRect().left - collapsedLeft).to.equal(264);
+      sidenav.expanded = false;
+      await sidenav.updateComplete;
+      expect(label.getBoundingClientRect().width).to.equal(0);
+      expect(nav.getBoundingClientRect().width).to.equal(56);
+      expect(main.getBoundingClientRect().left).to.equal(collapsedLeft);
+    } finally {
+      nav.remove();
+      meta.remove();
+    }
   });
 
   it('adds an accessible action above Home only after chat is registered', async () => {
@@ -119,6 +156,16 @@ describe('sidenav chat action', () => {
     await sidenav.updateComplete;
     const button = sidenav.shadowRoot.querySelector('button');
     const home = sidenav.shadowRoot.querySelector('a').closest('li');
+    const getIconStyle = () => {
+      const style = getComputedStyle(button.querySelector('.icon'));
+      return [style.width, style.height, style.backgroundImage, style.color];
+    };
+    const iconStyle = getIconStyle();
+    const { height } = button.getBoundingClientRect();
+    sidenav.expanded = true;
+    await sidenav.updateComplete;
+    expect(getIconStyle()).to.deep.equal(iconStyle);
+    expect(button.getBoundingClientRect().height).to.equal(height);
     expect(home.classList.contains('is-active')).to.equal(true);
     expect(button.getAttribute('aria-expanded')).to.equal('false');
     expect(sidenav._chatPanelState).to.equal('closed');

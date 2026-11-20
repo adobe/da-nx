@@ -6,6 +6,8 @@
     align-items: center;
     color: inherit;
     text-align: center;
+    text-decoration: none;
+    font-family: inherit;
     font-size: 0;
   }
 
@@ -35,6 +37,13 @@
     width: 20px;
     height: 20px;
   }
+
+  .label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .nav-link {
@@ -43,6 +52,7 @@
   }
 
   .icon {
+    flex-shrink: 0;
     position: relative;
     display: flex;
     justify-content: center;
@@ -104,5 +114,24 @@
         opacity: 0.5;
       }
     }
+  }
+}
+
+:host([expanded]) {
+  display: block;
+  box-sizing: border-box;
+  padding-inline: var(--s2-spacing-300);
+
+  a,
+  button {
+    justify-content: flex-start;
+    gap: var(--s2-spacing-100);
+    text-align: start;
+    font-size: var(--s2-component-m-regular-font-size);
+    line-height: var(--s2-component-m-regular-line-height);
+  }
+
+  button {
+    margin: 0;
   }
 }
