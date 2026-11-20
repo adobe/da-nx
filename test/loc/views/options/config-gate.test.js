@@ -64,4 +64,46 @@ describe('NxLocOptions - formatOptions config gate', () => {
     expect(el._siteConfig.service.name).to.equal('google');
     expect(el._siteLangs.map((l) => l.code)).to.deep.equal(['fr']);
   });
+
+  it('restores saved choices after filtering actions for the detected source', async () => {
+    const sheets = {
+      config: {
+        data: [
+          { key: 'translation.service.name', value: 'google' },
+          { key: 'source.language', value: 'Global' },
+          { key: 'source.language.detect', value: 'true' },
+          { key: 'rollout.conflict.behavior', value: 'overwrite, merge' },
+        ],
+      },
+      languages: {
+        data: [
+          { name: 'Global', code: 'en', location: '/global', actions: 'rollout' },
+          { name: 'Europe', code: 'eu', location: '/eu', actions: 'translate, rollout' },
+          {
+            name: 'French', code: 'fr', location: '/fr', source: '/eu', actions: 'translate, rollout', locales: '/fr-fr, /fr-be',
+          },
+        ],
+      },
+    };
+    window.fetch = async () => new Response(JSON.stringify(sheets), { status: 200 });
+    const el = createOptionsEl();
+    Object.assign(el.project, {
+      urls: [{ suppliedPath: '/eu/home' }],
+      detectedSource: { name: 'Europe', code: 'eu', location: '/eu' },
+      options: { 'rollout.conflict.behavior': 'merge', 'translation.service.all.env': 'stage' },
+      langs: [
+        { code: 'eu', action: 'translate' },
+        { code: 'fr', action: 'rollout', locales: [{ code: '/fr-be' }] },
+      ],
+    });
+
+    await el.formatOptions();
+
+    expect(el._siteLangs.map((lang) => [lang.code, lang.activeAction.value]))
+      .to.deep.equal([['eu', 'skip'], ['fr', 'rollout']]);
+    expect(el._options['source.language']).to.deep.equal(el.project.detectedSource);
+    expect(el._options['rollout.conflict.behavior']).to.equal('merge');
+    expect(el._options.service.env).to.equal('stage');
+    expect(el._langs[0].locales).to.deep.equal([{ code: '/fr-be', active: true }]);
+  });
 });
