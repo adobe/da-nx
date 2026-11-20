@@ -216,6 +216,25 @@ describe('google connector - partial failures', () => {
     expect(savedTo(retrySave)).to.deep.equal(['/org/site/fr/page-1.html']);
   });
 
+  it('retries after rollout saves a copy of the project languages', async () => {
+    const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
+    const conf = {
+      org: 'org', site: 'site', path: '/org/site/.da/translation/active/project', langs,
+    };
+    const langsWithUrls = makeLangsWithUrls(['<p>FAIL</p>']);
+    await sendAllLanguages({ ...conf, langsWithUrls, options: {}, actions });
+    langs[0].translation.status = 'error';
+    const updated = { ...langs[0] };
+    window.fetch = async () => new Response(JSON.stringify({ translated: '<p>Bonjour</p>' }));
+
+    await getStatusAll({ ...conf, langs: [updated] });
+
+    expect(updated.translation).to.include({ translated: 1, status: 'translated' });
+    const save = saveFn();
+    await saveItems({ ...conf, lang: updated, saveFn: save });
+    expect(savedTo(save)).to.deep.equal(['/org/site/fr/page-0.html']);
+  });
+
   it('saves each language from its own translations', async () => {
     const langs = [
       { name: 'French', code: 'fr', location: '/fr' },
