@@ -58,15 +58,16 @@ describe('nx-marketplace', () => {
     await el.updateComplete;
 
     expect(el.shadowRoot.querySelector('.loading') !== null).to.equal(true);
-    expect(el.shadowRoot.querySelector('.card:not(.skeleton)') === null).to.equal(true);
+    expect(el.shadowRoot.querySelector('.item:not(.skeleton)') === null).to.equal(true);
   });
 
-  it('renders a card per valid row', async () => {
+  it('renders toolbar with heading and search, and one item per valid row', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         { Title: 'DA Permissions', Description: 'Manage permissions', 'Doc Url': 'https://example.com/a' },
         { Title: '', Description: 'No title', 'Doc Url': 'https://example.com/b' },
         { Title: 'Second Item', Description: 'Second', 'Doc Url': 'https://example.com/c' },
+        { Title: 'Third Item', Description: 'Third', 'Doc Url': 'https://example.com/d' },
       ],
     }));
     div = document.createElement('div');
@@ -76,9 +77,11 @@ describe('nx-marketplace', () => {
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    const cards = el.shadowRoot.querySelectorAll('.card');
-    expect(cards.length).to.equal(2);
-    expect(cards[0].querySelector('h3').textContent).to.equal('DA Permissions');
+    expect(el.shadowRoot.querySelector('.toolbar h2').textContent).to.equal('All Capabilities');
+    expect(el.shadowRoot.querySelector('nx-search').placeholder).to.equal('Search 3 Capabilities');
+    const items = el.shadowRoot.querySelectorAll('.items.list .item');
+    expect(items.length).to.equal(3);
+    expect(items[0].querySelector('h3').textContent).to.equal('DA Permissions');
   });
 
   it('renders icon or placeholder', async () => {
@@ -103,19 +106,19 @@ describe('nx-marketplace', () => {
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    const cards = el.shadowRoot.querySelectorAll('.card');
+    const items = el.shadowRoot.querySelectorAll('.item');
 
-    const img0 = cards[0].querySelector('img.card-icon');
+    const img0 = items[0].querySelector('img.item-icon');
     expect(img0.src).to.equal('https://example.com/t.png');
     expect(img0.alt).to.equal('');
     expect(img0.loading).to.equal('lazy');
-    expect(cards[0].querySelector('.placeholder') === null).to.equal(true);
+    expect(items[0].querySelector('.placeholder') === null).to.equal(true);
 
-    expect(cards[1].querySelector('img') === null).to.equal(true);
-    expect(cards[1].querySelector('.placeholder') !== null).to.equal(true);
+    expect(items[1].querySelector('img') === null).to.equal(true);
+    expect(items[1].querySelector('.placeholder') !== null).to.equal(true);
 
-    expect(cards[2].querySelector('img') === null).to.equal(true);
-    expect(cards[2].querySelector('.placeholder') !== null).to.equal(true);
+    expect(items[2].querySelector('img') === null).to.equal(true);
+    expect(items[2].querySelector('.placeholder') !== null).to.equal(true);
   });
 
   it('falls back to placeholder when the icon fails to load', async () => {
@@ -133,7 +136,7 @@ describe('nx-marketplace', () => {
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    const card = el.shadowRoot.querySelector('.card');
+    const card = el.shadowRoot.querySelector('.item');
     card.querySelector('img').dispatchEvent(new Event('error'));
     await el.updateComplete;
 
@@ -141,13 +144,11 @@ describe('nx-marketplace', () => {
     expect(card.querySelector('.placeholder') !== null).to.equal(true);
   });
 
-  it('puts all actions in a per-card menu and the card itself has no links', async () => {
+  it('renders actions as links and no menu in items', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
-        {
-          Title: 'DA Permissions', Description: 'd', 'Doc Url': 'https://example.com/a', 'Try Url': 'https://example.com/try',
-        },
-        { Title: 'Try Only', Description: 'd', 'Try Url': 'https://example.com/try2' },
+        { Title: 'DA Permissions', Description: 'd', 'Doc Url': 'https://example.com/a', 'Try Url': 'https://example.com/try' },
+        { Title: 'Doc Only', Description: 'd', 'Doc Url': 'https://example.com/b' },
       ],
     }));
     div = document.createElement('div');
@@ -157,42 +158,18 @@ describe('nx-marketplace', () => {
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    const [full, tryOnly] = el.shadowRoot.querySelectorAll('.card');
-    expect(full.querySelectorAll('a').length).to.equal(0);
-
-    const menu = full.querySelector('nx-menu');
-    expect(menu.items.map(({ id, label, href }) => ({ id, label, href }))).to.deep.equal([
-      { id: 'details', label: 'View details', href: 'https://example.com/a' },
-      { id: 'try', label: 'Try out', href: 'https://example.com/try' },
+    const [full, docOnly] = el.shadowRoot.querySelectorAll('.item');
+    const links = [...full.querySelectorAll('.item-actions a')];
+    expect(links.map((a) => [a.textContent.trim(), a.href])).to.deep.equal([
+      ['View details', 'https://example.com/a'],
+      ['Try out', 'https://example.com/try'],
     ]);
-    const trigger = menu.querySelector('button[slot="trigger"]');
-    expect(trigger.getAttribute('aria-label')).to.equal('More actions for DA Permissions');
-
-    expect(tryOnly.querySelector('nx-menu').items.map(({ id }) => id)).to.deep.equal(['try']);
-  });
-
-  it('opens the selected action in a new tab', async () => {
-    restoreFetch = installFetch(() => jsonResponse({
-      data: [{ Title: 'DA Permissions', 'Doc Url': 'https://example.com/a', 'Try Url': 'https://example.com/try' }],
-    }));
-    div = document.createElement('div');
-    document.body.append(div);
-    init(div);
-
-    const el = div.firstElementChild;
-    await waitForLoad(el);
-
-    const origOpen = window.open;
-    const calls = [];
-    window.open = (...args) => { calls.push(args); };
-    try {
-      el.shadowRoot.querySelector('nx-menu')
-        .dispatchEvent(new CustomEvent('select', { detail: { id: 'try' } }));
-    } finally {
-      window.open = origOpen;
-    }
-
-    expect(calls).to.deep.equal([['https://example.com/try', '_blank', 'noopener,noreferrer']]);
+    links.forEach((a) => {
+      expect(a.target).to.equal('_blank');
+      expect(a.rel).to.contain('noopener');
+    });
+    expect(docOnly.querySelectorAll('.item-actions a').length).to.equal(1);
+    expect(el.shadowRoot.querySelector('.item nx-menu') === null).to.equal(true);
   });
 
   it('shows empty message', async () => {
@@ -209,31 +186,12 @@ describe('nx-marketplace', () => {
     expect(empty.textContent).to.equal('No extensions available.');
   });
 
-  it('ignores block options and shows every item', async () => {
+  it('filters by category with the Type rail', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
-        { Title: 'Core App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
-        { Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
-      ],
-    }));
-    div = document.createElement('div');
-    div.className = 'marketplace core';
-    document.body.append(div);
-    init(div);
-
-    const el = div.firstElementChild;
-    await waitForLoad(el);
-
-    const titles = [...el.shadowRoot.querySelectorAll('.card h3')].map((h) => h.textContent);
-    expect(titles).to.deep.equal(['Core App', 'Ext App']);
-  });
-
-  it('filters by category with the segmented control', async () => {
-    restoreFetch = installFetch(() => jsonResponse({
-      data: [
-        { Title: 'Core App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
-        { Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
-        { Title: 'Other App', Category: 'Other', 'Doc Url': 'https://example.com/c' },
+        { Title: 'Core App', Category: 'Core', Date: '2024-01-01', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext App', Category: 'Extension', Date: '2025-01-01', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Other App', Category: 'Other', Date: '2023-01-01', 'Doc Url': 'https://example.com/c' },
       ],
     }));
     div = document.createElement('div');
@@ -243,23 +201,79 @@ describe('nx-marketplace', () => {
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    const titles = () => [...el.shadowRoot.querySelectorAll('.card h3')].map((h) => h.textContent);
-    const control = el.shadowRoot.querySelector('nx-segmented-btn');
-    expect(control.items.map(({ label }) => label))
-      .to.deep.equal(['All Types', 'Core', 'Extension', 'Other']);
-    expect(control.value).to.equal('all');
+    const titles = () => [...el.shadowRoot.querySelectorAll('.item h3')].map((h) => h.textContent);
+    const railItem = (label) => [...el.shadowRoot.querySelectorAll('.rail-item')]
+      .find((b) => b.textContent.trim() === label);
     expect(titles()).to.deep.equal(['Core App', 'Ext App', 'Other App']);
+    expect(railItem('All Types').getAttribute('aria-current')).to.equal('true');
 
-    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'core' } }));
-    await el.updateComplete;
-    expect(titles()).to.deep.equal(['Core App']);
-
-    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'extension' } }));
+    railItem('Extension').click();
     await el.updateComplete;
     expect(titles()).to.deep.equal(['Ext App']);
+    expect(railItem('Extension').getAttribute('aria-current')).to.equal('true');
+    expect(railItem('All Types').getAttribute('aria-current')).to.not.equal('true');
+
+    railItem('All Types').click();
+    await el.updateComplete;
+    expect(titles()).to.deep.equal(['Core App', 'Ext App', 'Other App']);
   });
 
-  it('hides the filter when the sheet has fewer than two categories', async () => {
+  it('searches and shows no-results message', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [
+        { Title: 'Core App', Category: 'Core', Date: '2024-01-01', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext App', Category: 'Extension', Date: '2025-01-01', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Other App', Category: 'Other', Date: '2023-01-01', 'Doc Url': 'https://example.com/c' },
+      ],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    const titles = () => [...el.shadowRoot.querySelectorAll('.item h3')].map((h) => h.textContent);
+    const search = el.shadowRoot.querySelector('nx-search');
+    search.value = 'ext';
+    search.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+    expect(titles()).to.deep.equal(['Ext App']);
+
+    search.value = 'zzz';
+    search.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+    expect(titles()).to.deep.equal([]);
+    expect(el.shadowRoot.querySelector('.no-results').textContent.trim())
+      .to.equal('No capabilities match your search.');
+    expect(el.shadowRoot.querySelector('.empty') === null).to.equal(true);
+  });
+
+  it('sorts by newest via the sort menu', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [
+        { Title: 'Core App', Category: 'Core', Date: '2024-01-01', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext App', Category: 'Extension', Date: '2025-01-01', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Other App', Category: 'Other', Date: '2023-01-01', 'Doc Url': 'https://example.com/c' },
+      ],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    const titles = () => [...el.shadowRoot.querySelectorAll('.item h3')].map((h) => h.textContent);
+    const menu = el.shadowRoot.querySelector('.controls nx-menu');
+    expect(menu.items.map(({ id }) => id)).to.deep.equal(['name', 'newest']);
+    menu.dispatchEvent(new CustomEvent('select', { detail: { id: 'newest' } }));
+    await el.updateComplete;
+    expect(titles()).to.deep.equal(['Ext App', 'Core App', 'Other App']);
+    expect(menu.querySelector('button').textContent).to.contain('Sort by: Newest');
+  });
+
+  it('hides the rail when the sheet has fewer than two categories', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         { Title: 'Ext One', Category: 'Extension', 'Doc Url': 'https://example.com/a' },
@@ -274,8 +288,8 @@ describe('nx-marketplace', () => {
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    expect(el.shadowRoot.querySelector('nx-segmented-btn') === null).to.equal(true);
-    expect(el.shadowRoot.querySelectorAll('.card').length).to.equal(3);
+    expect(el.shadowRoot.querySelector('.rail') === null).to.equal(true);
+    expect(el.shadowRoot.querySelectorAll('.item').length).to.equal(3);
   });
 
   it('shows error message', async () => {
@@ -290,6 +304,6 @@ describe('nx-marketplace', () => {
     const error = el.shadowRoot.querySelector('.error');
     expect(error).to.not.equal(null);
     expect(error.textContent).to.equal('Could not load marketplace.');
-    expect(el.shadowRoot.querySelector('.grid') === null).to.equal(true);
+    expect(el.shadowRoot.querySelector('.items') === null).to.equal(true);
   });
 });
