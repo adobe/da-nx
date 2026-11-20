@@ -380,6 +380,16 @@ describe('regionalDiff with hashes from an earlier review', () => {
     expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
     expect(main.querySelector('da-diff-deleted')).to.be.null;
   });
+
+  it('honors both editor and older raw hashes when removing rejected upstream blocks', async () => {
+    const doc = toDoc('<h1 id="one">One</h1><h2 id="two">Two</h2><p>Keep</p>');
+    const rejected = [getDiffHash('<h1>One</h1>'), getDiffHash('<h2 id="two">Two</h2>')];
+
+    const copy = await removeRejectedBlocks({ doc, rejected });
+
+    expect(copy.querySelector('main').innerHTML).to.equal('<div><p>Keep</p></div>');
+    expect(doc.querySelector('main').innerHTML).to.include('<h1 id="one">One</h1>');
+  });
 });
 
 describe('smartMerge', () => {
