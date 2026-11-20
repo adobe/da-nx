@@ -8,8 +8,12 @@ import {
   createSnapshotPrefix,
   fetchConfig,
   findSourceLocation,
+  getConfiguredLocations,
   getProjectSourceLocations,
+  isSourceDetectEnabled,
+  localizeLinks,
 } from '../../utils/utils.js';
+import { toConfigMap } from '../../utils/validate-config.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES } from '../../project/index.js';
 
 let CONNECTOR;
@@ -133,6 +137,7 @@ async function saveLang({
   options,
   langs,
   sourceLocations: projectLocations,
+  linkConfig,
 }) {
   const snapshotPrefix = createSnapshotPrefix(snapshot);
   const sourceLocations = getProjectSourceLocations({
@@ -146,7 +151,24 @@ async function saveLang({
     return { ...url, destination: `/${org}/${site}${daDestPath}` };
   });
 
+  const isDependent = lang['source language'] && lang['source language'] !== linkConfig?.sourceLangName;
+  const findDependency = (rows) => rows?.find(({ name }) => name === lang['source language'])?.location;
+  const fromPrefixes = linkConfig && [
+    lang.source || options?.['source.language']?.location,
+    isDependent && (findDependency(langs) || findDependency(linkConfig.langRows)),
+  ];
+
   const saveFn = async (url) => {
+    if (linkConfig && !url.hasExt && url.ext === 'html' && typeof url.sourceContent === 'string') {
+      url.sourceContent = localizeLinks({
+        html: url.sourceContent,
+        org,
+        site,
+        fromPrefixes,
+        destPrefix: lang.location,
+        locations: linkConfig.locations,
+      });
+    }
     const overwrite = behavior === 'overwrite' || url.hasExt || url.ext !== 'html';
     const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
     await copyFn(url, title);
@@ -174,7 +196,24 @@ async function saveLang({
 export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   const behavior = options['translate.conflict.behavior'];
 
-  const saveLangConf = { ...conf, options, connector, behavior, sendMessage };
+  const sheets = await fetchConfig(conf.org, conf.site).catch((e) => {
+    // eslint-disable-next-line no-console
+    console.warn('Could not read translate config; links will not be localized.', e);
+  });
+  const languageRows = sheets?.languages?.data;
+  const langRows = Array.isArray(languageRows) ? languageRows.filter(Boolean) : [];
+  const config = toConfigMap(sheets);
+  const linkConfig = isSourceDetectEnabled(config['translate.links.localize'])
+    ? {
+      langRows,
+      locations: getConfiguredLocations(langRows),
+      sourceLangName: config['source.language'],
+    }
+    : undefined;
+
+  const saveLangConf = {
+    ...conf, options, connector, behavior, sendMessage, linkConfig,
+  };
 
   const saveLanguage = async ({ lang, langIndex }) => {
     if (lang.translation.status !== 'complete') {

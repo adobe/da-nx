@@ -49,7 +49,7 @@ function rowsToMap(data) {
  * @param {object} sheets - Config sheets.
  * @returns {Object<string, string>} Config map.
  */
-function toConfigMap(sheets) {
+export function toConfigMap(sheets) {
   return rowsToMap(sheets?.config?.data);
 }
 
