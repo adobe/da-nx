@@ -77,20 +77,69 @@ function getOuterHTMLWithSortedAttributes(element) {
   return `<${tagName}${attrs ? ` ${attrs}` : ''}>${inner}</${tagName}>`;
 }
 
+const EDITOR_BLOCK_TAGS = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'DIV', 'TABLE', 'PRE', 'BLOCKQUOTE', 'HR'];
+const EDITOR_IMG_ATTRS = ['src', 'alt', 'title', 'data-focal-x', 'data-focal-y', 'data-edit-as', 'data-id'];
+const HEADINGS = 'h1, h2, h3, h4, h5, h6';
+
+const contentNodes = (el) => [...el.childNodes]
+  .filter((node) => node.nodeType !== Node.TEXT_NODE || node.textContent.trim());
+
+const isPicture = (node) => node.nodeName === 'PICTURE'
+  || (node.nodeName === 'A' && contentNodes(node).length === 1 && node.firstElementChild?.nodeName === 'PICTURE');
+const onlyPictures = (el) => {
+  const nodes = contentNodes(el);
+  return nodes.length && nodes.every(isPicture);
+};
+
+function normalizeReviewPicture(picture) {
+  const img = picture.querySelector('img');
+  const src = img?.getAttribute('src');
+  if (!src) return;
+  [...img.attributes].forEach(({ name }) => {
+    if (!EDITOR_IMG_ATTRS.includes(name)) img.removeAttribute(name);
+  });
+  if (picture.parentElement?.nodeName !== 'A') img.setAttribute('loading', 'lazy');
+  else img.removeAttribute('title');
+  const source = picture.ownerDocument.createElement('source');
+  source.setAttribute('srcset', src);
+  const wide = source.cloneNode();
+  wide.setAttribute('media', '(min-width: 600px)');
+  picture.replaceChildren(source, wide, img);
+}
+
+function toReviewMarkup(element) {
+  const wrapper = element.ownerDocument.createElement('div');
+  wrapper.append(element.cloneNode(true));
+  wrapper.querySelectorAll(HEADINGS).forEach((heading) => heading.removeAttribute('id'));
+  wrapper.querySelectorAll('picture').forEach(normalizeReviewPicture);
+  wrapper.querySelectorAll(':scope > div > div > div').forEach((cell) => {
+    const nodes = contentNodes(cell);
+    if (!nodes.length || nodes.every(isPicture)
+        || nodes.some((node) => EDITOR_BLOCK_TAGS.includes(node.nodeName))) return;
+    const p = cell.ownerDocument.createElement('p');
+    p.append(...cell.childNodes);
+    cell.append(p);
+  });
+  wrapper.querySelectorAll('p').forEach((p) => {
+    if (onlyPictures(p)) p.replaceWith(...p.childNodes);
+  });
+  return wrapper;
+}
+
 /**
  * Normalizes HTML by trimming whitespace in text nodes and removing whitespace between tags.
  * @param {Element} element - DOM element to normalize
  * @returns {string} - Normalized HTML string
  */
-function normalizeHTMLFromElement(element) {
+function normalizeHTMLFromElement(element, review = false) {
   if (element.outerHTML === 'spoofedSectionHtml') {
     return element.outerHTML;
   }
-  // Clone to avoid mutating the original
-  const clone = element.cloneNode(true);
-  trimTextNodes(clone);
+  const copy = review ? toReviewMarkup(element) : element.cloneNode(true);
+  trimTextNodes(copy);
   // Remove whitespace between tags
-  let html = getOuterHTMLWithSortedAttributes(clone).replace(/>\s+</g, '><');
+  const blocks = review ? [...copy.children] : [copy];
+  let html = blocks.map(getOuterHTMLWithSortedAttributes).join('').replace(/>\s+</g, '><');
   // Remove all line breaks and tabs
   html = html.replace(/[\n\r\t]/g, '');
   // Optionally, collapse multiple spaces
@@ -254,7 +303,7 @@ function blockDiff(A, B, { isListCheck = false } = {}) {
   let i = 0;
   for (i; i < length; i += 1) {
     if (A[i].hash === B[i].hash) {
-      result = addToResult(result, A[i], SAME);
+      result = addToResult(result, B[i], SAME);
     } else {
       result = addToResult(result, A[i], DELETED);
       result = addToResult(result, B[i], ADDED);
@@ -307,6 +356,12 @@ function groupBlocks(blocks) {
 
 const isNotEmptyParagraphEl = (el) => !(el.nodeName === 'P' && !el.childNodes.length && el.textContent === '');
 
+const splitPictures = (el) => {
+  if (el.nodeName !== 'P' || !onlyPictures(el)) return [el];
+  const nodes = contentNodes(el);
+  return nodes.length > 1 ? nodes : [el];
+};
+
 const preText = (el) => (el.matches?.('pre') ? [el] : [...(el.querySelectorAll?.('pre') || [])])
   .map((pre) => pre.textContent).join('\u0000');
 
@@ -319,7 +374,8 @@ function getBlocks(dom, { smart = false, keepAllBreaks = false } = {}) {
   // flatten sections so that they are just dividers between blocks
   const blocks = sections.reduce((acc, section, index) => {
     const sectionBlocks = smart ? [...section.children] : [...section.children]
-      .filter(isNotEmptyParagraphEl);
+      .filter(isNotEmptyParagraphEl)
+      .flatMap(splitPictures);
     const marker = smart
       ? { ...sectionBlock, openTag: section.cloneNode(false).outerHTML.replace(/<\/div>$/, '') }
       : sectionBlock;
@@ -329,9 +385,9 @@ function getBlocks(dom, { smart = false, keepAllBreaks = false } = {}) {
   return groupBlocks(blocks);
 }
 
-function hashBlock(block, { smart = false } = {}) {
+function hashBlock(block, { smart = false, review = false } = {}) {
   const toHashString = (el) => {
-    const normalized = normalizeHTMLFromElement(el);
+    const normalized = normalizeHTMLFromElement(el, review);
     if (!smart) return normalized;
     if (el.isSection) return `${normalized}${el.openTag}`;
     const pre = preText(el);
@@ -343,6 +399,9 @@ function hashBlock(block, { smart = false } = {}) {
   return hashContent(stringToHash);
 }
 
+const matchesReviewHash = (hashes, block, hash) => hashes.includes(hash)
+  || (hashes.length > 0 && hashes.includes(hashBlock(block).substring(0, HASH_LENGTH)));
+
 const countSectionBreaks = (blocks) => blocks.filter((block) => block.isSection).length;
 
 // alignSections: both documents have the same number of section breaks, so they line up in order
@@ -353,7 +412,7 @@ function getBlockMap(blocks, alignSections) {
       const sectionNumber = countSectionBreaks(blocks.slice(0, index + 1));
       return { block, sectionNumber, hash: hashContent(`${block.outerHTML}-${sectionNumber}`) };
     }
-    return { block, hash: hashBlock(block) };
+    return { block, hash: hashBlock(block, { review: true }) };
   });
 }
 
@@ -496,15 +555,15 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
 
     // Rejected hashes only skip incoming blocks, never the target's own (ADDED) blocks
     if (item.type === ADDED) {
-      if (!acceptedHashes.includes(hash)) {
+      if (!matchesReviewHash(acceptedHashes, item.block, hash)) {
         modifiedBlock.setAttribute(ADDED_TAG, '');
       }
     } else if (item.type === DELETED) {
-      if (rejectedHashes.includes(hash)) {
+      if (matchesReviewHash(rejectedHashes, item.block, hash)) {
         // eslint-disable-next-line no-continue
         continue;
       }
-      if (!acceptedHashes.includes(hash)) {
+      if (!matchesReviewHash(acceptedHashes, item.block, hash)) {
         modifiedBlock = wrapElement(item.block, DELETED_TAG);
       }
     }
@@ -562,13 +621,18 @@ async function getHashedBlocks(doc, { site, config, withReviewHash = false }) {
   return getBlocks(doc, options).map((block, idx) => ({
     block,
     hash: shortHash(hashed[idx]),
-    ...(withReviewHash && isSingleBlock(block)
-      ? { reviewHash: shortHash({ hash: hashBlock(hashed[idx].block) }) } : {}),
+    ...(withReviewHash && isSingleBlock(block) ? {
+      reviewHashes: [
+        shortHash({ hash: hashBlock(hashed[idx].block, { review: true }) }),
+        shortHash({ hash: hashBlock(hashed[idx].block) }),
+      ],
+    } : {}),
   }));
 }
 
-const isRejectedBlock = (rejected) => ({ reviewHash }) => !!reviewHash
-  && rejected.includes(reviewHash);
+const isRejectedBlock = (rejected) => ({ reviewHashes }) => reviewHashes?.some(
+  (hash) => rejected.includes(hash),
+);
 
 export async function removeRejectedBlocks({
   doc, rejected = [], site, config,
