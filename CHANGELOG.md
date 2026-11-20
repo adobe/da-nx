@@ -1,3 +1,10 @@
+## [1.61.1](https://github.com/adobe/da-nx/compare/v1.61.0...v1.61.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* preserve newlines in coworker user messages ([#1041](https://github.com/adobe/da-nx/issues/1041)) ([f6a7316](https://github.com/adobe/da-nx/commit/f6a731666dea831704ba8df6aae36a2e3f385927))
+
 # [1.61.0](https://github.com/adobe/da-nx/compare/v1.60.0...v1.61.0) (2026-11-20)
 
 
