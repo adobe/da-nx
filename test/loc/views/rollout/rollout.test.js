@@ -88,7 +88,7 @@ describe('nx-loc-rollout smart overwrite', () => {
       if (siteConfig && url.endsWith('/source/org/optin/.da/translate.json')) {
         return { ok: true, status: 200, headers, json: async () => siteConfig };
       }
-      if (url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => sourcePage };
+      if (sourcePage && url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => sourcePage };
       const dest = Object.keys(destPages).find((path) => url.endsWith(path));
       if (dest) return { ok: true, status: 200, headers, text: async () => destPages[dest] };
       return { ok: false, status: 404, headers, text: async () => '' };

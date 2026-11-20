@@ -377,6 +377,7 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     ...conf,
     options,
     langs: [lang],
+    langsWithUrls: [{ ...lang, urls }],
     urls,
   });
 }

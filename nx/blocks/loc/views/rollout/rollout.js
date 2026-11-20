@@ -50,6 +50,7 @@ class NxLocRollout extends LitElement {
     _sortedLangs: { state: true },
     _filters: { state: true },
     _message: { state: true },
+    _errors: { state: true },
   };
 
   connectedCallback() {
@@ -69,6 +70,10 @@ class NxLocRollout extends LitElement {
 
   async handleRolloutLang(langToRollout) {
     if (this.anyMarking) return;
+    this._rolloutErrors ??= new Map();
+    this._rolloutErrors.delete(langToRollout.code);
+    const remainingErrors = [...this._rolloutErrors.values()].flat();
+    this._errors = remainingErrors.length ? remainingErrors : undefined;
     delete langToRollout.sync;
     this._message = { text: `Rolling out ${langToRollout.name}.` };
 
@@ -84,11 +89,12 @@ class NxLocRollout extends LitElement {
     };
 
     const { message, errors, aborted } = await rolloutLang(rolloutConf);
-    if (message || errors) {
-      this._message = message;
-      this._errors = errors;
-      if (aborted) return;
+    this._message = message;
+    if (errors) {
+      this._rolloutErrors.set(langToRollout.code, errors);
+      this._errors = [...remainingErrors, ...errors];
     }
+    if (aborted) return;
 
     // Replace the lang from the main list
     // with the one that has updated status info.

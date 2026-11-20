@@ -45,6 +45,7 @@ describe('google connector - sendAllLanguages', () => {
     const site = 'site1';
     const langs = [{ name: 'French', code: 'fr-FR', location: '/fr' }];
     const langsWithUrls = [{
+      code: 'fr-FR',
       urls: [{ suppliedPath: '/page', content: '<p>hi</p>' }],
     }];
     const actions = { sendMessage: () => {}, saveState: async () => {} };
@@ -70,6 +71,7 @@ describe('google connector - sendAllLanguages', () => {
     const site = 'site1';
     const langs = [{ name: 'French', code: 'fr-FR', location: '/fr' }];
     const langsWithUrls = [{
+      code: 'fr-FR',
       urls: [{ suppliedPath: '/page', content: '<p>hi</p>' }],
     }];
     const actions = { sendMessage: () => {}, saveState: async () => {} };
@@ -101,6 +103,7 @@ describe('google connector - partial failures', () => {
   }
 
   const makeLangsWithUrls = (contents) => [{
+    code: 'fr',
     urls: contents.map((content, idx) => ({ suppliedPath: `/page-${idx}`, content })),
   }];
 
@@ -220,12 +223,45 @@ describe('google connector - partial failures', () => {
     ];
     const [{ urls }] = makeLangsWithUrls(['<p>one</p>']);
     await sendAllLanguages({
-      org: 'org', site: 'site', langs, langsWithUrls: [{ urls }, { urls }], options: {}, actions,
+      org: 'org', site: 'site', langs, langsWithUrls: [{ code: 'fr', urls }, { code: 'de', urls }], options: {}, actions,
     });
 
     const save = saveFn();
     await saveItems({ lang: langs[1], langIndex: 0, saveFn: save });
 
     expect(savedTo(save)).to.deep.equal(['/org/site/de/page-0.html']);
+  });
+
+  it('does not reuse results from another project with the same language', async () => {
+    const lang = { name: 'French', code: 'fr', location: '/fr' };
+    const otherLang = { ...lang };
+    const conf = {
+      org: 'org', langsWithUrls: makeLangsWithUrls(['<p>one</p>']), options: {}, actions,
+    };
+    await sendAllLanguages({ ...conf, site: 'other', langs: [otherLang] });
+    await sendAllLanguages({ ...conf, site: 'site', langs: [lang] });
+
+    const save = saveFn();
+    await saveItems({ lang: otherLang, saveFn: save });
+
+    expect(savedTo(save)).to.deep.equal(['/org/other/fr/page-0.html']);
+  });
+
+  it('saves translated pages to the snapshot, not to the site', async () => {
+    const lang = { name: 'French', code: 'fr', location: '/fr' };
+    await sendAllLanguages({
+      org: 'org',
+      site: 'site',
+      snapshot: 'summer',
+      langs: [lang],
+      langsWithUrls: makeLangsWithUrls(['<p>one</p>']),
+      options: {},
+      actions,
+    });
+
+    const save = saveFn();
+    await saveItems({ lang, saveFn: save });
+
+    expect(savedTo(save)).to.deep.equal(['/org/site/.snapshots/summer/fr/page-0.html']);
   });
 });

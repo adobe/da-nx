@@ -53,7 +53,8 @@ class NxLocTranslate extends LitElement {
   }
 
   get isBusy() {
-    return this.supportsManagedStatus && Boolean(this._getStatusBusy || this._sendAllBusy);
+    const tracksProgress = this.supportsManagedStatus || this._service?.connector?.getPageErrors;
+    return !!tracksProgress && Boolean(this._getStatusBusy || this._sendAllBusy);
   }
 
   update(props) {
@@ -253,7 +254,7 @@ class NxLocTranslate extends LitElement {
       // languages to save" before the user ever sees it.
       if (this._message?.type !== 'error') {
         // See if anything is finished immediately
-        if (managed) await this.checkAndSaveLangs(conf);
+        if (managed || this._service.connector.getPageErrors) await this.checkAndSaveLangs(conf);
         else this.checkAndSaveLangs(conf);
       }
     } catch (error) {
@@ -296,6 +297,8 @@ class NxLocTranslate extends LitElement {
     ) : undefined;
     await checkWaitingLanguages(conf, this._service.connector, this._urls, this._options['source.language']?.location);
 
+    const pageErrors = this._service.connector.getPageErrors?.(this._translateLangs);
+    if (pageErrors) this._urlErrors = pageErrors.length ? pageErrors : undefined;
     if (saved?.errors.length) throw new Error(saved.errors.map(({ text }) => text).join(' '));
     this.handleMessage(undefined);
   }
@@ -307,12 +310,17 @@ class NxLocTranslate extends LitElement {
    */
   async handleGetStatus() {
     if (this.supportsManagedStatus) return this.handleManagedStatus();
+    if (this.isBusy) return undefined;
     this._getStatusBusy = true;
     try {
       const conf = await this.getBaseTranslationConf(false);
-      await this._service.connector.getStatusAll(removeWaitingLanguagesFromConf(conf));
+      const result = await this._service.connector.getStatusAll(
+        removeWaitingLanguagesFromConf(conf),
+      );
+      if (result?.errors) this._urlErrors = result.errors.length ? result.errors : undefined;
       await this.checkAndSaveLangs(conf);
       await this.handleSaveLangs(undefined, { waitForSave: true });
+      if (result?.message) this.handleMessage(result.message);
     } catch (error) {
       this.handleMessage({ text: error.message, type: 'error' });
     } finally {

@@ -2,10 +2,14 @@ import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
-import { convertPath, findSourceLocation, getProjectSourceLocations } from '../../utils/utils.js';
+import {
+  convertPath, createSnapshotPrefix, findSourceLocation, getProjectSourceLocations,
+} from '../../utils/utils.js';
 
 const MAX_LENGTH = 5000;
-const results = [];
+const results = new WeakMap();
+
+const retryMessage = 'Open the original translation tab to retry these pages.';
 
 async function sendForTranslation(org, site, url) {
   let chunks = [url.content];
@@ -27,19 +31,34 @@ async function sendForTranslation(org, site, url) {
 
     const opts = { method: 'POST', body };
     const resp = await daFetch({ url: `${DA_TRANSLATE}/translate/google/${org}/${site}`, opts });
-    if (!resp.ok) return;
+    if (!resp.ok) throw new Error(resp.status || 'no response');
 
     const { translated } = await resp.json();
-    if (!translated) return;
+    if (!translated) throw new Error('no translation returned');
     translatedParts.push(translated);
   }
 
   let html = translatedParts.join('');
   if (rejoin) html = rejoin(html);
-  if (html) {
-    url.sourceContent = await removeDnt({ html, org, site, ext: url.ext });
-    url.destination = `/${org}/${site}${url.daDestPath}`;
-  }
+  if (!html) throw new Error('no translation returned');
+  url.sourceContent = await removeDnt({ html, org, site, ext: url.ext });
+}
+
+async function translatePages({ org, site, urls }) {
+  const queue = new Queue(async (url) => {
+    delete url.error;
+    try {
+      await sendForTranslation(org, site, url);
+    } catch (error) {
+      url.status = 'error';
+      url.error = `Error translating ${url.suppliedPath} to ${url.code} - ${error.message}`;
+    }
+  }, 50);
+  await Promise.all(urls.map(queue.push));
+}
+
+export function getPageErrors(langs) {
+  return langs.flatMap((lang) => (results.get(lang) || []).filter((url) => url.error));
 }
 
 export const requiredKeys = [];
@@ -59,7 +78,9 @@ export async function isConnected() {
  * @param {string} config.defaultLocation The default source location.
  * @returns {Object[]} The urls with converted paths and the language code.
  */
-export function getLangUrls({ urls, lang, sourceLocations, defaultLocation }) {
+export function getLangUrls({
+  urls, lang, sourceLocations, defaultLocation, snapshotPrefix,
+}) {
   return urls.map((url) => {
     const sourcePrefix = findSourceLocation({ path: url.suppliedPath, locations: sourceLocations })
       || defaultLocation;
@@ -67,61 +88,74 @@ export function getLangUrls({ urls, lang, sourceLocations, defaultLocation }) {
       path: url.suppliedPath,
       sourcePrefix,
       destPrefix: lang.location,
+      snapshotPrefix,
     });
     return { ...url, ...converted, code: lang.code };
   });
 }
 
 export async function sendAllLanguages({
-  org, site, langs, langsWithUrls, options, actions, ...project
+  org, site, langs, langsWithUrls, options, actions, snapshot, ...project
 }) {
   const { sendMessage, saveState } = actions;
   const sourceLocations = getProjectSourceLocations({ ...project, options, langs });
   const defaultLocation = options['source.language']?.location || '/';
 
-  results.length = 0;
-
-  const translateUrl = async (url) => {
-    await sendForTranslation(org, site, url);
-  };
-
-  for (const [idx, lang] of langs.entries()) {
+  for (const lang of langs) {
     sendMessage({ text: `Sending ${lang.name} for translation.` });
-    const queue = new Queue(translateUrl, 50);
-
-    // Find the URLs from the lang that has the URLs (custom source URLs)
-    const langUrls = getLangUrls({
-      urls: langsWithUrls[idx].urls,
+    const sourceUrls = langsWithUrls.find(({ code }) => code === lang.code)?.urls;
+    const urls = getLangUrls({
+      urls: sourceUrls,
       lang,
       sourceLocations,
       defaultLocation,
-    });
+      snapshotPrefix: createSnapshotPrefix(snapshot),
+    }).map((url) => ({ ...url, destination: `/${org}/${site}${url.daDestPath}` }));
 
-    await Promise.all(langUrls.map((url) => queue.push(url)));
-
+    await translatePages({ org, site, urls });
     lang.translation = {
-      sent: langUrls.length,
-      translated: langUrls.length,
+      sent: urls.length,
+      translated: urls.filter((url) => url.sourceContent !== undefined).length,
       status: 'translated',
     };
-    results.push(langUrls);
+    results.set(lang, urls);
     sendMessage();
     await saveState();
   }
+  const errors = getPageErrors(langs);
+  return errors.length ? { errors } : undefined;
 }
 
-export async function getStatusAll() {
-  // Empty
-}
-
-export async function saveItems({ langIndex, saveFn }) {
-  const downloadCallback = async (url) => {
-    await saveFn(url);
+export async function getStatusAll({ org, site, langs }) {
+  const incomplete = langs.filter((lang) => ['error', 'translated'].includes(lang.translation?.status));
+  for (const lang of incomplete) {
+    const urls = results.get(lang);
+    if (!urls) {
+      lang.translation.status = 'error';
+    } else if (lang.translation.status === 'error') {
+      const failed = urls.filter((url) => url.sourceContent === undefined);
+      await translatePages({ org, site, urls: failed });
+      lang.translation.translated = urls.filter((url) => url.sourceContent !== undefined).length;
+      lang.translation.status = 'translated';
+    }
+  }
+  return {
+    errors: getPageErrors(langs).filter((url) => url.sourceContent === undefined),
+    ...(incomplete.some((lang) => !results.has(lang)) && {
+      message: { text: retryMessage, type: 'error' },
+    }),
   };
+}
 
-  const langUrls = results[langIndex];
+export async function saveItems({ lang, urls, saveFn }) {
+  const translated = results.get(lang);
+  if (!translated) return urls.map((url) => ({ ...url, status: 'error', error: retryMessage }));
 
-  const queue = new Queue(downloadCallback, 5);
-  await Promise.all(langUrls.map((url) => queue.push(url)));
-  return langUrls;
+  const pending = translated.filter((url) => url.sourceContent !== undefined && url.status !== 'success');
+  const queue = new Queue(async (url) => {
+    delete url.error;
+    await saveFn(url);
+  }, 5);
+  await Promise.all(pending.map(queue.push));
+  return translated;
 }
