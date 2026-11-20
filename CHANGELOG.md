@@ -1,3 +1,10 @@
+# [1.60.0](https://github.com/adobe/da-nx/compare/v1.59.0...v1.60.0) (2026-11-20)
+
+
+### Features
+
+* move chat question card inline ([#1033](https://github.com/adobe/da-nx/issues/1033)) ([27108ee](https://github.com/adobe/da-nx/commit/27108ee2f84b3e90e50e6ce57e1d85b1e70cbb3f))
+
 # [1.59.0](https://github.com/adobe/da-nx/compare/v1.58.1...v1.59.0) (2026-11-20)
 
 
