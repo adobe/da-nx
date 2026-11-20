@@ -155,7 +155,7 @@ describe('Shared loc copy', () => {
     expect(url.status).to.equal('success');
     expect(loadConfig.called).to.equal(true);
     const saved = await fetch.args[2][1].body.get('data').text();
-    expect(saved).to.include('<da-diff-deleted><p>Upstream</p></da-diff-deleted>');
+    expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>Upstream</p></da-diff-deleted>');
     expect(saved).to.include('<div>keep</div>');
   });
 
