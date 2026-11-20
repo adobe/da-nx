@@ -114,13 +114,21 @@ may be wrong (notation: baseline → upstream / destination):
   repeats in the baseline is row 5; otherwise, if upstream also added a new block anywhere on the page (a possible
   move), it is row 4; otherwise row 3. An unrelated upstream addition elsewhere therefore turns a row 3 case into
   row 4, so the author sees more, not less.
-- Marked blocks use the `da-diff-*` markup, grouped per conflict: one `<da-diff-deleted>` around consecutive
-  Upstream blocks; for Local, exactly like merge, the `da-diff-added` attribute on each block (on the first div of
+- Marked blocks use the `da-diff-*` markup, grouped per conflict: one `<da-diff-deleted data-mdast="ignore">` around
+  consecutive Upstream blocks (merge writes the same attribute, which the editor also saves, so a preview of a page
+  nobody has opened yet leaves the Upstream blocks out); for Local, exactly like merge, the `da-diff-added`
+  attribute on each block (on the first div of
   a block group). When both sides hold the same kinds of blocks, the pair renders as a tabbed choice (Keep Local /
   Keep Upstream / Keep Both) in the editor; otherwise each side shows its own keep/delete, as in a merge review.
   Rows 4–5 mark only the page's copy, so after keeping it the author may need to delete the other copy by hand.
-  In row 6 the editor pairs the Upstream group with the first Local block only; any further Local blocks in the
-  conflict keep their own keep/delete, as extra blocks do in a merge review.
+  In row 6 the editor shows the Upstream group and the Local blocks as separate boxes, each with its own
+  keep/delete, as extra blocks do in a merge review (no tabbed choice).
+- Row 6 offers upstream's whole change, so it can include blocks the page deleted: `| H A B` → `| H A Y B` / `| H`
+  gives `| H` followed by `A Y B` marked Upstream, and an emptied page gets the whole upstream page marked. The
+  page's own content is unchanged; the author deletes the Upstream group to keep the page as it was.
+- Row 7 also covers upstream deleting a section the page edited (`| A | B C` → `| A` / `| A | Bl C`): the page keeps
+  its section and is listed under "needs review", but nothing is marked and it isn't listed under "upstream removed
+  an edited block". The content is correct; the author has to find the section on the page.
 - Like skipped changes, marked and flagged changes are not offered again: the next baseline already contains them.
   The exception: until the markers are resolved, every smart rollout to the page is a full merge review, which
   offers again every upstream difference, including earlier skipped changes (see "Unresolved review").
@@ -143,9 +151,13 @@ is applied, and a block upstream replaced with only rejected blocks is deleted l
    rollout), the result is exactly upstream (reorders included). Otherwise an upstream move is applied when the moved
    block appears once in the baseline and once in the destination, and the destination left it unchanged in place
    (same baseline order relative to every other block that appears once on both).
-   The merge is then checked against putting every move back: if it would keep different blocks or resolve fewer
-   changes, all moves are put back instead. Moves that aren't applied (the destination edited the moved block, it
-   repeats, or a whole section moved) keep the destination's order, so content is never duplicated, lost or
+   The merge is then checked against putting every move back: if it would keep different blocks, resolve fewer
+   changes, or put a moved block on the other side of content only the page has (a section break or block the page
+   added; blocks the page edited one for one count as the blocks they replaced), all moves are put back instead.
+   So `|x H A B` → `|x H B A` / `|x H A |y B` keeps `A` in its section instead of moving it into the section the
+   page created, and lists the page under "upstream reordered blocks". Moves that aren't applied (the destination
+   edited the moved block, it repeats, a whole section moved, or a move crosses content only the page has) keep the
+   destination's order, so content is never duplicated, lost or
    resurrected. The recorded baseline keeps that (unapplied) order, so later upstream edits to moved blocks still
    apply. Reordered sections are put back as whole units, so edits inside a moved section (such as its section
    metadata) stay with that section.
@@ -196,6 +208,11 @@ only when it was replaced one for one. If the page replaced a moved block with a
 move is still not applied (local wins) but the page is not listed. If upstream later replaces a swapped block with a
 different number of blocks (e.g. edits it and adds one next to it), the page is listed again once, even though
 upstream's order didn't change.
+
+Known limitation: when upstream moves a block and adds one next to it in the same rollout (`| E I` → `| I N E` /
+`| I E`), the new block is applied, but the page is listed under "upstream reordered blocks" only on the next
+rollout. When the page itself moved a block so that upstream's move no longer changes it (`A B C` → `B A C` /
+`A C B`), the page keeps its order and is not listed. The page's order is never changed by either.
 
 Known limitation: upstream moving and editing a block the page edited, while also replacing another block at the
 spot it moved to (`A X B C D` → `A B X2 D` / `A Xl B C D`), looks like an in-place edit (`C` → `X2`) plus a

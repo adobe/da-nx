@@ -146,7 +146,7 @@ reports the episode as idle while it's paused waiting on the user — there is
 no active generation for a reattach to rejoin, so a socket drop during a
 pending question/plan/permission used to reattach anyway, get the same
 "not active (state=idle)" rejection as the idle-tab case above, and surface
-it as a scary `Error: Cannot ATTACH to episode ...` — even though the popover
+it as a scary `Error: Cannot ATTACH to episode ...` — even though the interaction
 itself was working fine and needed no live socket (`answerQuestion`/
 `respondToPlanApproval`/`respondToPermission` all already reconnect via
 `RESUME` on demand when the user actually responds). `_shouldReattachOnClose()`
@@ -247,6 +247,10 @@ AO pauses a turn by sending a `USER_QUESTION`/`question` event (see the
 discrepancy) — this is the only shape AO sends for a "should I proceed?"
 pause today; no separate permission-request concept has shown up in practice
 for this client.
+
+Pending questions render inline with "Waiting for your response" until answered
+or skipped. The card then becomes the existing Answered/Declined summary and
+"Thinking..." resumes. New questions follow the scroll only when already near the bottom.
 
 **Responding to a resumed question — cold vs. warm connection.** `_respondToQuestion`
 checks whether the socket was already open _before_ sending:

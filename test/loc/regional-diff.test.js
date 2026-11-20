@@ -556,7 +556,7 @@ describe('smartMerge', () => {
       source: '<p>A2</p><p>X</p><p>B2</p><p>C</p>',
       dest: '<p>A local</p><p>B</p><p>C</p>',
     });
-    expect(html).to.equal('<div><da-diff-deleted><p>A2</p><p>X</p><p>B2</p></da-diff-deleted><p da-diff-added="">A local</p><p da-diff-added="">B</p><p>C</p></div>');
+    expect(html).to.equal('<div><da-diff-deleted data-mdast="ignore"><p>A2</p><p>X</p><p>B2</p></da-diff-deleted><p da-diff-added="">A local</p><p da-diff-added="">B</p><p>C</p></div>');
     expect(skipped).to.equal(0);
     expect(review).to.be.true;
   });
@@ -664,7 +664,7 @@ describe('smartMerge', () => {
       source: `${group('A2')}<p>Y</p><p>B</p><p>C</p>`,
       dest: `${group('A local')}<p>B</p><p>C</p>`,
     });
-    expect(html).to.equal(`<div><da-diff-deleted>${group('A2')}<p>Y</p></da-diff-deleted><div class="block-group-start" da-diff-added=""></div><p>A local</p><div class="block-group-end"></div><p>B</p><p>C</p></div>`);
+    expect(html).to.equal(`<div><da-diff-deleted data-mdast="ignore">${group('A2')}<p>Y</p></da-diff-deleted><div class="block-group-start" da-diff-added=""></div><p>A local</p><div class="block-group-end"></div><p>B</p><p>C</p></div>`);
     expect(review).to.be.true;
   });
 

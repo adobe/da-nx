@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
 
 await setConfig({ hostnames: [] });
-await import('../../../../../blocks/siteselector/siteselector.js');
+const { getSelectedSite } = await import('../../../../../blocks/siteselector/siteselector.js');
 
 describe('nx-siteselector', () => {
   let selector;
@@ -31,7 +31,10 @@ describe('nx-siteselector', () => {
 
   it('selects the most recent site and notifies the consumer once without navigating', async () => {
     const events = [];
-    selector.addEventListener('site-select', (event) => events.push(event));
+    selector.addEventListener('site-select', (event) => {
+      events.push(event);
+      expect(getSelectedSite()).to.equal(event.detail.value);
+    });
     document.body.append(selector);
     const picker = await settle();
     expect(selector.value).to.equal('org/site');
@@ -60,6 +63,53 @@ describe('nx-siteselector', () => {
     await settle();
     expect(selector.value).to.equal('');
     expect(events).to.be.empty;
+  });
+
+  it('reads live selection across shadow roots and clears it when disconnected', async () => {
+    const host = document.createElement('div');
+    host.attachShadow({ mode: 'open' });
+    document.body.append(host);
+    selector.value = 'other/site';
+    expect(getSelectedSite()).to.equal(undefined);
+    try {
+      host.shadowRoot.append(selector);
+      await settle();
+      expect(document.querySelector('nx-siteselector')).to.equal(null);
+      expect(getSelectedSite()).to.equal('other/site');
+      selector.value = 'org/site';
+      expect(getSelectedSite()).to.equal('org/site');
+      selector.value = '';
+      expect(getSelectedSite()).to.equal('');
+      selector.remove();
+      expect(getSelectedSite()).to.equal(undefined);
+      host.shadowRoot.append(selector);
+      await settle();
+      expect(getSelectedSite()).to.equal('');
+    } finally {
+      host.remove();
+    }
+    expect(getSelectedSite()).to.equal(undefined);
+  });
+
+  it('uses the most recently connected selector and restores the previous one on removal', async () => {
+    const other = document.createElement('nx-siteselector');
+    other.value = 'other/site';
+    document.body.append(selector);
+    await settle();
+    try {
+      document.body.append(other);
+      await other.updateComplete;
+      expect(getSelectedSite()).to.equal('other/site');
+      selector.remove();
+      expect(getSelectedSite()).to.equal('other/site');
+      document.body.append(selector);
+      expect(getSelectedSite()).to.equal('org/site');
+      selector.remove();
+      expect(getSelectedSite()).to.equal('other/site');
+    } finally {
+      other.remove();
+    }
+    expect(getSelectedSite()).to.equal(undefined);
   });
 
   it('handles picker selection and redirects Add through the rendered controls', async () => {
