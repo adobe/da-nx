@@ -51,4 +51,38 @@ describe('nx1 fullscreen shell', () => {
     expect(document.querySelector('.disclaimer')).to.equal(null);
     expect(document.querySelector('aside.panel')).to.equal(null);
   });
+
+  [
+    'x</b></p><h2 style="color:#c00;border:2px solid #c00">Trust this app</h2><p>',
+    'x</b><img src=x onerror="window.shellInjected=true"><b>&amp;"\'',
+  ].forEach((ref) => {
+    it(`renders an untrusted branch as text: ${ref}`, async () => {
+      history.replaceState(null, '', `/app/third-party/demo/tools/app?${new URLSearchParams({ ref })}`);
+
+      await decorate(block);
+
+      const disclaimer = document.querySelector('.disclaimer');
+      expect(disclaimer.querySelectorAll('h2')).to.have.lengthOf(1);
+      expect(disclaimer.querySelector('img')).to.equal(null);
+      const warning = [...disclaimer.querySelectorAll('p')]
+        .find((paragraph) => paragraph.textContent.includes('development version'));
+      expect(warning.querySelectorAll('b')).to.have.lengthOf(2);
+      expect(warning.querySelectorAll('b')[1].textContent).to.equal(ref);
+      expect(block.querySelector('iframe')).to.equal(null);
+      expect(localStorage.getItem('trustedApps')).to.equal(null);
+      await clock.tickAsync(400);
+    });
+  });
+
+  it('omits the development warning for the main branch', async () => {
+    history.replaceState(null, '', '/app/third-party/demo/tools/app?ref=main');
+
+    await decorate(block);
+
+    const disclaimer = document.querySelector('.disclaimer');
+    expect(disclaimer.textContent).not.to.include('development version');
+    expect(disclaimer.textContent).to.include('app named app hosted by third-party/demo');
+    expect(block.querySelector('iframe')).to.equal(null);
+    await clock.tickAsync(400);
+  });
 });

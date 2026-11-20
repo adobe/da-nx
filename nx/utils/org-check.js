@@ -1,6 +1,7 @@
 import { DA_ORIGIN } from '../public/utils/constants.js';
 import { loadBlock } from '../scripts/nexter.js';
 import { daFetch } from './daFetch.js';
+import { isHlx6 } from '../../nx2/utils/api.js';
 
 const DEF_SANDBOX = 'aem-sandbox';
 const TOAST_PATH = '/fragments/toasts/sandbox';
@@ -25,7 +26,7 @@ async function getIsSandbox(org) {
   return listJson.length > 0;
 }
 
-async function orgCheck() {
+export async function orgCheck() {
   // Remove existing toast if it exists
   document.querySelector('.toast.sandbox-org')?.remove();
 
@@ -36,9 +37,10 @@ async function orgCheck() {
   const hashVal = hash.replace('#', '');
   // Do nothing if not a path
   if (!hashVal.startsWith('/')) return;
-  const [org] = hashVal.substring(1).split('/');
+  const [org, site] = hashVal.substring(1).split('/');
   // Do nothing if no org or known sandbox
   if (!org || org === DEF_SANDBOX) return;
+  if (site && await isHlx6(org, site)) return;
   const isSandbox = await getIsSandbox(org);
   // Do nothing if not a sandbox
   if (!isSandbox) return;

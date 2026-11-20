@@ -326,8 +326,18 @@ svg.icon {
   display: flex;
   align-items: center;
   gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
   user-select: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-900);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 
   &::after {
     content: "";
@@ -355,8 +365,6 @@ svg.icon {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
-  border-radius: 8px;
-  overflow: hidden;
   margin-bottom: 8px;
 
   &:last-child {
@@ -370,9 +378,21 @@ svg.icon {
     background: #0000001a;
     border: none;
     padding: 16px 0;
-    outline: none;
     text-align: center;
     cursor: pointer;
+
+    &:first-child {
+      border-radius: 8px 0 0 8px;
+    }
+
+    &:last-child {
+      border-radius: 0 8px 8px 0;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--s2-blue-900);
+      outline-offset: 2px;
+    }
 
     &.is-editing {
       background-color: var(--s2-blue-900);
@@ -407,15 +427,6 @@ svg.icon {
 
 .nx-launch-action-group {
   grid-template-columns: repeat(2, 1fr);
-  overflow: visible;
-
-  button:first-child {
-    border-radius: 8px 0 0 8px;
-  }
-
-  button:last-child {
-    border-radius: 0 8px 8px 0;
-  }
 
   &:has(button:only-child) {
     grid-template-columns: 1fr;
