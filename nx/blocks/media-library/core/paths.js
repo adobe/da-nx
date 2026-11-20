@@ -1,5 +1,4 @@
-import { daFetch } from './ims-adapter.js';
-import { DA_ADMIN } from '../../../utils/utils.js';
+import { listSource } from './source.js';
 import { Paths, Domains, DA_LIVE_EDIT_BASE } from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
 import { getMessage } from './messages.js';
@@ -168,7 +167,7 @@ export function resolveAbsolutePath(path, isFolder = false) {
   return `${basePath}${path}`;
 }
 
-// Validates sitePath exists via DA; returns org, repo, or throws.
+// Validates sitePath exists via DA or the Helix 6 source bus; returns org, repo, or throws.
 export async function validateSitePath(sitePath) {
   if (!sitePath) {
     logMediaLibraryError(ErrorCodes.VALIDATION_SITE_PATH_MISSING, {});
@@ -189,12 +188,10 @@ export async function validateSitePath(sitePath) {
 
   if (restPath.length === 0) {
     try {
-      const url = `${DA_ADMIN}/list/${org}/${repo}/`;
-      const resp = await daFetch(url);
+      const listing = await listSource(`/${org}/${repo}/`);
 
-      if (resp.ok) {
-        const data = await resp.json();
-        const items = Array.isArray(data) ? data : (data.sources || []);
+      if (listing.ok) {
+        const { items } = listing;
 
         if (!items || items.length === 0) {
           logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
@@ -207,13 +204,13 @@ export async function validateSitePath(sitePath) {
         return { valid: true, org, repo };
       }
 
-      if (resp.status === 404) {
+      if (listing.status === 404) {
         logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
         return { valid: false, error: getMessage('VALIDATION_SITE_NOT_FOUND', { path: `/${org}/${repo}` }) };
       }
 
-      if (resp.status === 401 || resp.status === 403) {
-        logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: `/${org}/${repo}`, status: resp.status });
+      if (listing.status === 401 || listing.status === 403) {
+        logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: `/${org}/${repo}`, status: listing.status });
         return {
           valid: false,
           error: getMessage('VALIDATION_SITE_403'),
@@ -221,11 +218,11 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      if (resp.status >= 500) {
+      if (listing.status >= 500) {
         return { valid: false, error: getMessage('VALIDATION_SERVER_ERROR') };
       }
 
-      return { valid: false, error: `Validation failed: ${resp.status}` };
+      return { valid: false, error: `Validation failed: ${listing.status}` };
     } catch (error) {
       return { valid: false, error: error.message };
     }
@@ -236,14 +233,10 @@ export async function validateSitePath(sitePath) {
   const parentPath = `/${parentParts.join('/')}`;
 
   try {
-    // Extract parent path segments after org/repo for daFetch list
-    const parentSegments = restPath.slice(0, -1);
-    const parentFilePath = parentSegments.length > 0 ? `/${parentSegments.join('/')}` : '';
-    const url = `${DA_ADMIN}/list/${org}/${repo}${parentFilePath}`;
-    const resp = await daFetch(url);
+    const listing = await listSource(parentPath);
 
-    if (!resp.ok) {
-      if (resp.status === 404) {
+    if (!listing.ok) {
+      if (listing.status === 404) {
         logMediaLibraryError(ErrorCodes.VALIDATION_PATH_NOT_FOUND, {
           path: parentPath,
           status: 404,
@@ -254,10 +247,10 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      if (resp.status === 401 || resp.status === 403) {
+      if (listing.status === 401 || listing.status === 403) {
         logMediaLibraryError(
           ErrorCodes.DA_READ_DENIED,
-          { path: parentPath, status: resp.status },
+          { path: parentPath, status: listing.status },
         );
         return {
           valid: false,
@@ -266,15 +259,14 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      if (resp.status >= 500) {
+      if (listing.status >= 500) {
         return { valid: false, error: getMessage('VALIDATION_SERVER_ERROR') };
       }
 
-      return { valid: false, error: `Validation failed: ${resp.status}` };
+      return { valid: false, error: `Validation failed: ${listing.status}` };
     }
 
-    const data = await resp.json();
-    const items = Array.isArray(data) ? data : (data.sources || []);
+    const { items } = listing;
 
     if (!items || items.length === 0) {
       return {

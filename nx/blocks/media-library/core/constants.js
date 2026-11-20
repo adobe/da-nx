@@ -127,6 +127,8 @@ const DA_ETC_ENVS = {
   prod: 'https://da-etc.adobeaem.workers.dev',
 };
 
+export const AEM_API_ORIGIN = 'https://api.aem.live';
+
 /**
  * Resolve DA admin origin from location (worker-safe)
  * @param {Location|{href: string, origin: string}} location

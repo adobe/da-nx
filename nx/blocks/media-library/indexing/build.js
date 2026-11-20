@@ -23,12 +23,14 @@ import { getAemSiteToken, clearCachedAemSiteToken } from './admin-api.js';
 import { sortMediaData } from '../core/utils.js';
 import { ErrorCodes, MediaLibraryError } from '../core/errors.js';
 import {
+  AEM_API_ORIGIN,
   IndexConfig,
   resolveDaOrigin,
   resolveDaEtcOrigin,
   resolveAemOrigin,
 } from '../core/constants.js';
 import { isPerfEnabled } from '../core/params.js';
+import { isHlx6 } from '../core/source.js';
 
 /**
  * Run index build in web worker
@@ -70,7 +72,9 @@ async function runWorkerBuild(
 
   // Resolve origins on main thread (has access to localStorage) and pass resolved values
   // Worker doesn't have localStorage access, so resolve here instead of in worker
-  const daOrigin = resolveDaOrigin(window.location);
+  const sourceOrigin = (await isHlx6(org, repo))
+    ? AEM_API_ORIGIN
+    : resolveDaOrigin(window.location);
   const daEtcOrigin = resolveDaEtcOrigin(window.location);
   const aemOrigin = resolveAemOrigin();
   const perfEnabled = isPerfEnabled();
@@ -203,7 +207,7 @@ async function runWorkerBuild(
     ref,
     imsToken,
     siteToken,
-    daOrigin,
+    sourceOrigin,
     daEtcOrigin,
     aemOrigin,
     isPerfEnabled: perfEnabled,

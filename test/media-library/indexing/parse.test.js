@@ -2,6 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import {
   extractExternalMediaUrls,
   extractFragmentReferences,
+  extractImageUrls,
   extractLinks,
 } from '../../../nx/blocks/media-library/indexing/parse-utils.js';
 
@@ -270,6 +271,33 @@ describe('parse', () => {
     it('returns empty array for empty content', () => {
       expect(extractLinks('', /\.pdf$/, false)).to.be.empty;
       expect(extractLinks(null, /\.pdf$/, false)).to.be.empty;
+    });
+  });
+
+  describe('extractImageUrls', () => {
+    it('maps relative media bus references to the root path, like absolute ones', () => {
+      const md = `
+![][image0]
+
+[image0]: ./media_1582c5835864f1985d793bffb69a463d22aef596b.png#width=97&height=61
+      `;
+      const images = extractImageUrls(md, false);
+      expect(images).to.deep.equal(['/media_1582c5835864f1985d793bffb69a463d22aef596b.png']);
+    });
+
+    it('maps relative media bus references in HTML to the root path', () => {
+      const html = '<img src="./media_1582c5835864f1985d793bffb69a463d22aef596b.png?width=750">';
+      const images = extractImageUrls(html, true);
+      expect(images).to.deep.equal(['/media_1582c5835864f1985d793bffb69a463d22aef596b.png']);
+    });
+
+    it('keeps absolute media bus references and other relative images as they are', () => {
+      const md = `
+![](https://main--site--org.aem.live/media_1abc.png?width=750)
+![Logo](./images/logo.png)
+      `;
+      const images = extractImageUrls(md, false);
+      expect(images).to.deep.equal(['/media_1abc.png', './images/logo.png']);
     });
   });
 });
