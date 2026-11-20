@@ -7,7 +7,7 @@ import {
   validateServiceValues,
 } from '../../../nx/blocks/loc/utils/validate-config.js';
 
-const CONNECTORS = ['glaas', 'globallink', 'google', 'lionbridge', 'sample', 'smartling', 'trados', 'translated'];
+const CONNECTORS = ['deepl', 'glaas', 'globallink', 'google', 'lionbridge', 'sample', 'smartling', 'trados', 'translated'];
 
 const lang = (overrides = {}) => ({
   name: 'German',
@@ -529,6 +529,13 @@ describe('loc validate-config', () => {
       expect(missing).to.deep.equal(['Translation service "Translated" is missing "translation.service.prod.apiKey".']);
       const present = await validateServiceValues({ name: 'Translated', values: { apiKey: 'k' }, credentials: true });
       expect(present).to.deep.equal([]);
+    });
+
+    it('accepts DeepL without config keys and requires its apiKey credential', async () => {
+      expect(await validateServiceValues({ name: 'DeepL', values: {} })).to.deep.equal([]);
+      const errors = await validateServiceValues({ name: 'DeepL', values: {}, credentials: true });
+      expect(errors).to.deep.equal(['Translation service "DeepL" is missing "translation.service.prod.apiKey".']);
+      expect(await validateServiceValues({ name: 'DeepL', values: { apiKey: 'k' }, credentials: true })).to.deep.equal([]);
     });
   });
 

@@ -117,4 +117,14 @@ describe('saveLangItemsToDa', () => {
     expect(maxActive).to.equal(3);
     expect(ctx.events.filter((e) => e.startsWith('state:'))).to.have.length(3);
   });
+
+  it('works without a saveState action', async () => {
+    const ctx = setup();
+    delete ctx.conf.actions;
+    const { errors } = await save(ctx);
+
+    expect(errors).to.deep.equal([]);
+    expect(ctx.events).to.deep.equal(['save:fr', 'save:de', 'save:es']);
+    expect(ctx.langs.map((l) => l.translation.status)).to.deep.equal(['complete', 'complete', 'complete']);
+  });
 });

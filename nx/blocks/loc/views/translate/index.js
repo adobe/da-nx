@@ -171,6 +171,14 @@ async function saveLang({
   return { savedCount, errors };
 }
 
+/**
+ * Saves translated items to DA per language, persisting the project after each language.
+ * @param {object} options Service options.
+ * @param {object} conf Translation conf with `langs`, `urls` and `actions`.
+ * @param {object} connector Connector implementing `saveItems`.
+ * @param {Function} sendMessage Message callback.
+ * @returns {Promise<{errors: object[]}>} Errors from languages that failed to save.
+ */
 export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   const behavior = options['translate.conflict.behavior'];
 
