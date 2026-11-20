@@ -22,6 +22,46 @@ describe('standalone AO input', () => {
 
   afterEach(() => chatInput.remove());
 
+  it('uses 32px buttons with 18px icons for Add and voice input', () => {
+    ['.chat-add', '.chat-voice'].forEach((selector) => {
+      const button = chatInput.shadowRoot.querySelector(selector);
+      const buttonStyle = getComputedStyle(button);
+      const iconStyle = getComputedStyle(button.querySelector('svg'));
+      expect(buttonStyle.width).to.equal('32px');
+      expect(buttonStyle.height).to.equal('32px');
+      expect(iconStyle.width).to.equal('18px');
+      expect(iconStyle.height).to.equal('18px');
+    });
+  });
+
+  it('keeps Send and Stop at 32px with 18px icons across the working state', async () => {
+    await chatInput.setPrompt('A question');
+    const send = chatInput.shadowRoot.querySelector('.chat-send');
+    const sendStyle = getComputedStyle(send);
+    const arrowStyle = getComputedStyle(send.querySelector('svg'));
+    expect(sendStyle.display).to.equal('flex');
+    expect(sendStyle.width).to.equal('32px');
+    expect(sendStyle.height).to.equal('32px');
+    expect(sendStyle.borderRadius).to.equal('50%');
+    expect(arrowStyle.width).to.equal('18px');
+    expect(arrowStyle.height).to.equal('18px');
+    expect(send.querySelector('use').getAttribute('href')).to.include('s2-icon-arrowupsend-20-n.svg');
+    chatInput.blocked = true;
+    await chatInput.updateComplete;
+    const stop = chatInput.shadowRoot.querySelector('.chat-stop');
+    const buttonStyle = getComputedStyle(stop);
+    const iconStyle = getComputedStyle(stop.querySelector('svg'));
+    expect(chatInput.shadowRoot.querySelector('.chat-working').textContent).to.include('Working on your question');
+    expect(getComputedStyle(chatInput.shadowRoot.querySelector('.chat-voice')).display).to.equal('none');
+    expect(buttonStyle.display).to.equal('flex');
+    expect(buttonStyle.width).to.equal('32px');
+    expect(buttonStyle.height).to.equal('32px');
+    expect(buttonStyle.borderRadius).to.equal('50%');
+    expect(iconStyle.width).to.equal('18px');
+    expect(iconStyle.height).to.equal('18px');
+    expect(stop.querySelector('use').getAttribute('href')).to.include('s2-icon-stopprocessing-20-n.svg');
+  });
+
   it('switches context events after mount without losing existing pills', async () => {
     const originalEvent = chatInput.addEvent;
     chatInput.addItem({ id: 'existing', label: 'Existing' });
