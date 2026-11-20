@@ -645,11 +645,11 @@
       height: 10px;
       flex-shrink: 0;
       fill: currentcolor;
-      transform: rotate(180deg);
+      transform: rotate(0deg);
     }
 
     &[open] .permission-details-chevron {
-      transform: rotate(270deg);
+      transform: rotate(90deg);
     }
   }
 

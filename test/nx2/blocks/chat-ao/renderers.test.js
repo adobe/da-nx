@@ -94,6 +94,16 @@ describe('renderPermissionCard keydown', () => {
         .to.be.closeTo(summaryRect.top + summaryRect.height / 2, 0.5);
       expect(getComputedStyle(summary).paddingTop).to.equal('0px');
       expect(getComputedStyle(summary).paddingBottom).to.equal('0px');
+
+      const chevron = summary.querySelector('svg');
+      const collapsed = new DOMMatrix(getComputedStyle(chevron).transform);
+      expect(collapsed.a).to.be.closeTo(1, 0.001);
+      expect(collapsed.b).to.be.closeTo(0, 0.001);
+
+      summary.click();
+      const expanded = new DOMMatrix(getComputedStyle(chevron).transform);
+      expect(expanded.a).to.be.closeTo(0, 0.001);
+      expect(expanded.b).to.be.closeTo(1, 0.001);
     });
   });
 
