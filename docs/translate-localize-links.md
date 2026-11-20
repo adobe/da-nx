@@ -8,6 +8,9 @@ It does one thing: it rewrites every matching link, or none (flag off, the defau
 them by hand. Links to pages that were not translated are caught by preflight before publishing, as usual. To
 translate page names, remove the DNT on links and agree the handling with your translation vendor.
 
+Only translation saves are affected. Copy and rollout to locales don't localize links: rolling `/de` out to `/de-at`
+keeps `/de/...` links.
+
 ## Enabling
 
 Add a row to the `config` sheet of the site's `/.da/translate.json` (or the org's, which applies to sites without
@@ -32,17 +35,17 @@ The folder is replaced by the language's `location`, keeping the rest of the pat
 relative links (`../x`), `mailto:`, `#` anchors and JSON content are left alone.
 
 When a link's text is the link itself (for example a fragment link showing its own URL), the text is updated to
-match. Any other link text is left as translated.
+match, as long as it is a single run of text (formatting the whole URL is fine). If only part of the URL is
+formatted, the link is still moved but its text is left as is. Any other link text is left as translated.
 
 ## Which folders are "from" folders
 
 - The language's own `source` column, if set (region setups). Otherwise the project's `source.language` location,
   which is where the content sent for translation is read from.
-- For a dependent language (its `source language` names a language other than the config `source.language`), also
-  the location of that language. For example French Canada translated from French moves `/fr/...` links too. That
-  location is the one saved in the project when it was created; if that language isn't in the project, the current
-  languages sheet is used. Whether a language is dependent is decided from the current config, so changing
-  `source.language` while a project is pending can change which folders are moved.
+- For a dependent language (its `source language` names a language other than the project's `source.language`),
+  also the location of that language. For example French Canada translated from French moves `/fr/...` links too.
+  That location is the one saved in the project when it was created; if that language isn't in the project, the
+  current languages sheet is used.
 
 ## Rules
 

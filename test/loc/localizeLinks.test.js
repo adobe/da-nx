@@ -146,7 +146,6 @@ describe('localizeLinks', () => {
       `<p><a href="${PAGE}/en-nl/z">See ${PAGE}/en-nl/z</a></p>`,
       '<p><a href="/en-nl/$&amp;">/en-nl/$&amp;</a></p>',
       '<p><a href="/en-nl/w">/en-nl/<strong>w</strong></a></p>',
-      '<p><a href="/en-nl/v">/e<em>n-n</em>l/v</a></p>',
     ].join('');
     const doc = new DOMParser().parseFromString(localizeLinks({
       html, org: ORG, site: SITE, fromPrefixes: ['/en-nl'], destPrefix: '/nl-nl',
@@ -156,22 +155,8 @@ describe('localizeLinks', () => {
     expect(links[1].querySelector('strong').textContent).to.equal(`${PAGE}/nl-nl/y`);
     expect(links[2].textContent).to.equal(`See ${PAGE}/en-nl/z`);
     expect(links[3].textContent).to.equal('/nl-nl/$&');
-    expect(links[4].innerHTML).to.equal('/nl-nl/<strong>w</strong>');
-    expect(links[5].textContent).to.equal('/nl-nl/v');
-    expect(links[5].querySelector('em')).to.exist;
-  });
-
-  it('updates split link text when the destination changes the url length', () => {
-    const text = (html, dest) => new DOMParser().parseFromString(localizeLinks({
-      html, org: ORG, site: SITE, fromPrefixes: ['/en'], destPrefix: dest,
-    }), 'text/html').querySelector('a');
-    const toRoot = text('<a href="/en/about">/e<strong>n/ab</strong>out</a>', '/');
-    expect(toRoot.textContent).to.equal('/about');
-    expect(toRoot.querySelector('strong')).to.exist;
-    expect(text(`<a href="${PAGE}/en/x"><em>${PAGE}/en</em>/x</a>`, '/fr-ca').textContent)
-      .to.equal(`${PAGE}/fr-ca/x`);
-    expect(text('<a href="/en/en">/en/<b>en</b></a>', '/fr-ca').innerHTML)
-      .to.equal('/fr-ca/<b>en</b>');
+    expect(links[4].getAttribute('href')).to.equal('/nl-nl/w');
+    expect(links[4].innerHTML).to.equal('/en-nl/<strong>w</strong>');
   });
 });
 
@@ -223,10 +208,10 @@ describe('saveLangItemsToDa link localizing', () => {
 
   const save = (lang, conn, {
     suppliedPath = '/en-nl/home', sourceLocations = ['/en-nl'], behavior = 'overwrite', ext = 'html',
-    snapshot, projectLangs = [],
+    snapshot, projectLangs = [], sourceLang = { location: '/en-nl' },
   } = {}) => (
     saveLangItemsToDa(
-      { 'translate.conflict.behavior': behavior, 'source.language': { location: '/en-nl' } },
+      { 'translate.conflict.behavior': behavior, 'source.language': sourceLang },
       {
         org: ORG,
         site: SITE,
@@ -370,10 +355,12 @@ describe('saveLangItemsToDa link localizing', () => {
     expect(hrefs(saved[0].sourceContent)).to.deep.equal([`${PAGE}/nl-nl/about`]);
   });
 
-  it('does not treat the default source language as a dependency', async () => {
-    stubConfig('true', [{ key: 'source.language', value: 'French' }]);
+  it('does not treat the project source language as a dependency', async () => {
+    stubConfig('true', [{ key: 'source.language', value: 'English NL' }]);
     const lang = { name: 'Dutch', location: '/nl-nl', 'source language': 'French' };
-    await save(lang, connector(`${link('/en-nl/about')}${link('/fr/pricing')}`));
+    await save(lang, connector(`${link('/en-nl/about')}${link('/fr/pricing')}`), {
+      sourceLang: { name: 'French', location: '/en-nl' },
+    });
     expect(hrefs(saved[0].sourceContent))
       .to.deep.equal([`${PAGE}/nl-nl/about`, `${PAGE}/fr/pricing`]);
   });

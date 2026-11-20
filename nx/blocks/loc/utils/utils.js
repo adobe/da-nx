@@ -344,6 +344,10 @@ export function isSourceDetectEnabled(value) {
   return String(value ?? '').trim().toLowerCase() === 'true';
 }
 
+export function isLocalizeLinksEnabled(config) {
+  return String(config?.['translate.links.localize'] ?? '').trim().toLowerCase() === 'true';
+}
+
 export function normalizeLocation(location) {
   const trimmed = String(location ?? '').trim().replace(/\/+$/, '');
   return trimmed || '/';
@@ -473,26 +477,9 @@ function localizeHref({
 
 function replaceLinkText({ a, href, localized }) {
   const walker = a.ownerDocument.createTreeWalker(a, NodeFilter.SHOW_TEXT);
-  const textNodes = [];
-  while (walker.nextNode()) textNodes.push(walker.currentNode);
-  const max = Math.min(href.length, localized.length);
-  const prefix = [...Array(max).keys()].find((i) => href[i] !== localized[i]) ?? max;
-  const suffix = [...Array(max - prefix).keys()]
-    .find((i) => href.at(-1 - i) !== localized.at(-1 - i)) ?? max - prefix;
-  const start = a.textContent.indexOf(href) + prefix;
-  const end = start + href.length - prefix - suffix;
-  const insert = localized.slice(prefix, localized.length - suffix);
-  // The changed part of the URL may span inline formatting, so edit it across text nodes.
-  textNodes.reduce(({ offset, inserted }, node) => {
-    const nodeEnd = offset + node.data.length;
-    const owns = !inserted && start >= offset && start <= nodeEnd;
-    const from = Math.max(start, offset) - offset;
-    const to = Math.min(end, nodeEnd) - offset;
-    if (owns || from < to) {
-      node.data = `${node.data.slice(0, from)}${owns ? insert : ''}${node.data.slice(to)}`;
-    }
-    return { offset: nodeEnd, inserted: inserted || owns };
-  }, { offset: 0, inserted: false });
+  const node = walker.nextNode();
+  if (!node || walker.nextNode()) return;
+  node.data = node.data.replace(href, () => localized);
 }
 
 export function localizeLinks({

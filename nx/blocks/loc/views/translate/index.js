@@ -10,7 +10,7 @@ import {
   findSourceLocation,
   getConfiguredLocations,
   getProjectSourceLocations,
-  isSourceDetectEnabled,
+  isLocalizeLinksEnabled,
   localizeLinks,
 } from '../../utils/utils.js';
 import { toConfigMap } from '../../utils/validate-config.js';
@@ -151,7 +151,7 @@ async function saveLang({
     return { ...url, destination: `/${org}/${site}${daDestPath}` };
   });
 
-  const isDependent = lang['source language'] && lang['source language'] !== linkConfig?.sourceLangName;
+  const isDependent = lang['source language'] && lang['source language'] !== options?.['source.language']?.name;
   const findDependency = (rows) => rows?.find(({ name }) => name === lang['source language'])?.location;
   const fromPrefixes = linkConfig && [
     lang.source || options?.['source.language']?.location,
@@ -202,13 +202,8 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   });
   const languageRows = sheets?.languages?.data;
   const langRows = Array.isArray(languageRows) ? languageRows.filter(Boolean) : [];
-  const config = toConfigMap(sheets);
-  const linkConfig = isSourceDetectEnabled(config['translate.links.localize'])
-    ? {
-      langRows,
-      locations: getConfiguredLocations(langRows),
-      sourceLangName: config['source.language'],
-    }
+  const linkConfig = isLocalizeLinksEnabled(toConfigMap(sheets))
+    ? { langRows, locations: getConfiguredLocations(langRows) }
     : undefined;
 
   const saveLangConf = {
