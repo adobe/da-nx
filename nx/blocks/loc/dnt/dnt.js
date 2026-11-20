@@ -195,7 +195,7 @@ function parseConfig(config) {
 
   sheetRules.forEach((sheetRule) => {
     if (Object.keys(sheetRule).length > 0) {
-      rules.sheetRules.push(extractPattern(sheetRule));
+      rules.sheetRules.push(sheetRule.action === 'dnt-inline' ? sheetRule : extractPattern(sheetRule));
     }
   });
 

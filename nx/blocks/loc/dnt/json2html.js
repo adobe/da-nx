@@ -6,6 +6,7 @@ import { resolveSheetRules } from './sheetRules.js';
   services to their own format. This output format is the format used by GLAAS,
   so no transformation is needed for that service.
 */
+import { addInlineDnt, parseInlineRule } from './inlineDnt.js';
 
 const SYSTEM_COLUMNS = [':translate', ':rollout', ':uid', ':regional'];
 
@@ -30,6 +31,8 @@ const json2html = (json, dntConfig, path) => {
   // Support both sheetRule config formats (plain object and Map-like)
   const sheetRules = dntConfig?.sheetRules || dntConfig?.get?.('sheetRules');
 
+  const inlineRules = sheetRules?.filter((rule) => rule.action === 'dnt-inline')
+    .map((rule) => parseInlineRule(rule)) || [];
   const isMultiSheet = json[':type'] === 'multi-sheet';
 
   // Path rules match a single-tab sheet by its `:sheetname` (DA's default is `data`).
@@ -50,6 +53,7 @@ const json2html = (json, dntConfig, path) => {
    */
   const isTextInDntRules = (text) => sheetRules && sheetRules
     .some((rule) => {
+      if (rule.action === 'dnt-inline') return false;
       if (rule.condition === 'exists') {
         return true;
       }
@@ -106,6 +110,7 @@ const json2html = (json, dntConfig, path) => {
           } else {
             colDiv.textContent = text;
           }
+          addInlineDnt({ root: colDiv, rules: inlineRules });
         });
       });
     }
