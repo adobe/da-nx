@@ -311,7 +311,31 @@ describe('loc validate-config', () => {
         ['translation.service.stage.userSecret', 's'],
       ]);
       const { errors } = await validateConfig(sheets({ config }));
-      expect(errors).to.deep.equal(['Translation service "smartling" is missing "translation.service.stage.projectId".']);
+      expect(errors).to.deep.equal(['Translation service "smartling" is missing one of "translation.service.stage.accountUid" or "translation.service.stage.projectId".']);
+    });
+
+    it('accepts an account-only smartling config without a projectId', async () => {
+      const config = service([
+        ['translation.service.name', 'smartling'],
+        ['translation.service.all.env', 'prod'],
+        ['translation.service.prod.origin', 'https://prod'],
+        ['translation.service.prod.accountUid', 'acct-1'],
+        ['translation.service.prod.userIdentifier', 'u'],
+        ['translation.service.prod.userSecret', 's'],
+      ]);
+      const { errors } = await validateConfig(sheets({ config }));
+      expect(errors).to.deep.equal([]);
+    });
+
+    it('lists required keys before an unmet any-of group', async () => {
+      const config = service([
+        ['translation.service.name', 'smartling'],
+        ['translation.service.all.env', 'prod'],
+        ['translation.service.prod.userIdentifier', 'u'],
+        ['translation.service.prod.userSecret', 's'],
+      ]);
+      const { errors } = await validateConfig(sheets({ config }));
+      expect(errors).to.deep.equal(['Translation service "smartling" is missing "translation.service.prod.origin" and one of "translation.service.prod.accountUid" or "translation.service.prod.projectId".']);
     });
 
     it('reports an env with no values', async () => {
@@ -341,7 +365,7 @@ describe('loc validate-config', () => {
         ['translation.service.stage.userSecret', 's'],
       ]);
       const { errors } = await validateConfig(sheets({ config }));
-      expect(errors).to.deep.equal(['Translation service "smartling" is missing "translation.service.stage.projectId".']);
+      expect(errors).to.deep.equal(['Translation service "smartling" is missing one of "translation.service.stage.accountUid" or "translation.service.stage.projectId".']);
     });
 
     it('reports an unknown service once across several envs', async () => {
@@ -543,6 +567,15 @@ describe('loc validate-config', () => {
         const { requiredKeys } = await import(`../../../nx/blocks/loc/connectors/${name}/index.js`);
         expect(requiredKeys).to.be.an('array');
         requiredKeys.forEach((key) => expect(key).to.be.a('string'));
+      });
+
+      it(`${name} requiredAnyKeys is optional but must be an array of string arrays`, async () => {
+        const { requiredAnyKeys = [] } = await import(`../../../nx/blocks/loc/connectors/${name}/index.js`);
+        expect(requiredAnyKeys).to.be.an('array');
+        requiredAnyKeys.forEach((group) => {
+          expect(group).to.be.an('array').that.is.not.empty;
+          group.forEach((key) => expect(key).to.be.a('string'));
+        });
       });
 
       it(`${name} requiredCredentialKeys is optional but must be a string array`, async () => {

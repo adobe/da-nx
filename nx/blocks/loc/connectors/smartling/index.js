@@ -5,7 +5,9 @@ import {
   BASE_OPTS, resolveOrigin, getToken, onUnauthorized, isConnected, connect as establishConnection,
 } from './auth.js';
 
-export const requiredKeys = ['origin', 'projectId'];
+export const requiredKeys = ['origin'];
+
+export const requiredAnyKeys = [['accountUid', 'projectId']];
 
 export const requiredCredentialKeys = ['userIdentifier', 'userSecret'];
 
@@ -14,11 +16,9 @@ export const dnt = { addDnt };
 export { isConnected };
 
 /**
- * Authenticates with Smartling via da-etc, surfacing an error message if it
- * fails.
+ * Authenticates with Smartling via da-etc.
  * @param {Object} service - The service configuration.
- * @param {Function} [sendMessage] - Callback to surface an error message
- *  to the user if authentication fails.
+ * @param {Function} [sendMessage] - Surfaces an error message on failure.
  * @returns {Promise<boolean>} Whether authentication succeeded.
  */
 export async function connect(service, sendMessage) {
@@ -28,15 +28,265 @@ export async function connect(service, sendMessage) {
 }
 
 /**
- * Extracts a human-readable message from Smartling's documented error
- * envelope. Per their Error Handling docs, every 4xx/5xx response on every
- * endpoint returns `{ response: { code, errors: [{ key, message,
- * details }] } }` - this reads the `errors` array rather than just the
- * top-level `code`, since `code` alone (e.g. `VALIDATION_ERROR`) doesn't
- * say what's actually wrong (e.g. an invalid target locale).
+ * Fetches a Smartling project's details (incl. `accountUid`, `sourceLocaleId`).
+ * @param {Object} params
+ * @param {Object} params.service - The flattened per-environment service config.
+ * @param {string} params.endpoint - The Smartling API origin.
+ * @param {string} params.projectId - The project to look up.
+ * @returns {Promise<Object|null>} The project details, or null on failure.
+ */
+async function fetchProjectDetails({ service, endpoint, projectId }) {
+  const { org, site, env } = service;
+  const url = `${endpoint}/projects-api/v2/projects/${projectId}`;
+  const opts = { headers: { Authorization: `Bearer ${getToken(org, site, env)}` } };
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) return null;
+  const { response } = await resp.json();
+  return response?.data || null;
+}
+
+/**
+ * Resolves the `accountUid` for account-scoped lookups. Prefers the `accountUid`
+ * config, falling back to looking it up from the deprecated `projectId`.
+ * @param {Object} service - The flattened per-environment service config.
+ * @param {string} endpoint - The Smartling API origin.
+ * @returns {Promise<{accountUid?: string, project?: Object, lookupFailed?: boolean}>}
+ *  `project` is set when it was fetched; `lookupFailed` when the `projectId`
+ *  lookup failed. Empty if neither is configured.
+ */
+async function resolveAccountUid(service, endpoint) {
+  const { accountUid, projectId } = service;
+  if (accountUid) return { accountUid };
+  if (!projectId) return {};
+
+  const project = await fetchProjectDetails({ service, endpoint, projectId });
+  if (!project?.accountUid) return { lookupFailed: true };
+  return { accountUid: project.accountUid, project };
+}
+
+const PROJECTS_PAGE_SIZE = 500;
+const PROJECTS_MAX_PAGES = 20;
+const WORKFLOWS_LIMIT = 500;
+
+/**
+ * Walks offset-paginated pages until `totalCount` is reached.
+ * @param {Object} params
+ * @param {(offset: number) => Promise<{items?: Object[], totalCount?: number,
+ *  error?: number}>} params.fetchPage - Fetches one page at the given offset.
+ * @param {number} [params.page] - Zero-based page index.
+ * @param {Object[]} [params.collected] - Items from prior pages.
+ * @returns {Promise<{items: Object[], incomplete: boolean}>} `incomplete` if a
+ *  page failed or the page cap was hit.
+ */
+async function collectProjectPages({ fetchPage, page = 0, collected = [] }) {
+  const result = await fetchPage(collected.length);
+  if (result.error) return { items: collected, incomplete: true };
+
+  const items = [...collected, ...result.items];
+  const done = !result.items.length || (Number.isFinite(result.totalCount)
+    ? items.length >= result.totalCount
+    : result.items.length < PROJECTS_PAGE_SIZE);
+  if (done) return { items, incomplete: false };
+  if (page + 1 >= PROJECTS_MAX_PAGES) return { items, incomplete: true };
+  return collectProjectPages({ fetchPage, page: page + 1, collected: items });
+}
+
+/**
+ * Lists the account's non-archived projects for the `projectId` option.
+ * @param {Object} service - The flattened per-environment service config.
+ * @returns {Promise<{items: {projectId: string, projectName: string}[],
+ *  incomplete: boolean}>} `incomplete` if a lookup failed or was truncated.
+ */
+export async function listProjects(service) {
+  const { org, site, env, origin } = service;
+  const endpoint = resolveOrigin(origin, org, site);
+
+  const { accountUid, lookupFailed } = await resolveAccountUid(service, endpoint);
+  if (!accountUid) return { items: [], incomplete: !!lookupFailed };
+
+  const baseUrl = `${endpoint}/accounts-api/v2/accounts/${accountUid}/projects`;
+  const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
+  const fetchPage = async (offset) => {
+    const url = `${baseUrl}?offset=${offset}&limit=${PROJECTS_PAGE_SIZE}`;
+    const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+    if (!resp.ok) return { error: resp.status };
+    const { response } = await resp.json();
+    return { items: response?.data?.items || [], totalCount: response?.data?.totalCount };
+  };
+
+  const { items, incomplete } = await collectProjectPages({ fetchPage });
+  const projects = items
+    .filter((project) => !project.archived)
+    .map((project) => ({ projectId: project.projectId, projectName: project.projectName }));
+  return { items: projects, incomplete };
+}
+
+/**
+ * Runs one account-scoped workflow search.
+ * @param {Object} params
+ * @param {Object} params.service - The flattened per-environment service config.
+ * @param {string} params.endpoint - The Smartling API origin.
+ * @param {string} params.accountUid - The account to search.
+ * @param {Object} params.filter - A `UserWorkflowFilterCommand` request body.
+ * @returns {Promise<{items: Object[], incomplete: boolean}|{error: string}>}
+ *  `incomplete` if the result was truncated.
+ */
+async function searchWorkflows({
+  service, endpoint, accountUid, filter,
+}) {
+  const { org, site, env } = service;
+  const limit = filter.limit ?? WORKFLOWS_LIMIT;
+  const url = `${endpoint}/workflows-api/v3/accounts/${accountUid}/workflows`;
+  const opts = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await getToken(org, site, env)}` },
+    body: JSON.stringify({ ...filter, limit }),
+  };
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) return { error: `The workflow lookup failed (${resp.status}).` };
+
+  const { response } = await resp.json();
+  const items = response?.data?.items || [];
+  const incomplete = items.length >= limit || response?.data?.totalCount > items.length;
+  return { items, incomplete };
+}
+
+/**
+ * Lists workflows that can authorize a job in the selected project, for the
+ * `workflowUid` option. Merges a project-scoped search with account-wide CUSTOM
+ * and LOCKED searches (each capped at 500), excluding other projects' workflows
+ * and those without locale pairs.
+ * @param {Object} service - The flattened per-environment service config.
+ * @returns {Promise<{items: {workflowUid: string, workflowName: string}[],
+ *  incomplete: boolean}>} `incomplete` if a lookup failed or was truncated.
+ */
+export async function listWorkflows(service) {
+  const { org, site, origin, projectId } = service;
+  const endpoint = resolveOrigin(origin, org, site);
+
+  const { accountUid, lookupFailed } = await resolveAccountUid(service, endpoint);
+  if (!accountUid) return { items: [], incomplete: !!lookupFailed };
+
+  const filters = [
+    ...(projectId ? [{ projectId }] : []),
+    { localePairManagementType: 'CUSTOM' },
+    { localePairManagementType: 'LOCKED' },
+  ];
+  const results = await Promise.all(filters.map((filter) => searchWorkflows({
+    service, endpoint, accountUid, filter,
+  })));
+
+  const byUid = new Map(results
+    .flatMap((result) => result.items || [])
+    .filter((workflow) => !workflow.projectId || workflow.projectId === projectId)
+    .filter((workflow) => workflow.localePairs?.length)
+    .map((workflow) => [workflow.workflowUid, {
+      workflowUid: workflow.workflowUid,
+      workflowName: workflow.workflowName,
+    }]));
+  const incomplete = results.some((result) => result.error || result.incomplete);
+  return { items: [...byUid.values()], incomplete };
+}
+
+/**
+ * Checks that a workflow covers every target locale from the project's source
+ * locale, so auto-authorize can't leave locales unauthorized.
+ * @param {Object} params
+ * @param {Object} params.service - The flattened per-environment service config.
+ * @param {string} params.workflowUid - The selected workflow.
+ * @param {{code: string}[]} params.langs - The languages being sent.
+ * @returns {Promise<{error?: string}>} An `error` if the workflow can't be used.
+ */
+export async function checkWorkflowCoverage({ service, workflowUid, langs }) {
+  const { org, site, origin } = service;
+  const endpoint = resolveOrigin(origin, org, site);
+
+  const { accountUid, project: resolvedProject } = await resolveAccountUid(service, endpoint);
+  if (!accountUid) return { error: 'Could not verify the Smartling workflow. The Smartling account could not be resolved.' };
+
+  const filter = { workflowUids: [workflowUid], limit: 1 };
+  const result = await searchWorkflows({
+    service, endpoint, accountUid, filter,
+  });
+  if (result.error) return { error: `Could not verify the Smartling workflow. ${result.error}` };
+
+  const workflow = result.items.find((item) => item.workflowUid === workflowUid);
+  if (!workflow) return { error: `Smartling workflow ${workflowUid} was not found.` };
+
+  const name = workflow.workflowName || workflowUid;
+  if (!workflow.localePairs?.length) {
+    return { error: `Smartling workflow "${name}" has no locale pairs and can't authorize jobs.` };
+  }
+
+  const project = resolvedProject
+    || await fetchProjectDetails({ service, endpoint, projectId: service.projectId });
+  const { sourceLocaleId } = project || {};
+  if (!sourceLocaleId) {
+    return { error: 'Could not verify the Smartling workflow. The Smartling project\'s source locale could not be resolved.' };
+  }
+
+  const covered = new Set(workflow.localePairs
+    .filter((pair) => pair.sourceLocaleId === sourceLocaleId)
+    .flatMap((pair) => pair.targetLocaleIds || []));
+  const missing = langs.map((lang) => lang.code).filter((code) => !covered.has(code));
+  if (missing.length) {
+    return { error: `Smartling workflow "${name}" doesn't cover: ${missing.join(', ')}.` };
+  }
+  return {};
+}
+
+/**
+ * Service options the Options UI renders as live-populated selects. Options.js
+ * reads this export generically: it calls `connect`, then each option's `fetch`.
+ * @type {import('../../views/options/utils/utils.js').ServiceOption[]}
+ */
+export const serviceOptions = [
+  {
+    key: 'projectId',
+    label: 'Project',
+    required: true,
+    fetch: async (service) => {
+      const { items, incomplete } = await listProjects(service);
+      return {
+        items: items.map((project) => ({ value: project.projectId, label: project.projectName })),
+        incomplete,
+      };
+    },
+  },
+  {
+    key: 'autoAuthorize',
+    label: 'Auto-authorize',
+    fetch: async () => ([
+      { value: 'no', label: 'Disabled' },
+      { value: 'yes', label: 'Enabled' },
+    ]),
+  },
+  {
+    key: 'workflowUid',
+    label: 'Workflow',
+    dependsOn: ['projectId'],
+    enabledWhen: (envConfig) => envConfig?.autoAuthorize === 'yes',
+    fetch: async (service) => {
+      const { items, incomplete } = await listWorkflows(service);
+      return {
+        items: [
+          { value: '', label: 'Project default' },
+          ...items.map((workflow) => ({
+            value: workflow.workflowUid,
+            label: workflow.workflowName,
+          })),
+        ],
+        incomplete,
+      };
+    },
+  },
+];
+
+/**
+ * Extracts a readable message from Smartling's error envelope
+ * (`{ response: { code, errors: [{ message }] } }`).
  * @param {Object} json - The parsed error response body.
- * @returns {string} The joined `message` from each reported error, or the
- *  response `code` if no `errors` array is present.
+ * @returns {string} The joined error messages, or `code` if there are none.
  */
 function extractErrorMessage(json) {
   const errors = json?.response?.errors;
@@ -47,22 +297,18 @@ function extractErrorMessage(json) {
 }
 
 /**
- * Uploads every url to a Smartling batch, reporting an error message per
- * file that Smartling rejects (e.g. a locale mismatch) instead of only
- * counting it as not-accepted.
+ * Uploads every url to a Smartling batch, reporting each rejected file.
  * @param {Object} params
  * @param {string} params.org - The DA org.
  * @param {string} params.site - The DA site.
  * @param {string} params.env - The environment key (e.g. 'prod').
- * @param {string} params.endpoint - The resolved Smartling API origin.
+ * @param {string} params.endpoint - The Smartling API origin.
  * @param {string} params.projectId - The Smartling project id.
- * @param {string} params.batchUid - The batch to upload files into.
+ * @param {string} params.batchUid - The target batch.
  * @param {Object[]} params.langs - Target languages to authorize each file for.
  * @param {Object[]} params.urls - The urls to upload.
- * @param {Function} params.sendMessage - Callback to surface a status/error
- *  message to the user.
- * @returns {Promise<string[]>} Each file's Smartling response `code`
- *  (`'ACCEPTED'` on success).
+ * @param {Function} params.sendMessage - Surfaces status/error messages.
+ * @returns {Promise<string[]>} Each file's response `code` (`'ACCEPTED'` on success).
  */
 async function uploadFiles({
   org,
@@ -104,19 +350,17 @@ async function uploadFiles({
 }
 
 /**
- * Creates a Smartling translation job for the given target languages.
+ * Creates a Smartling translation job.
  * @param {Object} params
  * @param {string} params.org - The DA org.
  * @param {string} params.site - The DA site.
  * @param {string} params.env - The environment key (e.g. 'prod').
- * @param {string} params.endpoint - The resolved Smartling API origin.
+ * @param {string} params.endpoint - The Smartling API origin.
  * @param {string} params.projectId - The Smartling project id.
- * @param {string} params.title - The project title, used to build the job name.
- * @param {Object[]} params.langs - Target languages; each `code` becomes a
- *  `targetLocaleId`.
- * @param {Function} params.sendMessage - Callback to surface a status/error
- *  message to the user.
- * @returns {Promise<string|null>} The new job's id, or null on failure.
+ * @param {string} params.title - The project title, used in the job name.
+ * @param {Object[]} params.langs - Target languages (`code` → `targetLocaleId`).
+ * @param {Function} params.sendMessage - Surfaces status/error messages.
+ * @returns {Promise<string|null>} The job id, or null on failure.
  */
 async function createJob({
   org, site, env, endpoint, projectId, title, langs, sendMessage,
@@ -147,24 +391,29 @@ async function createJob({
  * @param {string} params.org - The DA org.
  * @param {string} params.site - The DA site.
  * @param {string} params.env - The environment key (e.g. 'prod').
- * @param {string} params.endpoint - The resolved Smartling API origin.
+ * @param {string} params.endpoint - The Smartling API origin.
  * @param {string} params.projectId - The Smartling project id.
  * @param {string} params.jobUid - The job to attach the batch to.
- * @param {Object[]} params.urls - The urls that will be uploaded to this batch.
- * @param {boolean} params.autoAuthorize - Whether Smartling should immediately
- *  authorize the job for translation once the batch finishes processing,
- *  instead of requiring manual authorization in Smartling's dashboard.
- * @param {Function} params.sendMessage - Callback to surface a status/error
- *  message to the user.
- * @returns {Promise<string|null>} The new batch's id, or null on failure.
+ * @param {Object[]} params.langs - Target languages, assigned to `workflowUid`.
+ * @param {Object[]} params.urls - The urls to upload to this batch.
+ * @param {boolean} params.autoAuthorize - Authorize the job once the batch completes.
+ * @param {string} [params.workflowUid] - Workflow to authorize into when
+ *  `autoAuthorize` is set; defaults to each locale's default workflow.
+ * @param {Function} params.sendMessage - Surfaces status/error messages.
+ * @returns {Promise<string|null>} The batch id, or null on failure.
  */
 async function createBatch({
-  org, site, env, endpoint, projectId, jobUid, urls, autoAuthorize, sendMessage,
+  org, site, env, endpoint, projectId, jobUid, langs, urls, autoAuthorize, workflowUid, sendMessage,
 }) {
+  const localeWorkflows = autoAuthorize && workflowUid
+    ? langs.map((lang) => ({ targetLocaleId: lang.code, workflowUid }))
+    : undefined;
+
   const body = JSON.stringify({
     authorize: autoAuthorize,
     translationJobUid: jobUid,
     fileUris: urls.map((url) => url.daBasePath),
+    ...(localeWorkflows ? { localeWorkflows } : {}),
   });
 
   const opts = { ...BASE_OPTS, body };
@@ -184,15 +433,13 @@ async function createBatch({
 }
 
 /**
- * Downloads a single locale's translated file content.
- * @param {Object} opts - Fetch options, including the `Authorization`
- *  header.
- * @param {string} origin - The resolved Smartling API origin.
+ * Downloads one locale's translated file.
+ * @param {Object} opts - Fetch options with the `Authorization` header.
+ * @param {string} origin - The Smartling API origin.
  * @param {string} projectId - The Smartling project id.
- * @param {Object} lang - The target language; reads `lang.code`.
- * @param {Object} url - The url to download; reads `url.daBasePath`.
- * @returns {Promise<string|null>} The file's translated content, or null
- *  on failure.
+ * @param {Object} lang - The target language (`code`).
+ * @param {Object} url - The url to download (`daBasePath`).
+ * @returns {Promise<string|null>} The translated content, or null on failure.
  */
 async function downloadFile(opts, origin, projectId, lang, url) {
   const reqUrl = new URL(`${origin}/files-api/v2/projects/${projectId}/locales/${lang.code}/file`);
@@ -204,22 +451,17 @@ async function downloadFile(opts, origin, projectId, lang, url) {
 }
 
 /**
- * Downloads and saves every url's translated content for one target
- * language, reporting an error message per file that fails to download
- * instead of saving empty/incorrect content.
+ * Downloads and saves every url's translation for one language, reporting
+ * each failed download.
  * @param {Object} params
  * @param {string} params.org - The DA org.
  * @param {string} params.site - The DA site.
  * @param {Object} params.service - The service configuration.
- * @param {Object} params.lang - The target language being saved.
- * @param {Object[]} params.urls - The urls to download; mutated in place
- *  with `sourceContent` and `status` (`'error'` on a failed download,
- *  otherwise set by `saveFn`).
- * @param {Function} params.saveFn - Callback to persist a downloaded
- *  url's content.
- * @param {Function} params.sendMessage - Callback to surface a status/
- *  error message to the user.
- * @returns {Promise<Object[]>} The urls, each mutated in place.
+ * @param {Object} params.lang - The target language.
+ * @param {Object[]} params.urls - Mutated with `sourceContent` and `status`.
+ * @param {Function} params.saveFn - Persists a url's content.
+ * @param {Function} params.sendMessage - Surfaces status/error messages.
+ * @returns {Promise<Object[]>} The mutated urls.
  */
 export async function saveItems({
   org,
@@ -266,17 +508,13 @@ export async function saveItems({
 }
 
 /**
- * Sends a translation project's urls to Smartling for every target
- * language: creates a job, creates a batch (optionally auto-authorized),
- * then uploads all urls to it.
+ * Sends a project's urls to Smartling: creates a job and batch, then uploads.
  * @param {Object} params
  * @param {string} params.org - The DA org.
  * @param {string} params.site - The DA site.
  * @param {string} params.title - The project title.
- * @param {Object} params.options - Project options; reads/mutates
- *  `options.service`.
- * @param {Object[]} params.langs - Target languages; mutated in place with
- *  `translation` status.
+ * @param {Object} params.options - Project options; mutates `options.service`.
+ * @param {Object[]} params.langs - Mutated with `translation` status.
  * @param {Object[]} params.urls - The urls to translate.
  * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks.
  * @returns {Promise<void>}
@@ -286,8 +524,17 @@ export async function sendAllLanguages({
 }) {
   const { sendMessage, saveState } = actions;
 
-  const { origin, projectId, autoAuthorize, env } = options.service;
+  const { origin, projectId, autoAuthorize, workflowUid, env } = options.service;
   const endpoint = resolveOrigin(origin, org, site);
+
+  if (autoAuthorize === 'yes' && workflowUid) {
+    const service = { ...options.service, org, site };
+    const { error } = await checkWorkflowCoverage({ service, workflowUid, langs });
+    if (error) {
+      sendMessage({ text: error, type: 'error' });
+      return;
+    }
+  }
 
   sendMessage({ text: `Creating job in Smartling for: ${title}.` });
   const jobUid = await createJob({
@@ -312,8 +559,10 @@ export async function sendAllLanguages({
     endpoint,
     projectId,
     jobUid,
+    langs,
     urls,
     autoAuthorize: autoAuthorize === 'yes',
+    workflowUid,
     sendMessage,
   });
   if (!batchUid) {
@@ -358,21 +607,16 @@ function wait(ms) {
 }
 
 /**
- * Polls Smartling's job async-process endpoint until a submitted operation
- * reports a terminal `processState`. Used for the 202 case of
- * `removeLocaleFromJob`, whose removal isn't guaranteed complete until this
- * reports `COMPLETED`.
+ * Polls a job async process until it reaches a terminal `processState`.
  * @param {Object} params
  * @param {string} params.org - The DA org.
  * @param {string} params.site - The DA site.
  * @param {string} params.env - The environment key (e.g. 'prod').
- * @param {string} params.endpoint - The resolved Smartling API origin.
+ * @param {string} params.endpoint - The Smartling API origin.
  * @param {string} params.projectId - The Smartling project id.
  * @param {string} params.jobUid - The job the process belongs to.
  * @param {string} params.processUid - The process to poll.
- * @returns {Promise<string>} 'COMPLETED' or 'FAILED' as reported by
- *  Smartling, 'ERROR' if a poll request itself failed, or 'TIMEOUT' if the
- *  process didn't finish within `MAX_PROCESS_POLL_ATTEMPTS`.
+ * @returns {Promise<string>} 'COMPLETED', 'FAILED', 'ERROR' (poll failed), or 'TIMEOUT'.
  */
 async function pollJobProcess({
   org, site, env, endpoint, projectId, jobUid, processUid,
@@ -396,21 +640,13 @@ async function pollJobProcess({
 }
 
 /**
- * Cancels a single target language by removing its locale from the shared
- * translation job (`removeLocaleFromJob`) - not Smartling's job-level
- * `cancelJob` endpoint, which would cancel every other language still
- * sharing that job, since `sendAllLanguages` sends every target language
- * as one job. Polls the returned process to completion when Smartling
- * responds 202 (async removal).
+ * Cancels one language by removing its locale from the shared job (not
+ * `cancelJob`, which would cancel every language). Polls async (202) removals.
  * @param {Object} params
- * @param {Object} params.service - The service configuration; reads
- *  `org`/`site`/`env`/`origin`/`projectId`/`jobUid`.
- * @param {Object} params.lang - The language to cancel; mutated in place
- *  with `translation.status = 'cancelled'` on success.
- * @param {Function} params.sendMessage - Callback to surface a
- *  status/error message to the user.
- * @returns {Promise<{ok: boolean, skipped?: boolean}>} Whether the
- *  cancellation succeeded (or was skipped as a no-op).
+ * @param {Object} params.service - The service configuration.
+ * @param {Object} params.lang - Set to `cancelled` on success.
+ * @param {Function} params.sendMessage - Surfaces status/error messages.
+ * @returns {Promise<{ok: boolean, skipped?: boolean}>}
  */
 export async function cancelTranslation({ service, lang, sendMessage }) {
   if (!lang.translation || !service.jobUid?.value) {
@@ -471,20 +707,17 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
 }
 
 /**
- * Fetches Smartling's per-locale progress for a job.
+ * Fetches per-locale progress for a job. Locales with no content (`progress`
+ * is null) are reported as 100%, matching Smartling's dashboard.
  * @param {Object} params
  * @param {string} params.org - The DA org.
  * @param {string} params.site - The DA site.
  * @param {string} params.env - The environment key (e.g. 'prod').
- * @param {string} params.endpoint - The resolved Smartling API origin.
+ * @param {string} params.endpoint - The Smartling API origin.
  * @param {string} params.projectId - The Smartling project id.
- * @param {string} params.jobUid - The job to check progress for.
- * @returns {Promise<Object[]|null>} Each locale's `{ targetLocaleId,
- *  percentComplete }`, or null on failure. `percentComplete` is reported
- *  as 100 when Smartling has no content at all for that locale in this
- *  job (its own `progress` field is `null`, not a 0% in-progress state) -
- *  matching the "No content for translation" status Smartling's dashboard
- *  shows for it.
+ * @param {string} params.jobUid - The job.
+ * @returns {Promise<Object[]|null>} `{ targetLocaleId, percentComplete }` per
+ *  locale, or null on failure.
  */
 async function fetchJobProgress({
   org, site, env, endpoint, projectId, jobUid,
@@ -503,27 +736,16 @@ async function fetchJobProgress({
 }
 
 /**
- * Refreshes translation status for every target language of a job via
- * Smartling's getJobProgress endpoint.
+ * Refreshes each language's translation status from job progress. Langs already
+ * `complete` or `cancelled` are skipped; skips the request if all are.
  * @param {Object} params
  * @param {string} params.org - The DA org.
  * @param {string} params.site - The DA site.
- * @param {Object} params.service - The service configuration; reads
- *  `jobUid.value` (set by `sendAllLanguages`).
- * @param {Object[]} params.langs - Target languages; mutated in place with
- *  `translation.status` ('translated' once Smartling reports 100% for
- *  that locale, otherwise Smartling's real progress percentage, e.g.
- *  '62% translated') and `translation.translated` (`urls.length` once
- *  translated, otherwise `0` - this endpoint reports one job-wide
- *  percentage per locale, not a per-file breakdown). A lang already at
- *  `'complete'` or `'cancelled'` is left untouched - both are terminal,
- *  and Smartling keeps reporting 100% indefinitely, which would otherwise
- *  look "newly finished" on every subsequent check. If every lang is
- *  already terminal, skips the API call entirely.
- * @param {Object[]} params.urls - The urls in the project.
- * @param {Object} params.actions - `{ saveState, sendMessage }` callbacks;
- *  `sendMessage` surfaces an error if no job has been created yet, or if
- *  the progress request itself fails.
+ * @param {Object} params.service - The service configuration (`jobUid`).
+ * @param {Object[]} params.langs - Mutated with `translation.status` and
+ *  `translation.translated`.
+ * @param {Object[]} params.urls - The project urls.
+ * @param {Object} params.actions - `{ saveState, sendMessage }` callbacks.
  * @returns {Promise<void>}
  */
 export async function getStatusAll({
