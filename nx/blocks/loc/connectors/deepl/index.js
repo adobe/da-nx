@@ -7,6 +7,9 @@ import { imsAuthHeader } from '../../utils/auth.js';
 
 export { isConnected, connect } from './auth.js';
 
+export const requiredKeys = [];
+export const requiredCredentialKeys = ['apiKey'];
+
 export const dnt = { addDnt };
 
 // Tells the proxy which da-etc env to resolve the DeepL key from; it never reaches the browser.
