@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import init from '../../../../nx2/blocks/marketplace/marketplace.js';
-import { MARKETPLACE_PATH } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
+import { MARKETPLACE_PATH, resetMarketplaceCache } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
 
 function installFetch(handler) {
   const origFetch = window.fetch;
@@ -30,6 +30,10 @@ async function waitForLoad(el) {
 describe('nx-marketplace', () => {
   let div;
   let restoreFetch;
+
+  beforeEach(() => {
+    resetMarketplaceCache();
+  });
 
   afterEach(() => {
     div?.remove();
@@ -164,6 +168,10 @@ describe('nx-marketplace', () => {
       ['View details', 'https://example.com/a'],
       ['Try out', 'https://example.com/try'],
     ]);
+    expect(links.map((a) => a.getAttribute('aria-label'))).to.deep.equal([
+      'View details: DA Permissions (opens in a new tab)',
+      'Try out: DA Permissions (opens in a new tab)',
+    ]);
     links.forEach((a) => {
       expect(a.target).to.equal('_blank');
       expect(a.rel).to.contain('noopener');
@@ -205,11 +213,15 @@ describe('nx-marketplace', () => {
     const railItem = (label) => [...el.shadowRoot.querySelectorAll('.rail-item')]
       .find((b) => b.textContent.trim() === label);
     expect(titles()).to.deep.equal(['Core App', 'Ext App', 'Other App']);
+    const status = el.shadowRoot.querySelector('.status');
+    expect(status.getAttribute('aria-live')).to.equal('polite');
+    expect(status.textContent).to.equal('3 capabilities');
     expect(railItem('All Types').getAttribute('aria-current')).to.equal('true');
 
     railItem('Extension').click();
     await el.updateComplete;
     expect(titles()).to.deep.equal(['Ext App']);
+    expect(el.shadowRoot.querySelector('.status').textContent).to.equal('1 capability');
     expect(railItem('Extension').getAttribute('aria-current')).to.equal('true');
     expect(railItem('All Types').getAttribute('aria-current')).to.not.equal('true');
 
@@ -239,6 +251,7 @@ describe('nx-marketplace', () => {
     search.dispatchEvent(new Event('input'));
     await el.updateComplete;
     expect(titles()).to.deep.equal(['Ext App']);
+    expect(el.shadowRoot.querySelector('.status').textContent).to.equal('1 capability');
 
     search.value = 'zzz';
     search.dispatchEvent(new Event('input'));

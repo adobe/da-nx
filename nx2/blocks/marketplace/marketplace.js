@@ -92,7 +92,13 @@ class NxMarketplace extends LitElement {
     return html`
       <div class="item-actions">
         ${getActions(item).map(({ label, href }) => html`
-          <a class="item-action" href=${href} target="_blank" rel="noopener noreferrer">${label}</a>
+          <a
+            class="item-action"
+            href=${href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="${label}: ${item.title} (opens in a new tab)"
+          >${label}</a>
         `)}
       </div>
     `;
@@ -206,8 +212,11 @@ class NxMarketplace extends LitElement {
       sort: this._sort,
     });
 
+    const count = `${visible.length} ${visible.length === 1 ? 'capability' : 'capabilities'}`;
+
     return html`
       ${this._renderToolbar()}
+      <p class="status" aria-live="polite">${count}</p>
       <div class="body ${this._filters ? 'has-rail' : ''}">
         ${this._filters ? this._renderRail() : nothing}
         ${visible.length

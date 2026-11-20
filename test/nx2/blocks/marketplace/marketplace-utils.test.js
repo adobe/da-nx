@@ -3,6 +3,7 @@ import {
   MARKETPLACE_PATH,
   normalizeItem,
   fetchMarketplace,
+  resetMarketplaceCache,
   filterByCategory,
   getCategoryFilters,
   getActions,
@@ -252,8 +253,41 @@ describe('getVisibleItems', () => {
 describe('fetchMarketplace', () => {
   let restoreFetch;
 
+  beforeEach(() => {
+    resetMarketplaceCache();
+  });
+
   afterEach(() => {
     restoreFetch?.();
+  });
+
+  it('shares one request between calls for the same origin', async () => {
+    let calls = 0;
+    restoreFetch = installFetch(async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
+    });
+
+    const [a, b] = await Promise.all([fetchMarketplace({ origin }), fetchMarketplace({ origin })]);
+
+    expect(calls).to.equal(1);
+    expect(a).to.equal(b);
+  });
+
+  it('does not cache failed results so a later call retries', async () => {
+    let calls = 0;
+    restoreFetch = installFetch(async () => {
+      calls += 1;
+      if (calls === 1) return new Response('', { status: 500 });
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
+    });
+
+    const first = await fetchMarketplace({ origin });
+    const second = await fetchMarketplace({ origin });
+
+    expect(first.error).to.equal('Could not load marketplace.');
+    expect(second).to.deep.equal({ items: [] });
+    expect(calls).to.equal(2);
   });
 
   it('requests the marketplace path on the origin', async () => {

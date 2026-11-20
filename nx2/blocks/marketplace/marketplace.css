@@ -317,6 +317,20 @@
   width: 80%;
 }
 
+@container (width < 600px) {
+  .rail-skeleton {
+    flex-direction: row;
+    align-items: center;
+    padding-block-end: var(--s2-spacing-100);
+  }
+
+  .rail-skeleton .skeleton-bar,
+  .rail-skeleton .skeleton-bar:nth-child(odd) {
+    flex-shrink: 0;
+    width: 72px;
+  }
+}
+
 .skeleton .content .skeleton-bar {
   height: 16px;
 }
@@ -341,4 +355,13 @@
 
 .error {
   color: var(--s2-red-900);
+}
+
+.status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

@@ -86,7 +86,7 @@ export function getActions({ docHref, tryHref }) {
   ].filter(Boolean);
 }
 
-export async function fetchMarketplace({ origin }) {
+async function loadMarketplace({ origin }) {
   try {
     const resp = await fetch(new URL(MARKETPLACE_PATH, origin));
     if (!resp.ok) return { error: 'Could not load marketplace.', status: resp.status };
@@ -101,3 +101,26 @@ export async function fetchMarketplace({ origin }) {
     return { error: 'Could not load marketplace.' };
   }
 }
+
+// Shares one request per origin; failed results are evicted so a later call retries.
+const marketplaceCache = (() => {
+  const requests = new Map();
+  return {
+    fetch({ origin }) {
+      if (!requests.has(origin)) {
+        const request = loadMarketplace({ origin }).then((result) => {
+          if (result.error) requests.delete(origin);
+          return result;
+        });
+        requests.set(origin, request);
+      }
+      return requests.get(origin);
+    },
+    reset: () => requests.clear(),
+  };
+})();
+
+export const fetchMarketplace = marketplaceCache.fetch;
+
+// Test-only: clears the shared per-origin request cache.
+export const resetMarketplaceCache = marketplaceCache.reset;
