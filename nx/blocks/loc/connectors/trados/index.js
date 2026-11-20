@@ -201,7 +201,7 @@ async function createProject(options, service, title, langs, sendMessage) {
   const templateId = customFields.Template || langs[0]['trados project template'];
 
   // Handle Notes for description with fallback
-  const description = customFields.Notes || `EW translation project: ${title}`;
+  const description = customFields.Notes || `Experience Workspace translation project: ${title}`;
 
   const languageDirections = langs.map((lang) => ({
     sourceLanguage: { languageCode: sourceLanguage },

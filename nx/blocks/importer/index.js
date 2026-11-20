@@ -137,7 +137,7 @@ async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
   const { pathname, href } = url;
   if (href.endsWith('.xml') || href.endsWith('.html') || href.includes('query-index')) {
     url.status = 'error';
-    url.error = 'EW does not support XML, HTML, or query index files.';
+    url.error = 'Experience Workspace does not support XML, HTML, or query index files.';
     return;
   }
 

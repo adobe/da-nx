@@ -51,7 +51,7 @@ describe('GLaaS multimodal save', () => {
       { name: 'unsuccessful response', stub: (save) => save.resolves(new Response('', { status: 403 })) },
       { name: 'network failure', stub: (save) => save.rejects(new Error('Network error')) },
     ].forEach(({ name, stub }) => {
-      it(`uses EW in the translated-image save error on ${name}`, async () => {
+      it(`uses Experience Workspace in the translated-image save error on ${name}`, async () => {
         stub(sinon.stub(daSource, 'save'));
         const result = await saveTranslatedImageToDaSource({
           org: 'org',
@@ -61,7 +61,7 @@ describe('GLaaS multimodal save', () => {
           blob: new Blob(['x'], { type: 'image/png' }),
         });
 
-        expect(result.error).to.equal('Error saving translated image to EW.');
+        expect(result.error).to.equal('Error saving translated image to Experience Workspace.');
       });
     });
 

@@ -171,7 +171,7 @@ async function createJob(service, title, options) {
 
   const body = {
     jobName: truncateBytes(`${title} - ${Date.now()}`, MAX_NAME_BYTES),
-    description: `EW translation project: ${title}`,
+    description: `Experience Workspace translation project: ${title}`,
     connectorName: guid ? `${guid} ${CONNECTOR_NAME}` : CONNECTOR_NAME,
     connectorVersion: CONNECTOR_VERSION,
     ...(dueDate ? { dueDate } : {}),

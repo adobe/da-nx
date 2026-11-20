@@ -227,7 +227,7 @@ class NxImporter extends LitElement {
         <button @click=${() => this.setStatus()}>Close</button>
       </dialog>
       <h1>Importer</h1>
-      <p>Import any AEM Edge Delivery site into EW.</p>
+      <p>Import any AEM Edge Delivery site into Experience Workspace.</p>
       <form @submit=${this.handleSubmit}>
         <div class="form-row">
           <h2>Import</h2>

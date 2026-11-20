@@ -551,9 +551,9 @@ class NxSnapshot extends LitElement {
       <div class="nx-url-accordion">
         <a href="${res.url}" target="_blank">Open on aem.reviews</a>
         <a href="${res.aemLive}" target="_blank">Open on aem.live</a>
-        <a href="${res.daEdit}" target="_blank">Edit in EW</a>
+        <a href="${res.daEdit}" target="_blank">Edit in Experience Workspace</a>
         ${snapshotExists ? html`
-          <a href="${res.daSnapshotEdit}" target="_blank">Edit Snapshot in EW</a>
+          <a href="${res.daSnapshotEdit}" target="_blank">Edit Snapshot in Experience Workspace</a>
         ` : nothing}
         ${this.hasLaunchPermission && this._launchEnabled ? html`
           <button @click=${() => this.handleCopySingleUrl(res, 'fork')}>
@@ -654,7 +654,7 @@ class NxSnapshot extends LitElement {
               ${this._launchesCollapsed ? nothing : html`
                 ${this._launchEnabled ? html`
                   <div class="nx-launch-action-group">
-                    <button data-tooltip="Create or sync launch content in EW" @click=${() => this.handleCopyUrls('fork')}>
+                    <button data-tooltip="Create or sync launch content in Experience Workspace" @click=${() => this.handleCopyUrls('fork')}>
                       <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.download}"></use></svg>
                       Sync
                     </button>
