@@ -52,9 +52,12 @@ class NxLocTranslate extends LitElement {
     return this._service?.connector?.supportsManagedStatus === true;
   }
 
+  get tracksProgress() {
+    return this.supportsManagedStatus || !!this._service?.connector?.getPageErrors;
+  }
+
   get isBusy() {
-    const tracksProgress = this.supportsManagedStatus || this._service?.connector?.getPageErrors;
-    return !!tracksProgress && Boolean(this._getStatusBusy || this._sendAllBusy);
+    return this.tracksProgress && Boolean(this._getStatusBusy || this._sendAllBusy);
   }
 
   update(props) {
@@ -112,7 +115,7 @@ class NxLocTranslate extends LitElement {
 
   async handleSaveLangs(props, {
     waitForSave = false,
-    path = this.supportsManagedStatus ? this.path : undefined,
+    path = this.tracksProgress ? this.path : undefined,
   } = {}) {
     const data = props ? { langs: this._langs, ...props } : { langs: this._langs };
     // Connector urls carry per-language metadata; tell the host to merge.
@@ -207,7 +210,7 @@ class NxLocTranslate extends LitElement {
     const sourceLocations = getProjectSourceLocations(this.project);
     const { _service: service, _translateLangs: langs } = this;
     const actions = {
-      saveState: managed
+      saveState: this.tracksProgress
         ? (props, saveOptions) => this.handleSaveLangs(props, { ...saveOptions, path })
         : this.handleSaveLangs.bind(this),
       sendMessage: this.handleMessage.bind(this),
@@ -216,6 +219,7 @@ class NxLocTranslate extends LitElement {
     return {
       org,
       site,
+      path,
       snapshot,
       title,
       service,
@@ -237,15 +241,16 @@ class NxLocTranslate extends LitElement {
         : { text: 'Translation service is not configured.', type: 'error' });
       return;
     }
-    const managed = this.supportsManagedStatus;
+    const { tracksProgress } = this;
     this._sendAllBusy = true;
     this.handleMessage(undefined);
-    if (managed) this.requestUpdate();
+    if (tracksProgress) this.requestUpdate();
     try {
       const conf = await this.getBaseTranslationConf(true);
       const sendAll = await sendAllForTranslation(conf, this._service.connector);
       if (sendAll?.errors?.length) {
         this._urlErrors = sendAll.errors;
+        return;
       }
       // Connectors report failures by calling `sendMessage({ type: 'error' })`
       // and returning early - nothing was actually sent in that case, so
@@ -254,15 +259,15 @@ class NxLocTranslate extends LitElement {
       // languages to save" before the user ever sees it.
       if (this._message?.type !== 'error') {
         // See if anything is finished immediately
-        if (managed || this._service.connector.getPageErrors) await this.checkAndSaveLangs(conf);
+        if (tracksProgress) await this.checkAndSaveLangs(conf);
         else this.checkAndSaveLangs(conf);
       }
     } catch (error) {
-      if (!managed) throw error;
+      if (!tracksProgress) throw error;
       this.handleMessage({ text: error.message, type: 'error' });
     } finally {
       this._sendAllBusy = false;
-      if (managed) this.requestUpdate();
+      if (tracksProgress) this.requestUpdate();
     }
   }
 
@@ -297,7 +302,7 @@ class NxLocTranslate extends LitElement {
     ) : undefined;
     await checkWaitingLanguages(conf, this._service.connector, this._urls, this._options['source.language']?.location);
 
-    const pageErrors = this._service.connector.getPageErrors?.(this._translateLangs);
+    const pageErrors = this._service.connector.getPageErrors?.(conf);
     if (pageErrors) this._urlErrors = pageErrors.length ? pageErrors : undefined;
     if (saved?.errors.length) throw new Error(saved.errors.map(({ text }) => text).join(' '));
     this.handleMessage(undefined);
@@ -317,9 +322,9 @@ class NxLocTranslate extends LitElement {
       const result = await this._service.connector.getStatusAll(
         removeWaitingLanguagesFromConf(conf),
       );
-      if (result?.errors) this._urlErrors = result.errors.length ? result.errors : undefined;
       await this.checkAndSaveLangs(conf);
-      await this.handleSaveLangs(undefined, { waitForSave: true });
+      const opts = this.tracksProgress ? { path: conf.path } : {};
+      await this.handleSaveLangs(undefined, { waitForSave: true, ...opts });
       if (result?.message) this.handleMessage(result.message);
     } catch (error) {
       this.handleMessage({ text: error.message, type: 'error' });

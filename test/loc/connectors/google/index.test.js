@@ -1,6 +1,8 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { getStatusAll, saveItems, sendAllLanguages } from '../../../../nx/blocks/loc/connectors/google/index.js';
+import {
+  getPageErrors, getStatusAll, saveItems, sendAllLanguages,
+} from '../../../../nx/blocks/loc/connectors/google/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
 // Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
@@ -102,6 +104,7 @@ describe('google connector - partial failures', () => {
     };
   }
 
+  const project = { org: 'org', site: 'site', path: '/org/site/.da/translation/active/project' };
   const makeLangsWithUrls = (contents) => [{
     code: 'fr',
     urls: contents.map((content, idx) => ({ suppliedPath: `/page-${idx}`, content })),
@@ -125,16 +128,17 @@ describe('google connector - partial failures', () => {
       const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
       const langsWithUrls = makeLangsWithUrls(['<p>one</p>', `<p>${marker}</p>`, '<p>three</p>']);
 
-      const result = await sendAllLanguages({
-        org: 'org', site: 'site', langs, langsWithUrls, options: {}, actions,
+      await sendAllLanguages({
+        ...project, langs, langsWithUrls, options: {}, actions,
       });
 
       expect(langs[0].translation).to.deep.include({ sent: 3, translated: 2 });
-      expect(result.errors).to.have.length(1);
-      expect(result.errors[0].error).to.include('/page-1');
+      const errors = getPageErrors({ ...project, langs });
+      expect(errors).to.have.length(1);
+      expect(errors[0].error).to.include('/page-1');
 
       const save = saveFn();
-      const saved = await saveItems({ lang: langs[0], langIndex: 0, saveFn: save });
+      const saved = await saveItems({ ...project, lang: langs[0], saveFn: save });
       expect(savedTo(save)).to.deep.equal(['/org/site/fr/page-0.html', '/org/site/fr/page-2.html']);
       expect(saved.find((url) => url.suppliedPath === '/page-1').status).to.equal('error');
     });
@@ -144,22 +148,22 @@ describe('google connector - partial failures', () => {
     const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
     const langsWithUrls = makeLangsWithUrls(['<p>FAIL</p>']);
 
-    const { errors } = await sendAllLanguages({
-      org: 'org', site: 'site', langs, langsWithUrls, options: {}, actions,
+    await sendAllLanguages({
+      ...project, langs, langsWithUrls, options: {}, actions,
     });
 
-    expect(errors[0].error).to.include('500');
+    expect(getPageErrors({ ...project, langs })[0].error).to.include('500');
   });
 
   it('reports every page as translated when all succeed', async () => {
     const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
     const langsWithUrls = makeLangsWithUrls(['<p>one</p>', '<p>two</p>', '<p>three</p>']);
 
-    const result = await sendAllLanguages({
-      org: 'org', site: 'site', langs, langsWithUrls, options: {}, actions,
+    await sendAllLanguages({
+      ...project, langs, langsWithUrls, options: {}, actions,
     });
 
-    expect(result).to.equal(undefined);
+    expect(getPageErrors({ ...project, langs })).to.deep.equal([]);
     expect(langs[0].translation).to.deep.equal({ sent: 3, translated: 3, status: 'translated' });
   });
 
@@ -167,9 +171,9 @@ describe('google connector - partial failures', () => {
     const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
     const langsWithUrls = makeLangsWithUrls(['<p>one</p>', '<p>FAIL two</p>', '<p>three</p>']);
     await sendAllLanguages({
-      org: 'org', site: 'site', langs, langsWithUrls, options: {}, actions,
+      ...project, langs, langsWithUrls, options: {}, actions,
     });
-    await saveItems({ lang: langs[0], langIndex: 0, saveFn: saveFn() });
+    await saveItems({ ...project, lang: langs[0], saveFn: saveFn() });
     langs[0].translation.status = 'error';
 
     window.fetch = async (url, opts = {}) => {
@@ -179,41 +183,41 @@ describe('google connector - partial failures', () => {
     };
     translateCalls = [];
 
-    const status = await getStatusAll({ org: 'org', site: 'site', langs, actions });
+    await getStatusAll({ ...project, langs });
 
     expect(translateCalls).to.have.length(1);
     expect(translateCalls[0]).to.include('FAIL two');
-    expect(status).to.deep.equal({ errors: [] });
     expect(langs[0].translation).to.deep.include({ translated: 3, status: 'translated' });
 
     const retrySave = saveFn();
-    await saveItems({ lang: langs[0], langIndex: 0, saveFn: retrySave });
+    await saveItems({ ...project, lang: langs[0], saveFn: retrySave });
     expect(savedTo(retrySave)).to.deep.equal(['/org/site/fr/page-1.html']);
+    expect(getPageErrors({ ...project, langs })).to.deep.equal([]);
   });
 
   it('re-saves a translated page whose save failed without translating it again', async () => {
     const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
     const langsWithUrls = makeLangsWithUrls(['<p>one</p>', '<p>two</p>']);
     await sendAllLanguages({
-      org: 'org', site: 'site', langs, langsWithUrls, options: {}, actions,
+      ...project, langs, langsWithUrls, options: {}, actions,
     });
     const failingSave = sinon.stub().callsFake(async (url) => {
       const ok = !url.destination.endsWith('page-1.html');
       url.status = ok ? 'success' : 'error';
       if (!ok) url.error = `${url.destination}: Save failed (500)`;
     });
-    await saveItems({ lang: langs[0], langIndex: 0, saveFn: failingSave });
+    await saveItems({ ...project, lang: langs[0], saveFn: failingSave });
     langs[0].translation.status = 'error';
     translateCalls = [];
 
-    const status = await getStatusAll({ org: 'org', site: 'site', langs, actions });
+    await getStatusAll({ ...project, langs });
 
     expect(translateCalls).to.have.length(0);
-    expect(status).to.deep.equal({ errors: [] });
 
     const retrySave = saveFn();
-    await saveItems({ lang: langs[0], langIndex: 0, saveFn: retrySave });
+    await saveItems({ ...project, lang: langs[0], saveFn: retrySave });
     expect(savedTo(retrySave)).to.deep.equal(['/org/site/fr/page-1.html']);
+    expect(getPageErrors({ ...project, langs })).to.deep.equal([]);
   });
 
   it('retries after rollout saves a copy of the project languages', async () => {
@@ -242,11 +246,11 @@ describe('google connector - partial failures', () => {
     ];
     const [{ urls }] = makeLangsWithUrls(['<p>one</p>']);
     await sendAllLanguages({
-      org: 'org', site: 'site', langs, langsWithUrls: [{ code: 'fr', urls }, { code: 'de', urls }], options: {}, actions,
+      ...project, langs, langsWithUrls: [{ code: 'fr', urls }, { code: 'de', urls }], options: {}, actions,
     });
 
     const save = saveFn();
-    await saveItems({ lang: langs[1], langIndex: 0, saveFn: save });
+    await saveItems({ ...project, lang: langs[1], saveFn: save });
 
     expect(savedTo(save)).to.deep.equal(['/org/site/de/page-0.html']);
   });
@@ -257,20 +261,25 @@ describe('google connector - partial failures', () => {
     const conf = {
       org: 'org', langsWithUrls: makeLangsWithUrls(['<p>one</p>']), options: {}, actions,
     };
-    await sendAllLanguages({ ...conf, site: 'other', langs: [otherLang] });
-    await sendAllLanguages({ ...conf, site: 'site', langs: [lang] });
+    const other = '/org/site/.da/translation/active/other';
+    await sendAllLanguages({
+      ...conf, site: 'site', path: other, langs: [otherLang], langsWithUrls: makeLangsWithUrls(['<p>other</p>']),
+    });
+    await sendAllLanguages({
+      ...conf, site: 'site', path: '/org/site/.da/translation/active/project', langs: [lang],
+    });
 
     const save = saveFn();
-    await saveItems({ lang: otherLang, saveFn: save });
+    await saveItems({ ...project, path: other, lang: otherLang, saveFn: save });
 
-    expect(savedTo(save)).to.deep.equal(['/org/other/fr/page-0.html']);
+    expect(savedTo(save)).to.deep.equal(['/org/site/fr/page-0.html']);
+    expect(save.firstCall.args[0].sourceContent).to.include('other');
   });
 
   it('saves translated pages to the snapshot, not to the site', async () => {
     const lang = { name: 'French', code: 'fr', location: '/fr' };
     await sendAllLanguages({
-      org: 'org',
-      site: 'site',
+      ...project,
       snapshot: 'summer',
       langs: [lang],
       langsWithUrls: makeLangsWithUrls(['<p>one</p>']),
@@ -279,7 +288,7 @@ describe('google connector - partial failures', () => {
     });
 
     const save = saveFn();
-    await saveItems({ lang, saveFn: save });
+    await saveItems({ ...project, lang, saveFn: save });
 
     expect(savedTo(save)).to.deep.equal(['/org/site/.snapshots/summer/fr/page-0.html']);
   });

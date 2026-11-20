@@ -7,9 +7,10 @@ import {
 } from '../../utils/utils.js';
 
 const MAX_LENGTH = 5000;
-const results = new WeakMap();
+const results = new Map();
+const resultKey = ({ org, site, path }, lang) => JSON.stringify([org, site, path, lang.code]);
 
-const retryMessage = 'Open the original translation tab to retry these pages.';
+const retryMessage = 'This tab no longer has the Google results for these pages.';
 
 async function sendForTranslation(org, site, url) {
   let chunks = [url.content];
@@ -57,8 +58,9 @@ async function translatePages({ org, site, urls }) {
   await Promise.all(urls.map(queue.push));
 }
 
-export function getPageErrors(langs) {
-  return langs.flatMap((lang) => (results.get(lang) || []).filter((url) => url.error));
+export function getPageErrors({ langs, ...project }) {
+  return langs.flatMap((lang) => (results.get(resultKey(project, lang)) || [])
+    .filter((url) => url.error));
 }
 
 export const requiredKeys = [];
@@ -95,7 +97,7 @@ export function getLangUrls({
 }
 
 export async function sendAllLanguages({
-  org, site, langs, langsWithUrls, options, actions, snapshot, ...project
+  org, site, path, langs, langsWithUrls, options, actions, snapshot, ...project
 }) {
   const { sendMessage, saveState } = actions;
   const sourceLocations = getProjectSourceLocations({ ...project, options, langs });
@@ -118,20 +120,21 @@ export async function sendAllLanguages({
       translated: urls.filter((url) => url.sourceContent !== undefined).length,
       status: 'translated',
     };
-    results.set(lang, urls);
+    results.set(resultKey({ org, site, path }, lang), urls);
     sendMessage();
-    await saveState();
+    await saveState(undefined, { waitForSave: true });
   }
-  const errors = getPageErrors(langs);
-  return errors.length ? { errors } : undefined;
 }
 
-export async function getStatusAll({ org, site, langs }) {
+export async function getStatusAll({ langs, ...project }) {
+  const { org, site } = project;
   const incomplete = langs.filter((lang) => ['error', 'translated'].includes(lang.translation?.status));
+  let missingResults = false;
   for (const lang of incomplete) {
-    const urls = results.get(lang);
+    const urls = results.get(resultKey(project, lang));
     if (!urls) {
       lang.translation.status = 'error';
+      missingResults = true;
     } else if (lang.translation.status === 'error') {
       const failed = urls.filter((url) => url.sourceContent === undefined);
       await translatePages({ org, site, urls: failed });
@@ -139,16 +142,12 @@ export async function getStatusAll({ org, site, langs }) {
       lang.translation.status = 'translated';
     }
   }
-  return {
-    errors: getPageErrors(langs).filter((url) => url.sourceContent === undefined),
-    ...(incomplete.some((lang) => !results.has(lang)) && {
-      message: { text: retryMessage, type: 'error' },
-    }),
-  };
+  return missingResults ? { message: { text: retryMessage, type: 'error' } } : undefined;
 }
 
-export async function saveItems({ lang, urls, saveFn }) {
-  const translated = results.get(lang);
+export async function saveItems({ lang, urls, saveFn, ...project }) {
+  const key = resultKey(project, lang);
+  const translated = results.get(key);
   if (!translated) return urls.map((url) => ({ ...url, status: 'error', error: retryMessage }));
 
   const pending = translated.filter((url) => url.sourceContent !== undefined && url.status !== 'success');
@@ -157,5 +156,8 @@ export async function saveItems({ lang, urls, saveFn }) {
     await saveFn(url);
   }, 5);
   await Promise.all(pending.map(queue.push));
+  if (translated.length === urls?.length && translated.every((url) => url.status === 'success')) {
+    results.delete(key);
+  }
   return translated;
 }

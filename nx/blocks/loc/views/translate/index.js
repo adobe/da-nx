@@ -121,13 +121,13 @@ export function getSaveDestPath({ url, lang, sourceLocations, snapshotPrefix = '
 async function saveLang({
   org,
   site,
+  path,
   snapshot,
   title,
   service,
   connector,
   behavior,
   lang,
-  langIndex,
   urls,
   sendMessage,
   options,
@@ -157,9 +157,9 @@ async function saveLang({
   const saved = await connector.saveItems({
     org,
     site,
+    path,
     service,
     lang,
-    langIndex,
     urls: urlsToSave,
     behavior,
     saveFn,
@@ -184,10 +184,10 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
 
   const saveLangConf = { ...conf, options, connector, behavior, sendMessage };
 
-  const saveLanguage = async ({ lang, langIndex }) => {
+  const saveLanguage = async (lang) => {
     if (lang.translation.status !== 'complete') {
       sendMessage({ text: `Fetching ${conf.urls.length} items for ${lang.name}` });
-      const { savedCount, errors } = await saveLang({ ...saveLangConf, lang, langIndex });
+      const { savedCount, errors } = await saveLang({ ...saveLangConf, lang });
       lang.translation.saved = savedCount;
       lang.translation.status = savedCount === conf.urls.length ? 'complete' : 'error';
       return errors;
@@ -197,9 +197,9 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
 
   const concurrency = connector.saveLangConcurrency ?? 1;
   if (concurrency === 1) {
-    for (const [langIndex, lang] of conf.langs.entries()) {
+    for (const lang of conf.langs) {
       const wasComplete = lang.translation.status === 'complete';
-      await saveLanguage({ lang, langIndex });
+      await saveLanguage(lang);
       if (!wasComplete) await conf.actions?.saveState?.(undefined, { waitForSave: true });
     }
     return undefined;
@@ -212,9 +212,9 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
     const text = `Error saving ${lang.name}${path}: ${message}`;
     errors.push({ ...result, code: lang.code, text });
   };
-  const queue = new Queue(async ({ lang, langIndex }) => {
+  const queue = new Queue(async (lang) => {
     try {
-      const failed = await saveLanguage({ lang, langIndex });
+      const failed = await saveLanguage(lang);
       failed.forEach((item) => collectError(lang, item));
       if (lang.translation.status === 'error' && !failed.length) {
         throw new Error('The connector returned incomplete save results.');
@@ -223,10 +223,10 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
       collectError(lang, { error });
     }
     await conf.actions?.saveState?.(undefined, { waitForSave: true });
-  }, concurrency, ({ lang }, error) => collectError(lang, { error }));
+  }, concurrency, (lang, error) => collectError(lang, { error }));
 
-  await Promise.all(conf.langs.map((lang, langIndex) => (
-    lang.translation.status === 'complete' ? undefined : queue.push({ lang, langIndex })
+  await Promise.all(conf.langs.map((lang) => (
+    lang.translation.status === 'complete' ? undefined : queue.push(lang)
   )));
   return { errors };
 }
@@ -357,7 +357,7 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     if (!prefix || prefix === '/') return url;
     return { ...url, suppliedPath: path.startsWith(prefix) ? path.slice(prefix.length) : path };
   });
-  const { org, site } = conf;
+  const { org, site, snapshot } = conf;
   const { urls } = await getUrls(
     org,
     site,
@@ -366,6 +366,7 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     newSourceLocation,
     baseUrls,
     true,
+    snapshot,
   );
   lang.translation.status = 'not started';
   delete lang.waitingFor;

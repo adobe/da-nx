@@ -72,8 +72,6 @@ class NxLocRollout extends LitElement {
     if (this.anyMarking) return;
     this._rolloutErrors ??= new Map();
     this._rolloutErrors.delete(langToRollout.code);
-    const remainingErrors = [...this._rolloutErrors.values()].flat();
-    this._errors = remainingErrors.length ? remainingErrors : undefined;
     delete langToRollout.sync;
     this._message = { text: `Rolling out ${langToRollout.name}.` };
 
@@ -90,10 +88,9 @@ class NxLocRollout extends LitElement {
 
     const { message, errors, aborted } = await rolloutLang(rolloutConf);
     this._message = message;
-    if (errors) {
-      this._rolloutErrors.set(langToRollout.code, errors);
-      this._errors = [...remainingErrors, ...errors];
-    }
+    if (errors) this._rolloutErrors.set(langToRollout.code, errors);
+    const currentErrors = [...this._rolloutErrors.values()].flat();
+    this._errors = currentErrors.length ? currentErrors : undefined;
     if (aborted) return;
 
     // Replace the lang from the main list
