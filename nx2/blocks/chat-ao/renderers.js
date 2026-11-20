@@ -104,7 +104,12 @@ function renderPermissionRow(call, decisions, onDecide) {
   return html`
     <div class="permission-row">
       <span class="permission-row-tool" title=${call.toolName}>${call.toolName}</span>
-      ${detail ? html`<span class="permission-row-detail">${detail}</span>` : nothing}
+      ${detail ? html`
+        <details class="permission-row-details">
+          <summary>Details<span class="permission-details-chevron" aria-hidden="true"></span></summary>
+          <span class="permission-row-detail">${detail}</span>
+        </details>
+      ` : nothing}
       ${decided ? html`
         <span class="permission-row-status permission-row-${decisions[call.toolCallId] ? 'approved' : 'rejected'}">
           ${decisions[call.toolCallId] ? 'approved' : 'rejected'}
