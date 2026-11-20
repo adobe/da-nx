@@ -628,7 +628,7 @@
       align-items: center;
       gap: var(--s2-spacing-100);
       width: fit-content;
-      padding: var(--s2-spacing-100);
+      padding: 0 var(--s2-spacing-100);
       font-size: var(--s2-body-size-xs);
       color: var(--s2-gray-700);
       cursor: pointer;
@@ -640,15 +640,16 @@
     }
 
     .permission-details-chevron {
-      width: 5px;
-      height: 5px;
-      border-right: 1px solid currentcolor;
-      border-bottom: 1px solid currentcolor;
-      transform: rotate(-45deg);
+      display: block;
+      width: 10px;
+      height: 10px;
+      flex-shrink: 0;
+      fill: currentcolor;
+      transform: rotate(180deg);
     }
 
     &[open] .permission-details-chevron {
-      transform: rotate(45deg);
+      transform: rotate(270deg);
     }
   }
 

@@ -40,6 +40,12 @@ describe('renderPermissionCard keydown', () => {
         const summary = details.querySelector('summary');
         const detail = details.querySelector('.permission-row-detail');
         expect(summary.textContent).to.equal('Details');
+        const chevron = summary.firstElementChild;
+        expect(chevron.tagName).to.equal('svg');
+        expect(chevron.getAttribute('aria-hidden')).to.equal('true');
+        expect(chevron.querySelector('use').getAttribute('href'))
+          .to.match(/\/img\/icons\/s2-icon-chevronleft-10-n\.svg#icon$/);
+        expect(chevron.nextSibling.textContent).to.equal('Details');
         expect(details.open).to.equal(false);
         expect(detail.checkVisibility()).to.equal(false);
         expect(host.querySelector('.permission-row-tool').textContent).to.equal('some_tool');
@@ -66,6 +72,28 @@ describe('renderPermissionCard keydown', () => {
       }, () => {});
       expect(host.querySelector('details')).to.equal(null);
       expect(host.querySelectorAll('.permission-row-buttons button').length).to.equal(2);
+    });
+
+    it('centers the chevron and keeps the disclosure close to the title', async () => {
+      host = mount({
+        calls: [{ toolCallId: 'tc1', toolName: 'some_tool', arguments: { content: 'Page HTML' } }],
+        decisions: {},
+      }, () => {});
+      const style = document.createElement('style');
+      style.textContent = await (await fetch('/nx2/blocks/chat-ao/chat-ao.css')).text();
+      host.append(style);
+      host.style.setProperty('--s2-spacing-100', '8px');
+      document.body.append(host);
+
+      const summary = host.querySelector('summary');
+      const summaryRect = summary.getBoundingClientRect();
+      const chevronRect = summary.querySelector('svg').getBoundingClientRect();
+      const titleRect = host.querySelector('.permission-row-tool').getBoundingClientRect();
+      expect(summaryRect.top - titleRect.bottom).to.equal(8);
+      expect(chevronRect.top + chevronRect.height / 2)
+        .to.be.closeTo(summaryRect.top + summaryRect.height / 2, 0.5);
+      expect(getComputedStyle(summary).paddingTop).to.equal('0px');
+      expect(getComputedStyle(summary).paddingBottom).to.equal('0px');
     });
   });
 

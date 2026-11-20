@@ -14,6 +14,10 @@ import { html, nothing } from 'da-lit';
 import { renderMarkdown } from './utils/markdown.js';
 import { renderUiArtifact } from './artifacts/index.js';
 import { renderCopyButton } from '../shared/chat/copy-button.js';
+import { getConfig } from '../../scripts/nx.js';
+
+const { codeBase } = getConfig();
+const CHEVRON_HREF = `${codeBase}/img/icons/s2-icon-chevronleft-10-n.svg#icon`;
 
 // See docs/chat-ao-component.md#tool-call-activity for why this isn't truncated.
 function formatToolCallDetail(value) {
@@ -106,7 +110,7 @@ function renderPermissionRow(call, decisions, onDecide) {
       <span class="permission-row-tool" title=${call.toolName}>${call.toolName}</span>
       ${detail ? html`
         <details class="permission-row-details">
-          <summary>Details<span class="permission-details-chevron" aria-hidden="true"></span></summary>
+          <summary><svg class="permission-details-chevron" viewBox="0 0 10 10" aria-hidden="true"><use href=${CHEVRON_HREF}></use></svg>Details</summary>
           <span class="permission-row-detail">${detail}</span>
         </details>
       ` : nothing}
