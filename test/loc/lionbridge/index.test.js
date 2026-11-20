@@ -211,6 +211,20 @@ describe('lionbridge connector', () => {
       expect(JSON.parse(jobCall.body).connectorName).to.equal('guid-123 DA Live Localization for Lionbridge');
     });
 
+    it('uses Experience Workspace in the job description', async () => {
+      const service = baseService({ site: 'send-description' });
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options: {}, langs, urls, actions,
+      });
+
+      const jobCall = calls.find((c) => c.url.endsWith('/jobs') && c.method === 'POST');
+      expect(JSON.parse(jobCall.body).description).to.equal('Experience Workspace translation project: My Project');
+    });
+
     it('truncates jobName and requestName to 250 bytes', async () => {
       const service = baseService({ site: 'send-long-names' });
       const longTitle = 'x'.repeat(500);
