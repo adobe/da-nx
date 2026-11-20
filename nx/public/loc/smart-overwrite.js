@@ -3,7 +3,10 @@ import {
   regionalDiff, removeLocTags, getBlockHashes, getContentHashes, smartMerge, LOC_MARKERS,
   isSnapshotPath, removeRejectedBlocks,
 } from './regional-diff.js';
-import { ROLLOUT_BASE_KEY, ROLLOUT_ORDER_KEY, getDiffHash } from './hashes.js';
+import {
+  ACCEPTED_KEY, REJECTED_KEY, REVIEW_KEYS, ROLLOUT_BASE_KEY, ROLLOUT_ORDER_KEY,
+  getDiffHash, readReviewHashes, restoreReviewKeys,
+} from './hashes.js';
 
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const EMPTY_TAGS = new Set(['DIV', 'P', 'BR']);
@@ -13,8 +16,9 @@ const NOT_ENABLED = 'Smart overwrite is not enabled for this site';
 const toBasePath = (path) => path.toLowerCase();
 
 // Keeps metadata values exactly as authored (getElementMetadata's `text` is lowercased).
-const readMetadata = (el) => Object.fromEntries(Object.entries(getElementMetadata(el))
-  .map(([key, { content }]) => [key, content.innerHTML]));
+const readMetadata = (el) => restoreReviewKeys(Object.fromEntries(
+  Object.entries(getElementMetadata(el)).map(([key, { content }]) => [key, content.innerHTML]),
+), el);
 
 function getRolloutBase(metadataEl, path) {
   const value = getElementMetadata(metadataEl)[ROLLOUT_BASE_KEY]?.content.textContent.trim();
@@ -46,10 +50,7 @@ function getSectionedMain(doc) {
 const isEmptyMain = (main) => !main.textContent.trim()
   && [...main.querySelectorAll('*')].every((el) => EMPTY_TAGS.has(el.nodeName) && !el.attributes.length);
 
-const REVIEW_KEYS = ['acceptedhashes', 'rejectedhashes'];
-
-const getRejected = (el) => (getElementMetadata(el).rejectedhashes?.text || '')
-  .split(',').map((hash) => hash.trim()).filter(Boolean);
+const getRejected = (el) => readReviewHashes(el, REJECTED_KEY);
 
 // An emptied page keeps its merge review decisions: rejected blocks stay out of the copy.
 async function copySource({
@@ -73,8 +74,7 @@ async function copySource({
 async function mergeReview({
   source, dest, metadataEl, site, config, sourceHashes,
 }) {
-  const reviewed = getElementMetadata(metadataEl);
-  const accepted = reviewed.acceptedhashes?.text?.split(',') || [];
+  const accepted = readReviewHashes(metadataEl, ACCEPTED_KEY);
   const rejected = getRejected(metadataEl);
   const diffed = await regionalDiff(source, dest, accepted, rejected, { site, config });
   return {
@@ -141,7 +141,7 @@ function withMetadataRow(doc, { key, value, dropKeys = [] }) {
     metadata.className = 'da-metadata';
     page.body.insertBefore(metadata, page.querySelector('body > footer'));
   }
-  const removed = [key, ...dropKeys];
+  const removed = [key, ...dropKeys].map((name) => name.toLowerCase());
   [...metadata?.children || []]
     .filter((el) => removed.includes(el.children[0]?.textContent.trim().toLowerCase()))
     .forEach((el) => el.remove());

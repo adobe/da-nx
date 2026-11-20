@@ -60,6 +60,8 @@ A version-save failure can follow a successful content write. Don't automaticall
 
 `getDiffHash(serializedContent)` returns the existing 12-character review hash. Input is the serialized content, not a DOM element. `HASH_LENGTH`, `ACCEPTED_KEY`, and `REJECTED_KEY` expose the existing format and metadata keys. Stored hashes are unchanged.
 
+Merge compares headings without IDs, wraps bare block-cell text in paragraphs, and hashes pictures the way the editor saves them. This lets decisions made in the editor match content written through the API. Merge combines review rows regardless of casing and saves them as `acceptedHashes` and `rejectedHashes`. Smart Overwrite still uses its original content hashes for sync points.
+
 ## Internal modules
 
 The public index exports only `mergeCopy`, `overwriteCopy`, and the hash helpers. `copy.js` (`createCopy`, `createConfigLoader`), `regional-diff.js` (`regionalDiff`, `normalizeLinks`, `removeLocTags`, `getBlockHashes`, `smartMerge`), `smart-overwrite.js` and `smart-merge.js` are Nexter-internal and may change.
