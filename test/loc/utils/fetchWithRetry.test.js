@@ -165,4 +165,32 @@ describe('fetchWithRetry', () => {
     expect(calls).to.equal(2);
     expect(onUnauthorizedCalls).to.equal(1);
   });
+
+  it('uses an injected fetch', async () => {
+    let calls = 0;
+    const injected = async () => {
+      calls += 1;
+      return new Response('', { status: calls === 1 ? 503 : 200 });
+    };
+
+    const resp = await fetchWithRetry('https://example.com', {}, { fetch: injected, baseDelayMs: 0 });
+
+    expect(resp.status).to.equal(200);
+    expect(calls).to.equal(2);
+  });
+
+  it('caps a Retry-After delay at maxRetryAfterMs', async () => {
+    let calls = 0;
+    installFetch(async () => {
+      calls += 1;
+      if (calls === 1) return new Response('', { status: 429, headers: { 'Retry-After': '60' } });
+      return new Response('{}', { status: 200 });
+    });
+
+    const start = Date.now();
+    const resp = await fetchWithRetry('https://example.com', {}, { maxRetryAfterMs: 10 });
+
+    expect(resp.status).to.equal(200);
+    expect(Date.now() - start).to.be.below(1000);
+  });
 });

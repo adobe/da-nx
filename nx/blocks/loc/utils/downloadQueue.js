@@ -1,35 +1,59 @@
-import { Queue } from '../../../../nx2/public/utils/tree.js';
-
-const POLL_INTERVAL_MS = 250;
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
 /**
- * Runs `callback` over `urls` with bounded concurrency, resolving once
- * every url has a truthy `status`. Every connector's `saveItems` used to
- * duplicate this exact throttle-and-poll shape (a `Queue` plus a
- * `setInterval` finding the next not-yet-started url); extracted here
- * since all four were identical apart from variable names.
- * @param {Object[]} urls - Items to process; mutated in place. This
- *  helper sets `inProgress` on each url right before queuing it;
- *  `callback` is responsible for setting `status` (any truthy value)
- *  once it's done with a url.
+ * Runs `callback` over `urls` with bounded concurrency. A callback that
+ * throws, or returns without setting `status`, marks its url
+ * `status = 'error'` (with `error`) so one bad item can't stall the rest.
+ * @param {Object[]} urls - Items to process; mutated in place. `callback`
+ *  sets `status` (any truthy value) once it's done with a url.
  * @param {(url: Object) => Promise<void>} callback - Per-url worker.
  * @param {number} [concurrency] - Max simultaneous `callback` calls.
- * @returns {Promise<Object[]>} The same `urls` array, once every item
- *  has a truthy `status`.
+ * @param {Object} [options]
+ * @param {number} [options.minIntervalMs] - Minimum gap between callback
+ *  starts, for vendors that rate-limit request bursts. 0 disables pacing.
+ * @returns {Promise<Object[]>} The same `urls` array, once every item has
+ *  a truthy `status`.
  */
-export default function downloadQueue(urls, callback, concurrency = 5) {
-  const queue = new Queue(callback, concurrency);
+export default async function downloadQueue(
+  urls,
+  callback,
+  concurrency = 5,
+  { minIntervalMs = 0 } = {},
+) {
+  let next = 0;
+  let nextStartAt = 0;
 
-  return new Promise((resolve) => {
-    const throttle = setInterval(() => {
-      const nextUrl = urls.find((url) => !url.inProgress);
-      if (nextUrl) {
-        nextUrl.inProgress = true;
-        queue.push(nextUrl);
-      } else if (urls.every((url) => url.status)) {
-        clearInterval(throttle);
-        resolve(urls);
+  const waitForSlot = async () => {
+    if (!minIntervalMs) return;
+    const startAt = Math.max(Date.now(), nextStartAt);
+    nextStartAt = startAt + minIntervalMs;
+    const wait = startAt - Date.now();
+    if (wait > 0) await sleep(wait);
+  };
+
+  const run = async (url) => {
+    try {
+      await callback(url);
+      if (!url.status) {
+        url.status = 'error';
+        url.error ??= 'Download finished without a status.';
       }
-    }, POLL_INTERVAL_MS);
-  });
+    } catch (e) {
+      url.status = 'error';
+      url.error = e?.message || String(e);
+    }
+  };
+
+  const worker = async () => {
+    while (next < urls.length) {
+      const url = urls[next];
+      next += 1;
+      await waitForSlot();
+      await run(url);
+    }
+  };
+
+  const workers = Math.max(1, Math.min(concurrency, urls.length));
+  await Promise.all(Array.from({ length: workers }, worker));
+  return urls;
 }

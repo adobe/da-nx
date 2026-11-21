@@ -1,12 +1,18 @@
 import { expect } from '@esm-bundle/chai';
 import { setImsDetails } from '../../nx/utils/daFetch.js';
 import '../../nx/blocks/loc/loc.js';
+import { DA_RETRY } from '../../nx/blocks/loc/utils/utils.js';
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), { status });
 }
 
 describe('NxLoc handleSave', () => {
+  const retryDefaults = { ...DA_RETRY };
+
+  before(() => Object.assign(DA_RETRY, { baseDelayMs: 0, maxDelayMs: 0, maxRetryAfterMs: 0 }));
+  after(() => Object.assign(DA_RETRY, retryDefaults));
+
   let savedBody;
 
   beforeEach(() => {
