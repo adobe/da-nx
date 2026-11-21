@@ -87,6 +87,23 @@ describe('checkWaitingLanguages', () => {
     expect(sendMessage.calledWithMatch({ type: 'error', text: 'Unsupported code' })).to.equal(true);
   });
 
+  it('keeps a terminal connector failure instead of resubmitting it', async () => {
+    const { conf, connector, lang } = makeConf({
+      sendAllLanguages: async ({ langs, actions }) => {
+        langs[0].translation.status = 'error';
+        langs[0].translation.submissionFailed = true;
+        actions.sendMessage({ text: 'Submission failed', type: 'error' });
+      },
+    });
+
+    await checkWaitingLanguages(conf, connector, URLS, '/en');
+    await checkWaitingLanguages(conf, connector, URLS, '/en');
+
+    expect(lang.translation.status).to.equal('error');
+    expect(lang.waitingFor).to.equal(undefined);
+    expect(connector.sendAllLanguages.callCount).to.equal(1);
+  });
+
   it('restores waiting and reports an error when the connector throws', async () => {
     const { conf, connector, lang, sendMessage } = makeConf({
       sendAllLanguages: async () => { throw new Error('boom'); },

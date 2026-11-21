@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import createRateLimiter from '../../../nx/blocks/loc/utils/rateLimiter.js';
+import { DA_RATE_LIMIT } from '../../../nx/blocks/loc/utils/utils.js';
 
 function fakeClock() {
   const clock = { t: 0, waits: [] };
@@ -45,5 +46,19 @@ describe('createRateLimiter', () => {
     const limiter = createRateLimiter(() => ({ ratePerSec: Infinity, burst: 1 }), clock);
     await Promise.all([1, 2, 3, 4].map(() => limiter.acquire()));
     expect(clock.t).to.equal(0);
+  });
+
+  it('keeps the DA write limit under 10 requests in any one-second window', async () => {
+    const clock = fakeClock();
+    const limiter = createRateLimiter(() => DA_RATE_LIMIT, clock);
+    const times = [];
+    for (let i = 0; i < 30; i += 1) {
+      await limiter.acquire();
+      times.push(clock.t);
+    }
+    const maxInWindow = Math.max(...times.map((start) => (
+      times.filter((t) => t >= start && t < start + 1000).length
+    )));
+    expect(maxInWindow).to.be.at.most(10);
   });
 });

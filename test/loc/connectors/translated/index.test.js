@@ -3,6 +3,7 @@ import {
   connect, isConnected, sendAllLanguages, getStatusAll, saveItems, cancelTranslation,
   serviceOptions, saveLangConcurrency,
 } from '../../../../nx/blocks/loc/connectors/translated/index.js';
+import { addDnt } from '../../../../nx/blocks/loc/dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
 // Dynamic-expression import so @web/dev-server-import-maps does not rewrite it.
@@ -32,6 +33,11 @@ const echoRequests = (opts) => json(JSON.parse(opts.body).flatMap((order, i) => 
     id: (i + 1) * 100 + j, id_content: order.id_content, target_language: lang, status: 'analyzing',
   }))
 )));
+
+const SHEET = {
+  ':type': 'sheet', total: 1, offset: 0, limit: 1, data: [{ key: 'greeting', text: 'Hello' }],
+};
+const sheetHtml = () => addDnt(JSON.stringify(SHEET), {}, { fileType: 'json' });
 
 const request = (overrides) => ({
   id: 1, id_order: 'o1', id_content: '/p0', target_language: 'fr', status: 'delivered', ...overrides,
@@ -148,6 +154,17 @@ describe('translated connector', () => {
 
     const send = (service = baseService(), urls = makeUrls(2)) => sendAllLanguages({
       title: 'Proj', service, options, langs, urls, actions,
+    });
+
+    it('submits sheets as DNT HTML', async () => {
+      installFetch(submitHandler());
+      const content = await sheetHtml();
+      await send(baseService(), [{ daBasePath: '/sheet', content, ext: 'json' }]);
+
+      const [order] = lastCall('/v2/translate').body;
+      expect(order.content_type).to.equal('text/html');
+      expect(order.content).to.equal(content);
+      expect(order.content.trim().startsWith('<')).to.equal(true);
     });
 
     it('submits one order per page for all languages and records the request ids', async () => {
@@ -707,7 +724,9 @@ describe('translated connector', () => {
       expect(saved).to.equal(1);
     });
 
-    it('leaves status unchanged when the status call fails', async () => {
+    it('reports a failed status call without saving', async () => {
+      const messages = [];
+      actions.sendMessage = (msg) => messages.push(msg);
       const langs = [{ code: 'fr', translation: { status: 'created', sent: 2 } }];
       installFetch(() => json({ message: 'down' }, 400));
       await getStatusAll({
@@ -715,6 +734,9 @@ describe('translated connector', () => {
       });
 
       expect(langs[0].translation.status).to.equal('created');
+      expect(messages.at(-1).type).to.equal('error');
+      expect(messages.at(-1).text).to.match(/^Could not check Translated status: /);
+      expect(saved).to.equal(0);
     });
 
     it('does not mark an unknown vendor state as done', async () => {
@@ -769,6 +791,24 @@ describe('translated connector', () => {
       });
 
       expect(urls[0].status).to.equal('success');
+    });
+
+    it('converts a translated sheet back to JSON', async () => {
+      installFetch(async () => json([request({
+        id_content: 'Proj:/p0', translated_content: await sheetHtml(),
+      })]));
+      const urls = [{ daBasePath: '/p0', ext: 'json' }];
+      await saveItems({
+        org,
+        site,
+        service: service(),
+        lang: { code: 'fr' },
+        urls,
+        saveFn: async (url) => { url.status = 'success'; },
+      });
+
+      expect(urls[0].status).to.equal('success');
+      expect(JSON.parse(urls[0].sourceContent).data).to.deep.equal(SHEET.data);
     });
 
     it('leaves urls untouched when no request ids are recorded', async () => {

@@ -9,7 +9,7 @@ export const DA_RETRY = {
 };
 
 // The AEM admin API allows 10 requests/second per project.
-export const DA_RATE_LIMIT = { ratePerSec: 8, burst: 8, cooldownMs: 1000 };
+export const DA_RATE_LIMIT = { ratePerSec: 8, burst: 1, cooldownMs: 1000 };
 
 const writeLimiters = new Map();
 

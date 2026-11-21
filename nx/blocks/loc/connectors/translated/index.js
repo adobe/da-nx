@@ -500,7 +500,8 @@ export async function sendAllLanguages({
   const payload = urls.map((url) => ({
     id_content: toContentId({ title, path: url.daBasePath }),
     content: url.content,
-    content_type: url.ext === 'json' ? 'application/json' : 'text/html',
+    // addDnt converts sheets to HTML; removeDnt converts them back on download.
+    content_type: 'text/html',
     source_language: canonicalCode(accepted, sourceLanguage),
     target_languages: langs.map((lang) => canonicalCode(accepted, lang.code)),
     service_type: serviceType,
@@ -586,7 +587,11 @@ export async function getStatusAll({
   const ids = [...new Set(active.flatMap((lang) => requestIds[lang.code] || []))];
 
   const failuresByLang = new Map();
-  const { requests } = ids.length ? await fetchRequests(service, { id_request: ids }) : {};
+  const { requests, error } = ids.length ? await fetchRequests(service, { id_request: ids }) : {};
+  if (error) {
+    sendMessage({ text: `Could not check Translated status: ${error}`, type: 'error' });
+    return;
+  }
   if (requests) {
     active.filter((lang) => requestIds[lang.code]?.length).forEach((lang) => {
       const byPath = latestByContent(forLang(requests, lang.code));
