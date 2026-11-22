@@ -155,7 +155,7 @@ describe('Shared loc copy', () => {
     expect(url.status).to.equal('success');
     expect(loadConfig.called).to.equal(true);
     const saved = await fetch.args[2][1].body.get('data').text();
-    expect(saved).to.include('<da-diff-deleted><p>Upstream</p></da-diff-deleted>');
+    expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>Upstream</p></da-diff-deleted>');
     expect(saved).to.include('<div>keep</div>');
   });
 
@@ -238,6 +238,28 @@ describe('Public localization core', () => {
     expect(loc.REJECTED_KEY).to.equal('rejectedHashes');
     expect(loc.getDiffHash('<p>Content</p>')).to.equal(window.objectHash('<p>Content</p>').substring(0, 12));
     expect(loc.HASH_LENGTH).to.equal(12);
+  });
+
+  it('removes a stale sync point on public merges, while engine merges (snapshot-admin) keep it', async () => {
+    const withBase = (text) => html(text).replace('</body>', '<div class="da-metadata"><div><div>rolloutbase</div><div>/target-org/target-site/fr/page.html|abcdef123456</div></div></div></body>');
+    const savedBy = async (merge) => {
+      const fetch = sinon.stub().callsFake(async (href, opts) => {
+        if (href.endsWith('/.da/translate.json')) return new Response('', { status: 404 });
+        if (opts?.method === 'POST') return new Response('{}');
+        return new Response(href.endsWith(SOURCE) ? html('Upstream') : withBase('Regional'));
+      });
+      await merge(fetch);
+      const post = fetch.args.find(([href, opts]) => opts?.method === 'POST' && href.endsWith(`/source${DESTINATION}`));
+      return post[1].body.get('data').text();
+    };
+    const pub = await savedBy((fetch) => loc.mergeCopy({
+      fetch, daOrigin: ORIGIN, urlSource: SOURCE, urlTarget: DESTINATION, msg: 'Merge',
+    }));
+    expect(pub).to.include('da-diff-added');
+    expect(pub).to.not.include('rolloutbase');
+    const engine = await savedBy((fetch) => createCopy({ fetch, daOrigin: ORIGIN })
+      .mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Snapshot'));
+    expect(engine).to.include('rolloutbase');
   });
 
   it('accepts explicit fetch, origin, paths, and message', async () => {

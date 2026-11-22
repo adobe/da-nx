@@ -77,10 +77,19 @@ export default class NxChatAo extends LitElement {
   }
 
   async setPrompt(text, { autoSend = false } = {}) {
+    const request = {};
+    const context = this._context;
+    this._promptRequest = request;
+    this._pendingAutoSend = undefined;
     await this.updateComplete;
+    if (!this.isConnected || this._promptRequest !== request
+      || this._context !== context) return false;
     const defer = autoSend && !this._canSend;
     const accepted = !!(await this._input?.setPrompt(text, { autoSend: autoSend && !defer }));
-    this._pendingAutoSend = accepted && defer;
+    if (!this.isConnected || this._promptRequest !== request
+      || this._context !== context) return false;
+    this._pendingAutoSend = accepted && defer
+      ? { request, context, session: this._session } : undefined;
     this._flushPendingAutoSend();
     return accepted;
   }
@@ -91,9 +100,17 @@ export default class NxChatAo extends LitElement {
 
   // Submits the draft (not the original text) so edits made while waiting are kept.
   _flushPendingAutoSend() {
-    if (!this._pendingAutoSend || !this._canSend) return;
-    this._pendingAutoSend = false;
-    this._input?.setPrompt(this._input.draft, { autoSend: true });
+    const prompt = this._pendingAutoSend;
+    if (!prompt) return;
+    if (!this.isConnected || this._promptRequest !== prompt.request
+      || this._context !== prompt.context || (prompt.session && this._session !== prompt.session)) {
+      this._pendingAutoSend = undefined;
+      return;
+    }
+    if (!this._canSend) return;
+    this._pendingAutoSend = undefined;
+    this._input?.setPrompt(this._input.draft, { autoSend: true })
+      .catch((error) => showToast({ text: error.message, variant: 'error' }));
   }
 
   get _input() {
@@ -207,6 +224,7 @@ export default class NxChatAo extends LitElement {
         }));
       },
     });
+    this._flushPendingAutoSend();
   }
 
   _closePanel() {
@@ -274,11 +292,12 @@ export default class NxChatAo extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._promptRequest = undefined;
     this._releaseSession?.();
     this._releaseSession = undefined;
     this._session = undefined;
     this._controller = undefined;
-    this._pendingAutoSend = false;
+    this._pendingAutoSend = undefined;
     cancelAnimationFrame(this._scrollRaf);
     this._unsubscribeHash?.();
     this._unsubscribeEvents?.();
@@ -290,14 +309,14 @@ export default class NxChatAo extends LitElement {
     if (changed.has('pendingPlanApproval') && this.pendingPlanApproval?.turnId !== changed.get('pendingPlanApproval')?.turnId) {
       this._planFeedback = '';
     }
-    if (changed.has('messages')) {
+    if (changed.has('messages') || changed.has('pendingQuestion')) {
       const log = this.shadowRoot?.querySelector('.chat-scroll-container');
       this._wasNearBottom = !log || (log.scrollHeight - log.scrollTop - log.clientHeight < 50);
     }
   }
 
   updated(changed) {
-    if (changed.has('messages')) {
+    if (changed.has('messages') || changed.has('pendingQuestion')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
       if (log && this._wasNearBottom) {
         cancelAnimationFrame(this._scrollRaf);
@@ -442,22 +461,27 @@ export default class NxChatAo extends LitElement {
                 <div class="message-content">${msg.content}</div>
               </div>
             `))}
+            ${this.pendingQuestion ? html`
+              <div class="message message-assistant">
+                <nx-question-card
+                  .pending=${this.pendingQuestion}
+                  .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
+                  .onDecline=${() => this._controller.declineQuestion()}
+                ></nx-question-card>
+                <div class="chat-waiting">Waiting for your response...</div>
+              </div>
+            ` : nothing}
             ${this.pendingPlanApproval ? renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
             onFeedbackText: (text) => { this._planFeedback = text; },
             onApprove: () => this._controller.respondToPlanApproval('approve'),
             onReject: () => this._controller.respondToPlanApproval('reject', this._planFeedback?.trim() ?? ''),
           }) : nothing}
-            ${this.thinking && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
+            ${this.thinking && !this.pendingQuestion && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
           ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
           `}
         </div>
       </div>
       <div class="chat-form-wrap">
-        <nx-question-card
-          .pending=${this.pendingQuestion}
-          .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
-          .onDecline=${() => this._controller.declineQuestion()}
-        ></nx-question-card>
         ${renderPermissionCard(this.pendingPermission, {
             onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
           })}

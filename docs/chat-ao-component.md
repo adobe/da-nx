@@ -18,10 +18,20 @@ so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
 paths documented there — don't need to know which element they got, and
 don't need to query for it either.
 
+Automatic prompts wait for the selected harness and session to initialize,
+including restored episode history. This applies to both Coworker and CMA,
+in full chat and standalone inputs. Only the latest startup prompt is submitted.
+Manual prompts still prefill immediately without sending.
+
 If `autoSend` arrives before the shared session can accept a message (e.g. the
 chat panel was just opened and episodes are still loading), `nx-chat-ao` fills
 the input and submits the draft on the first session update where
-`session.canSend()` is true, instead of dropping the send. While a turn is
+`session.canSend()` is true, instead of dropping the send. Edits made while
+waiting are preserved in that submission. `setPrompt` resolves `true` when the
+prompt is accepted, without waiting for initialization or acknowledging delivery.
+Replacing it with a manual prompt, changing the session scope, or removing the
+input/chat cancels the queued submission. Initialization errors remain visible.
+While a turn is
 running (unless a plan approval is pending) the input is blocked, so the prompt
 is rejected (`setPrompt` resolves `false`): the draft is left untouched, no
 send is scheduled, and a warning toast asks the user to wait for the response.
@@ -127,7 +137,7 @@ reports the episode as idle while it's paused waiting on the user — there is
 no active generation for a reattach to rejoin, so a socket drop during a
 pending question/plan/permission used to reattach anyway, get the same
 "not active (state=idle)" rejection as the idle-tab case above, and surface
-it as a scary `Error: Cannot ATTACH to episode ...` — even though the popover
+it as a scary `Error: Cannot ATTACH to episode ...` — even though the interaction
 itself was working fine and needed no live socket (`answerQuestion`/
 `respondToPlanApproval`/`respondToPermission` all already reconnect via
 `RESUME` on demand when the user actually responds). `_shouldReattachOnClose()`
@@ -228,6 +238,10 @@ AO pauses a turn by sending a `USER_QUESTION`/`question` event (see the
 discrepancy) — this is the only shape AO sends for a "should I proceed?"
 pause today; no separate permission-request concept has shown up in practice
 for this client.
+
+Pending questions render inline with "Waiting for your response" until answered
+or skipped. The card then becomes the existing Answered/Declined summary and
+"Thinking..." resumes. New questions follow the scroll only when already near the bottom.
 
 **Responding to a resumed question — cold vs. warm connection.** `_respondToQuestion`
 checks whether the socket was already open _before_ sending:

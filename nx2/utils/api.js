@@ -391,13 +391,21 @@ export const source = {
     return daFetch({ url, opts: { method: 'HEAD' } });
   }),
 
-  delete: withArgs(async ({ org, site, path }) => {
+  delete: withArgs(async ({
+    org, site, path, continuationToken,
+  }) => {
     const url = await getDaApiPath(SOURCE, org, site, path);
-    return daFetch({ url, opts: { method: 'DELETE' } });
+    const opts = { method: 'DELETE' };
+    if (continuationToken) {
+      const formData = new FormData();
+      formData.append('continuation-token', continuationToken);
+      opts.body = formData;
+    }
+    return daFetch({ url, opts });
   }),
 
   copy: withArgs(async ({
-    org, site, path, destination, collision,
+    org, site, path, destination, collision, continuationToken,
   }) => {
     const dest = fromPath(destination);
     const sameSite = org === dest.org && site === dest.site;
@@ -440,6 +448,7 @@ export const source = {
     }
     const formData = new FormData();
     formData.append('destination', destination);
+    if (continuationToken) formData.append('continuation-token', continuationToken);
     return daFetch({
       url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
       opts: { method: 'POST', body: formData },
@@ -447,7 +456,7 @@ export const source = {
   }),
 
   move: withArgs(async ({
-    org, site, path, destination, collision,
+    org, site, path, destination, collision, continuationToken,
   }) => {
     const dest = fromPath(destination);
     const [srcHlx6, destHlx6] = await Promise.all([
@@ -467,6 +476,7 @@ export const source = {
     }
     const formData = new FormData();
     formData.append('destination', destination);
+    if (continuationToken) formData.append('continuation-token', continuationToken);
     return daFetch({
       url: `${DA_ADMIN}/move/${org}/${site}${path}`,
       opts: { method: 'POST', body: formData },
@@ -478,13 +488,14 @@ export const source = {
     return daFetch({ url, opts: { method: 'POST' } });
   }),
 
-  deleteFolder: withArgs(async ({ org, site, path }) => {
-    const url = await getDaApiPath(SOURCE, org, site, `${path}/`);
-    return daFetch({ url, opts: { method: 'DELETE' } });
-  }),
+  deleteFolder: withArgs(({
+    org, site, path, continuationToken,
+  }) => source.delete({
+    org, site, path: `${path}/`, continuationToken,
+  })),
 
   copyFolder: withArgs(async ({
-    org, site, path, destination, collision,
+    org, site, path, destination, collision, continuationToken,
   }) => {
     const hlx6 = await isHlx6(org, site);
     if (hlx6) {
@@ -497,6 +508,7 @@ export const source = {
     }
     const formData = new FormData();
     formData.append('destination', destination);
+    if (continuationToken) formData.append('continuation-token', continuationToken);
     return daFetch({
       url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
       opts: { method: 'POST', body: formData },
@@ -517,7 +529,20 @@ export const versions = {
   list: withArgs(async ({ org, site, path }) => {
     const hlx6 = await isHlx6(org, site);
     if (hlx6) {
-      return daFetch({ url: `${AEM_API}/${org}/sites/${site}/source${path}/.versions` });
+      const url = `${AEM_API}/${org}/sites/${site}/source${path}`;
+      const [versionResp, auditResp] = await Promise.all([
+        daFetch({ url: `${url}/.versions` }),
+        daFetch({ url: `${url}/.history` }),
+      ]);
+      if (!versionResp.ok) return versionResp;
+      if (!auditResp.ok) return auditResp;
+      const [snapshots, { entries, truncated }] = await Promise.all([
+        versionResp.json(),
+        auditResp.json(),
+      ]);
+      const resp = adaptJsonResponse(versionResp, hlx6ToDaVersions({ snapshots, entries }));
+      resp.truncated = truncated;
+      return resp;
     }
     // Legacy DA uses a separate /versionlist endpoint for listing.
     return daFetch({ url: `${DA_ADMIN}/versionlist/${org}/${site}${path}` });
@@ -828,6 +853,21 @@ function adaptJsonResponse(resp, obj) {
   // permissions daFetch attached to the original response are carried over here.
   adapted.permissions = resp.permissions;
   return adapted;
+}
+
+function hlx6ToDaVersions({ snapshots, entries }) {
+  const byId = new Map(snapshots.map((entry) => [entry.version, entry]));
+  const history = entries.map(({ users = [], ...entry }) => {
+    const version = byId.get(entry.snapshot);
+    return { ...version, ...entry, users: users.map((email) => ({ email })) };
+  });
+  const versionIds = new Set(history.map((entry) => entry.version));
+  // Snapshots may predate audit logging or have no journal entry after a best-effort write.
+  return [...history, ...snapshots.filter((entry) => !versionIds.has(entry.version))]
+    .sort((a, b) => (
+      (b.timestamp ?? Date.parse(b['version-date']))
+      - (a.timestamp ?? Date.parse(a['version-date']))
+    ));
 }
 
 function jsonOpts(method, payload) {
