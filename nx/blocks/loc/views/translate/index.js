@@ -81,7 +81,8 @@ export async function getUrls(
       url.content = content;
       if (connector) {
         try {
-          url.content = await connector.dnt.addDnt(content, config, { fileType });
+          const dntOpts = { fileType, path: url.daBasePath.slice(snapshotPrefix.length) };
+          url.content = await connector.dnt.addDnt(content, config, dntOpts);
         } catch (error) {
           url.error = `Error adding DNT to ${url.daBasePath} - ${error.message}`;
         }
@@ -170,6 +171,14 @@ async function saveLang({
   return { savedCount, errors };
 }
 
+/**
+ * Saves translated items to DA per language, persisting the project after each language.
+ * @param {object} options Service options.
+ * @param {object} conf Translation conf with `langs`, `urls` and `actions`.
+ * @param {object} connector Connector implementing `saveItems`.
+ * @param {Function} sendMessage Message callback.
+ * @returns {Promise<{errors: object[]}|undefined>} Errors when saving concurrently.
+ */
 export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   const behavior = options['translate.conflict.behavior'];
 
@@ -189,7 +198,9 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   const concurrency = connector.saveLangConcurrency ?? 1;
   if (concurrency === 1) {
     for (const [langIndex, lang] of conf.langs.entries()) {
+      const wasComplete = lang.translation.status === 'complete';
       await saveLanguage({ lang, langIndex });
+      if (!wasComplete) await conf.actions?.saveState?.(undefined, { waitForSave: true });
     }
     return undefined;
   }

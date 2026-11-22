@@ -30,6 +30,12 @@ The configuration check uses the target org/site from a valid `#/org/site` hash,
 falling back to the app URL's org/site when there is no target-site hash. The same
 target site is passed as chat context.
 
+On iframe initialization/reload, the nx2 shell waits for the selected site's
+chat availability check before taking the SDK context/capability snapshot.
+A superseded site check cannot initialize a newer target or an old iframe
+connection. This does not add live capability updates to an already initialized
+SDK; apps switching their canonical target still need a fresh iframe handshake.
+
 Chat uses `#/org/site/path` from the parent URL when present; otherwise it uses
 the app URL's org/repo as its site, with browse context and no content path.
 The hosting app's `/tools/...` path is never used as a content-document path.

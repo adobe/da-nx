@@ -12,6 +12,15 @@ export const CHAT_EVENT = {
   SET_PROMPT: 'nx-set-prompt', // see docs/chat-ui-component.md#setting-a-prompt-programmatically
 };
 
+// Href for the ew-extensions skills app (/apps/skills) for an org/site, optional tab.
+export function skillsAppHref({ org, site, tab } = {}) {
+  const url = new URL(window.location.href);
+  url.pathname = '/apps/skills';
+  url.search = tab ? `?tab=${tab}` : '';
+  url.hash = `#/${org}/${site}`;
+  return url.href;
+}
+
 // Dev override, not persisted: ?nx-chat-ao=true forces AO for this load regardless
 // of the org/site's `ew.coworker` flag. Anything else falls through to the flag.
 const AO_CHAT_KEY = 'nx-chat-ao';

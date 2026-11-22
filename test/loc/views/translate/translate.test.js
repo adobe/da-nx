@@ -87,3 +87,42 @@ describe('NxLocTranslate - Send All retry', () => {
     });
   });
 });
+
+describe('NxLocTranslate - checkAndSaveLangs serialization', () => {
+  it('runs overlapping calls one at a time', async () => {
+    const el = createTranslateEl();
+    const events = [];
+    el.runCheckAndSaveLangs = async (conf) => {
+      events.push(`start-${conf}`);
+      await new Promise((resolve) => { setTimeout(resolve, 10); });
+      events.push(`end-${conf}`);
+    };
+
+    await Promise.all([el.checkAndSaveLangs('a'), el.checkAndSaveLangs('b')]);
+
+    expect(events).to.deep.equal(['start-a', 'end-a', 'start-b', 'end-b']);
+  });
+
+  it('keeps running later calls after a rejection', async () => {
+    const el = createTranslateEl();
+    const calls = [];
+    el.runCheckAndSaveLangs = async (conf) => {
+      calls.push(conf);
+      if (conf === 'a') throw new Error('boom');
+    };
+
+    const first = el.checkAndSaveLangs('a');
+    const second = el.checkAndSaveLangs('b');
+
+    let caught;
+    try {
+      await first;
+    } catch (e) {
+      caught = e;
+    }
+    await second;
+
+    expect(caught.message).to.equal('boom');
+    expect(calls).to.deep.equal(['a', 'b']);
+  });
+});

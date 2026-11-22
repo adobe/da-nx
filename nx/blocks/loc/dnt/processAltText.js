@@ -4,7 +4,7 @@ const setDntAttribute = (el) => {
   el.setAttribute('translate', 'no');
 };
 
-export const processAltText = (document, addDntWrapper) => {
+export const processAltText = (document, addDntWrappers) => {
   const hasPipe = (text) => text && text.includes('|');
   const hasUrl = (text) => text && ['http://', 'https://'].some((matchText) => text.startsWith(matchText));
   const getAltTextDntInfo = (text) => {
@@ -26,14 +26,25 @@ export const processAltText = (document, addDntWrapper) => {
   };
 
   document.querySelectorAll('a').forEach((element) => {
+    if (element.dataset.editAs === 'image') {
+      const text = element.textContent;
+
+      const span = document.createElement('span');
+      span.setAttribute('translate', 'no');
+      span.className = 'dnt-text';
+      span.textContent = text;
+      element.replaceChildren(span);
+      return;
+    }
+
     const elementText = element.textContent;
     const { alt, dnt } = getAltTextDntInfo(element.textContent);
     if (dnt) {
       if (alt) {
-        addDntWrapper(element, elementText.substring(0, dnt.indexOf(ALT_TEXT_PLACEHOLDER)));
+        addDntWrappers(element, elementText.substring(0, dnt.indexOf(ALT_TEXT_PLACEHOLDER)));
         const altTextSuffix = elementText.substring(dnt.indexOf(ALT_TEXT_PLACEHOLDER) + alt.length);
         if (altTextSuffix) {
-          addDntWrapper(element, altTextSuffix);
+          addDntWrappers(element, altTextSuffix);
         }
       } else setDntAttribute(element);
     }
