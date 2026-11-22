@@ -257,6 +257,10 @@
     max-width: 80%;
     align-self: flex-end;
     background-color: rgb(247 248 255);
+
+    .message-content {
+      white-space: pre-wrap;
+    }
   }
 
   &.message-assistant {
@@ -266,7 +270,7 @@
     flex-direction: column;
     gap: var(--s2-spacing-75);
 
-    &:has(.tool-call-card), &:has(.tool-call-detail), &:has(.question-response-card) {
+    &:has(nx-question-card), &:has(.tool-call-card), &:has(.tool-call-detail), &:has(.question-response-card) {
       padding-top: 0;
       padding-bottom: 0;
     }
@@ -515,7 +519,8 @@
   justify-content: center;
 }
 
-.chat-thinking {
+.chat-thinking,
+.chat-waiting {
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
   font-size: var(--s2-body-size-xs);
   font-weight: var(--s2-component-m-regular-font-weight);
