@@ -303,7 +303,6 @@ menu.items = [
   { id: 'edit', label: 'Edit' },
   { id: 'delete', label: 'Delete' },
   { id: 'ideas', label: 'Ideas', trailing: { type: 'badge', label: 'New' } },
-  { id: 'inbox', label: 'Inbox', trailing: { type: 'badge', label: 3 } },
   { id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'var(--s2-green-700)' } },
 ];
 menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));
@@ -459,7 +458,11 @@ document.querySelector('#field-picker').items = [
 
       <article class="sg-example">
         <h3>nx-picker — descriptions and actions</h3>
-        <p class="sg-note">Descriptions consistently use small regular typography and subdued theme-aware color in both S and M rows; long text wraps. Use <code>check-position="start"</code> for leading checks and <code>--nx-picker-menu-width</code> for width, capped at the viewport minus 20px. Consumers can style <code>::part(label)</code> without changing the shared menu presentation.</p>
+        <p class="sg-note">Descriptions consistently use small regular typography and subdued theme-aware color in both
+          S and M rows; long text wraps. Use <code>check-position="start"</code> for leading checks and
+          <code>--nx-picker-menu-width</code> for width, capped at the viewport minus 20px. Consumers can style
+          <code>::part(label)</code> without changing the shared menu presentation.
+        </p>
         <div class="sg-demo sg-picker-container">
           <nx-picker id="demo-picker-description-s" size="s" placeholder="Small status"></nx-picker>
           <nx-picker id="demo-picker-description" size="m" check-position="start" placeholder="Medium status"
@@ -490,7 +493,8 @@ picker.value = 'name:ascending';</code></pre>
       </article>
 
       <article class="sg-example">
-        <h3>nx-siteselector — navigation <a href="https://github.com/adobe/da-nx/blob/main/docs/siteselector.md" target="_blank" rel="noopener">docs
+        <h3>nx-siteselector — navigation <a href="https://github.com/adobe/da-nx/blob/main/docs/siteselector.md"
+            target="_blank" rel="noopener">docs
             →</a></h3>
         <div class="sg-demo sg-picker-container" id="demo-siteselectors"></div>
         <pre><code>&lt;nx-siteselector id="site-selector" size="s" heading="Your recent sites"&gt;&lt;/nx-siteselector&gt;
@@ -715,24 +719,29 @@ card.focus({ preventScroll: true });</code></pre>
         <h3>nx-action-card <a href="https://github.com/adobe/da-nx/blob/main/docs/action-card.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
-          <div class="demo-action-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s2-spacing-300); width: 100%;">
+          <div class="demo-action-cards"
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s2-spacing-300); width: 100%;">
             <nx-action-card id="demo-action-card" heading="Traverse"
-              description="Tinted svg icon, menu, action and a byline in the extra slot."
-              tint="#E5F0FE" action="#traverse" action-label="Open">
-              <svg slot="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="./icons/selected.svg#icon"></use></svg>
+              description="Tinted svg icon, menu, action and a byline in the extra slot." tint="#E5F0FE"
+              action="#traverse" action-label="Open">
+              <svg slot="icon" viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
               <span slot="extra">By Adobe</span>
             </nx-action-card>
-            <nx-action-card heading="Bulk Helper" description="Image without tint fills the tile; custom action label, opens in a new tab."
-              action="#bulk" action-label="Launch" action-target="_blank">
+            <nx-action-card heading="Bulk Helper"
+              description="Image without tint fills the tile; custom action label, opens in a new tab." action="#bulk"
+              action-label="Launch" action-target="_blank">
               <img slot="icon" src="./icons/selected.svg" alt="">
               <span slot="extra">By Admin</span>
             </nx-action-card>
             <nx-action-card id="demo-action-card-menu" heading="With menu"
-              description="Menu entries in the nx-menu shape: items, a section header and a divider."
-              tint="#FFECCF" action="#menu" action-label="Open">
+              description="Menu entries in the nx-menu shape: items, a section header and a divider." tint="#FFECCF"
+              action="#menu" action-label="Open">
               <span slot="extra">By Admin</span>
             </nx-action-card>
-            <nx-action-card heading="Minimal" description="Heading and description only: no tile, menu, action or extra content."></nx-action-card>
+            <nx-action-card heading="Minimal"
+              description="Heading and description only: no tile, menu, action or extra content."></nx-action-card>
           </div>
         </div>
         <pre><code>import '/nx2/blocks/shared/action-card/action-card.js';
@@ -878,7 +887,6 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
       { id: 'edit', label: 'Edit' },
       { id: 'delete', label: 'Delete' },
       { id: 'ideas', label: 'Ideas', trailing: { type: 'badge', label: 'New' } },
-      { id: 'inbox', label: 'Inbox', trailing: { type: 'badge', label: 3 } },
       { id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'var(--s2-green-700)' } },
     ];
     [document.querySelector('#demo-menu'), document.querySelector('#demo-menu-m')].forEach((menu) => {

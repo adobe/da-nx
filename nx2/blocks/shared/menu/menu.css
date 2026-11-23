@@ -95,10 +95,10 @@ nx-popover:has(.menu-item-description) {
   align-self: center;
   max-width: 12ch;
   margin-inline-start: auto;
-  padding: 0 var(--s2-spacing-75);
+  padding: var(--s2-spacing-50) var(--s2-spacing-100);
   overflow: hidden;
   border-radius: var(--s2-corner-radius-200);
-  background: var(--s2-gray-100);
+  background: var(--s2-blue-200);
   color: var(--s2-gray-800);
   font-size: var(--s2-component-xs-regular-font-size);
   line-height: var(--s2-component-xs-regular-line-height);
