@@ -174,6 +174,31 @@ describe('renderPermissionCard keydown', () => {
       expect(expanded.a).to.be.closeTo(0, 0.001);
       expect(expanded.b).to.be.closeTo(1, 0.001);
     });
+
+    it('does not preserve template whitespace around structured details', async () => {
+      host = mount({
+        calls: [{
+          toolCallId: 'tc1',
+          toolName: 'some_tool',
+          arguments: { rule: 'First line\nSecond line' },
+        }],
+        decisions: {},
+      }, () => {});
+      const style = document.createElement('style');
+      style.textContent = await (await fetch('/nx2/blocks/chat-ao/chat-ao.css')).text();
+      host.append(style);
+      host.style.setProperty('--s2-spacing-100', '8px');
+      document.body.append(host);
+      host.querySelector('summary').click();
+
+      const summaryRect = host.querySelector('summary').getBoundingClientRect();
+      const listRect = host.querySelector('dl').getBoundingClientRect();
+      const detailRect = host.querySelector('.permission-row-detail').getBoundingClientRect();
+      expect(listRect.top - summaryRect.bottom).to.equal(8);
+      expect(detailRect.bottom - listRect.bottom).to.equal(8);
+      expect(getComputedStyle(host.querySelector('dd')).whiteSpace).to.equal('pre-wrap');
+      expect(host.querySelector('dd').textContent).to.equal('First line\nSecond line');
+    });
   });
 
   it('does not intercept Enter at the wrapper — leaves it to native per-button activation', () => {

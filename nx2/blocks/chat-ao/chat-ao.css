@@ -652,6 +652,10 @@
     overflow-wrap: break-word;
     white-space: pre-wrap;
     padding: var(--s2-spacing-100);
+
+    &:has(.permission-arguments) {
+      white-space: normal;
+    }
   }
 
   .permission-arguments {
