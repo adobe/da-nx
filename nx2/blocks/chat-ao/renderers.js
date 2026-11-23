@@ -18,6 +18,16 @@ import { getConfig } from '../../scripts/nx.js';
 
 const { codeBase } = getConfig();
 const CHEVRON_HREF = `${codeBase}/img/icons/s2-icon-chevronleft-10-n.svg#icon`;
+const PERMISSION_TOOL_LABELS = {
+  api_request: 'Calling API',
+  read_file: 'Reading file',
+  write_file: 'Writing file',
+  edit_file: 'Editing file',
+  delete_file: 'Deleting file',
+  bash: 'Running command',
+  web_search: 'Searching the web',
+  web_fetch: 'Fetching URL',
+};
 
 // See docs/chat-ao-component.md#tool-call-activity for why this isn't truncated.
 function formatToolCallDetail(value) {
@@ -105,9 +115,12 @@ export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
 function renderPermissionRow(call, decisions, onDecide) {
   const detail = formatToolCallDetail(call.arguments);
   const decided = call.toolCallId in decisions;
+  const label = Object.hasOwn(PERMISSION_TOOL_LABELS, call.toolName)
+    ? PERMISSION_TOOL_LABELS[call.toolName]
+    : call.toolName.replace(/_+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
   return html`
     <div class="permission-row">
-      <span class="permission-row-tool" title=${call.toolName}>${call.toolName}</span>
+      <span class="permission-row-tool" title=${call.toolName}>${label}</span>
       ${detail ? html`
         <details class="permission-row-details">
           <summary><svg class="permission-details-chevron" viewBox="0 0 10 10" aria-hidden="true"><use href=${CHEVRON_HREF}></use></svg>Details</summary>

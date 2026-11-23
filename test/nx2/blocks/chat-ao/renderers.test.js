@@ -14,6 +14,25 @@ describe('renderPermissionCard keydown', () => {
     decisions: {},
   };
 
+  [
+    ['governance__bga_create_brand_context_rule', 'Governance Bga Create Brand Context Rule'],
+    ['read_file', 'Reading file'],
+    ['constructor', 'Constructor'],
+  ].forEach(([toolName, label]) => {
+    it(`shows a human-readable approval label for ${toolName} and retains the identifier`, () => {
+      const decisions = [];
+      const host = mount({
+        calls: [{ toolCallId: 'tc1', toolName }],
+        decisions: {},
+      }, (id, approved) => decisions.push({ id, approved }));
+      const tool = host.querySelector('.permission-row-tool');
+      expect(tool.textContent).to.equal(label);
+      expect(tool.title).to.equal(toolName);
+      host.querySelector('.permission-approve-btn').click();
+      expect(decisions).to.deep.equal([{ id: 'tc1', approved: true }]);
+    });
+  });
+
   it('Escape rejects, regardless of which element (or none) currently has focus', () => {
     const decisions = [];
     const host = mount(pending, (id, approved) => decisions.push({ id, approved }));
@@ -48,7 +67,7 @@ describe('renderPermissionCard keydown', () => {
         expect(chevron.nextSibling.textContent).to.equal('Details');
         expect(details.open).to.equal(false);
         expect(detail.checkVisibility()).to.equal(false);
-        expect(host.querySelector('.permission-row-tool').textContent).to.equal('some_tool');
+        expect(host.querySelector('.permission-row-tool').textContent).to.equal('Some Tool');
         expect(host.querySelectorAll('.permission-row-buttons button').length).to.equal(2);
 
         summary.click();
