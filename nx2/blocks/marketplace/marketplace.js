@@ -121,8 +121,7 @@ class NxMarketplace extends LitElement {
     const sortLabel = SORT_OPTIONS.find(({ id }) => id === this._sort)?.label;
     const label = `Search ${this._items.length} Capabilities`;
     return html`
-      <header class="toolbar">
-        <h2>All Capabilities</h2>
+      <div class="toolbar">
         <div class="controls">
           <nx-segmented-btn
             .items=${VIEW_ITEMS}
@@ -151,7 +150,7 @@ class NxMarketplace extends LitElement {
             @input=${(e) => { this._query = e.target.value ?? ''; }}
           ></nx-search>
         </div>
-      </header>
+      </div>
     `;
   }
 
@@ -177,7 +176,6 @@ class NxMarketplace extends LitElement {
     if (this._items === undefined) {
       return html`
         <div class="toolbar-skeleton" aria-hidden="true">
-          <span class="skeleton-bar"></span>
           <div class="controls">
             <span class="skeleton-block"></span>
             <span class="skeleton-block"></span>

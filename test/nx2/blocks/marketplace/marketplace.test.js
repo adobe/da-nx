@@ -65,7 +65,7 @@ describe('nx-marketplace', () => {
     expect(el.shadowRoot.querySelector('.item:not(.skeleton)') === null).to.equal(true);
   });
 
-  it('renders toolbar with heading and search, and one item per valid row', async () => {
+  it('renders toolbar with search but no heading, and one item per valid row', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         { Title: 'DA Permissions', Description: 'Manage permissions', 'Doc Url': 'https://example.com/a' },
@@ -81,7 +81,7 @@ describe('nx-marketplace', () => {
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    expect(el.shadowRoot.querySelector('.toolbar h2').textContent).to.equal('All Capabilities');
+    expect(el.shadowRoot.querySelector('.toolbar h1, .toolbar h2, .toolbar h3')).to.equal(null);
     expect(el.shadowRoot.querySelector('nx-search').placeholder).to.equal('Search 3 Capabilities');
     const items = el.shadowRoot.querySelectorAll('.items.list .item');
     expect(items.length).to.equal(3);
