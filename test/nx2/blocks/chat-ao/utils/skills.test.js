@@ -3,7 +3,7 @@ import {
   loadCachedSkills, fetchSkills, toSlashMenuItems,
 } from '../../../../../nx2/blocks/chat-ao/utils/skills.js';
 import { AO_HTTP_BASE, AO_MANIFEST_ID } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
-import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
+import { resetMockIms, setMockIms } from '../../../mocks/ims.js';
 
 const cacheKey = (tenantId) => `da-chat-ao-skills--${tenantId}`;
 // fetchSkills() -> resolveManifestId() also caches per tenant+user; clear it too.
