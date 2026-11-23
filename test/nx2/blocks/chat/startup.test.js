@@ -3,7 +3,7 @@ import sinon from 'sinon';
 import '../../../../nx2/blocks/chat/chat.js';
 import ChatBackend from '../../../../nx2/blocks/chat/chat-backend.js';
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
-import { resetMockIms } from '../../../../nx2/test/mocks/ims.js';
+import { resetMockIms } from '../../mocks/ims.js';
 import {
   getRoomKey, resetSession, saveMessages,
 } from '../../../../nx2/blocks/chat/utils/persistence.js';

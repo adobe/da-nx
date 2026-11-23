@@ -15,7 +15,7 @@ const TOKEN_BUFFER = 300000; // 5 min buffer before expiry
  * @param {string} org - The DA org.
  * @param {string} site - The DA site.
  * @param {string} env - The environment key (e.g. 'prod').
- * @returns {string} The localStorage key.
+ * @returns {string} The sessionStorage key.
  */
 function tokenKey(name, org, site, env) {
   return `${name}.${org}.${site}.${env}.token`;
@@ -67,6 +67,18 @@ export function setCachedToken(name, org, site, env, value) {
  */
 function loginUrl(name, org, site, env) {
   return `${LOGIN_ORIGIN}/${org}/sites/${site}/integrations/${name}/login?env=${env}`;
+}
+
+/**
+ * Builds the da-etc status URL for a connector integration.
+ * @param {string} name - The da-etc integration name (e.g. 'lilt').
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @param {string} env - The connector environment.
+ * @returns {string} The status URL.
+ */
+function statusUrl(name, org, site, env) {
+  return `${LOGIN_ORIGIN}/${org}/sites/${site}/integrations/${name}/status?env=${env}`;
 }
 
 /**
@@ -140,6 +152,25 @@ export default async function authReady(name, service) {
 }
 
 /**
+ * Checks whether da-etc has a working credential configured for an integration, via its
+ * `/integrations/<name>/status` endpoint. Unlike `login`, this never resolves to the
+ * credential itself - it's a boolean connectivity check only, for connectors (e.g. Lilt,
+ * DeepL) whose real key is a static, non-expiring secret that's resolved server-side per
+ * request rather than ever cached in the browser.
+ * @param {string} name - The da-etc integration name (e.g. 'lilt', 'deepl').
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @param {string} env - The environment key (e.g. 'prod').
+ * @returns {Promise<boolean>} Whether da-etc reports a working credential.
+ */
+export async function checkConnection(name, org, site, env) {
+  const resp = await daFetch({ url: statusUrl(name, org, site, env) });
+  if (!resp.ok) return false;
+  const json = await resp.json().catch(() => ({}));
+  return !!json.connected;
+}
+
+/**
  * Checks whether an IMS session is currently available, without triggering the sign-in
  * flow if not - unlike {@link imsAccessToken}, safe to call repeatedly (e.g. from inside a
  * polling loop) without repeatedly invoking `handleSignIn()`.
@@ -153,8 +184,8 @@ export async function hasImsSession() {
 /**
  * Resolves the current IMS access token, mirroring how `daFetch` authenticates calls to
  * DA_TRANSLATE elsewhere (e.g. the Google connector). Connectors whose DA_TRANSLATE proxy
- * requires IMS auth (e.g. GlobalLink) use this instead of building their own IMS session
- * handling. Triggers the sign-in flow if no IMS session is available.
+ * requires IMS auth (e.g. GlobalLink, DeepL) use this instead of building their own IMS
+ * session handling. Triggers the sign-in flow if no IMS session is available.
  * @returns {Promise<string|null>} The token, or `null` if no IMS session is available.
  */
 export async function imsAccessToken() {
