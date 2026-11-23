@@ -48,8 +48,10 @@ describe('nx-menu description', () => {
     expect(el.shadowRoot.querySelector('.menu-item-swatch')).to.be.null;
   });
 
-  it('renders a trailing status dot when item.statusDot is set', async () => {
-    const el = await createMenu([{ id: 'publish', label: 'Publish', statusDot: 'rgb(0, 128, 0)' }]);
+  it('renders a trailing dot with the supplied color', async () => {
+    const el = await createMenu([
+      { id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'rgb(0, 128, 0)' } },
+    ]);
     const dot = el.shadowRoot.querySelector('.menu-item-status-dot');
     expect(dot).to.not.be.null;
     expect(dot.style.background).to.equal('rgb(0, 128, 0)');
@@ -57,19 +59,12 @@ describe('nx-menu description', () => {
     // eslint-disable-next-line no-bitwise
     const isAfter = text.compareDocumentPosition(dot) & Node.DOCUMENT_POSITION_FOLLOWING;
     expect(isAfter).to.be.greaterThan(0);
-  });
-
-  it('does not render a status dot when item.statusDot is absent', async () => {
-    const el = await createMenu([{ id: 'files', label: 'Files' }]);
-    expect(el.shadowRoot.querySelector('.menu-item-status-dot')).to.be.null;
-  });
-
-  it('renders a trailing dot with the supplied color', async () => {
-    const el = await createMenu([
-      { id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'rgb(0, 128, 0)' } },
-    ]);
-    expect(el.shadowRoot.querySelector('.menu-item-status-dot').style.background).to.equal('rgb(0, 128, 0)');
     expect(el.shadowRoot.querySelector('.menu-item-badge')).to.be.null;
+  });
+
+  it('does not render a trailing indicator when trailing is absent', async () => {
+    const el = await createMenu([{ id: 'files', label: 'Files' }]);
+    expect(el.shadowRoot.querySelector('.menu-item-badge, .menu-item-status-dot')).to.be.null;
   });
 
   it('renders text and numeric badges, including zero, alongside descriptions', async () => {
@@ -84,9 +79,9 @@ describe('nx-menu description', () => {
     expect(badges[0].closest('button').textContent).to.include('Ideas');
   });
 
-  it('prefers trailing over statusDot and preserves item selection', async () => {
+  it('renders only the badge and preserves item selection', async () => {
     const el = await createMenu([
-      { id: 'ideas', label: 'Ideas', statusDot: 'green', trailing: { type: 'badge', label: 'New' } },
+      { id: 'ideas', label: 'Ideas', trailing: { type: 'badge', label: 'New' } },
     ]);
     expect(el.shadowRoot.querySelectorAll('.menu-item-badge')).to.have.length(1);
     expect(el.shadowRoot.querySelector('.menu-item-status-dot')).to.be.null;
@@ -96,12 +91,12 @@ describe('nx-menu description', () => {
     expect(selected).to.deep.equal({ id: 'ideas' });
   });
 
-  it('omits empty or unsupported trailing content without falling back to statusDot', async () => {
+  it('omits empty or unsupported trailing content', async () => {
     const el = await createMenu([
       { id: 'empty', label: 'Empty', trailing: { type: 'badge', label: ' ' } },
       { id: 'missing', label: 'Missing', trailing: { type: 'badge' } },
-      { id: 'unknown', label: 'Unknown', statusDot: 'green', trailing: { type: 'icon' } },
-      { id: 'none', label: 'None', statusDot: 'green', trailing: null },
+      { id: 'unknown', label: 'Unknown', trailing: { type: 'icon' } },
+      { id: 'none', label: 'None', trailing: null },
     ]);
     expect(el.shadowRoot.querySelector('.menu-item-badge, .menu-item-status-dot')).to.be.null;
   });

@@ -113,9 +113,7 @@ class NxMenu extends LitElement {
     if (handled) e.preventDefault();
   }
 
-  _renderTrailing(item) {
-    const trailing = item.trailing === undefined && item.statusDot
-      ? { type: 'dot', color: item.statusDot } : item.trailing;
+  _renderTrailing({ trailing }) {
     if (trailing?.type === 'dot' && trailing.color) {
       return html`<span class="menu-item-status-dot" style="background:${trailing.color}"></span>`;
     }

@@ -86,7 +86,7 @@ nx-popover:has(.menu-item-description) {
   flex-shrink: 0;
   width: 8px;
   height: 8px;
-  margin-left: auto;
+  margin-inline-start: auto;
   border-radius: 50%;
 }
 
