@@ -79,10 +79,11 @@ export function getVisibleItems({ items, filter, query, sort }) {
   return sortItems({ items: searchItems({ items: filtered, query }), sort });
 }
 
+// Try out first so View details always sits at the end (right) of the row.
 export function getActions({ docHref, tryHref }) {
   return [
-    docHref && { id: 'details', label: 'View details', href: docHref },
     tryHref && { id: 'try', label: 'Try out', href: tryHref },
+    docHref && { id: 'details', label: 'View details', href: docHref },
   ].filter(Boolean);
 }
 

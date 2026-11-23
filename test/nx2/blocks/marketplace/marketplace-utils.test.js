@@ -117,11 +117,11 @@ describe('normalizeItem', () => {
 });
 
 describe('getActions', () => {
-  it('returns view details and try out in order', () => {
+  it('returns try out first and view details last, so view details sits on the right', () => {
     const actions = getActions({ docHref: 'https://example.com/a', tryHref: 'https://example.com/t' });
     expect(actions).to.deep.equal([
-      { id: 'details', label: 'View details', href: 'https://example.com/a' },
       { id: 'try', label: 'Try out', href: 'https://example.com/t' },
+      { id: 'details', label: 'View details', href: 'https://example.com/a' },
     ]);
   });
 

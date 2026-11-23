@@ -165,12 +165,12 @@ describe('nx-marketplace', () => {
     const [full, docOnly] = el.shadowRoot.querySelectorAll('.item');
     const links = [...full.querySelectorAll('.item-actions a')];
     expect(links.map((a) => [a.textContent.trim(), a.href])).to.deep.equal([
-      ['View details', 'https://example.com/a'],
       ['Try out', 'https://example.com/try'],
+      ['View details', 'https://example.com/a'],
     ]);
     expect(links.map((a) => a.getAttribute('aria-label'))).to.deep.equal([
-      'View details: DA Permissions (opens in a new tab)',
       'Try out: DA Permissions (opens in a new tab)',
+      'View details: DA Permissions (opens in a new tab)',
     ]);
     links.forEach((a) => {
       expect(a.target).to.equal('_blank');
