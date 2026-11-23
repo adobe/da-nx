@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { isCmaEntitled, REQUIRED_SERVICE_CODES } from '../../../nx2/utils/entitlement.js';
-import { resetMockIms, setMockIms } from '../../../nx2/test/mocks/ims.js';
+import { resetMockIms, setMockIms } from '../mocks/ims.js';
 
 describe('isCmaEntitled', () => {
   beforeEach(resetMockIms);

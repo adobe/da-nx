@@ -1,3 +1,32 @@
+# [1.62.0](https://github.com/adobe/da-nx/compare/v1.61.1...v1.62.0) (2026-11-20)
+
+
+### Bug Fixes
+
+* **snapshot:** allow clearing every url in a snapshot ([66bc37b](https://github.com/adobe/da-nx/commit/66bc37be3a3a4450f3f296765d5932c4c7f80edd))
+* **snapshot:** keep page row sync and promote tooltips visible ([6b027c1](https://github.com/adobe/da-nx/commit/6b027c1f28ffdc182766580004a86ba5e5745517))
+* **snapshot:** treat failed source checks as unknown and report job failures ([3c03208](https://github.com/adobe/da-nx/commit/3c03208278e68e17ee469f65e01fb3a91dc7696c))
+* **snapshot:** use s2 arrow icons and handle copy and sdk errors ([cb762a3](https://github.com/adobe/da-nx/commit/cb762a3bdcef592e893a1d64dbd7d44df999cd98))
+
+
+### Features
+
+* **snapshot:** restyle admin to spectrum 2 and add public snapshot api ([12c70b5](https://github.com/adobe/da-nx/commit/12c70b57db6fb51477573f975f7b2e67da5f3835))
+
+## [1.61.1](https://github.com/adobe/da-nx/compare/v1.61.0...v1.61.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* preserve newlines in coworker user messages ([#1041](https://github.com/adobe/da-nx/issues/1041)) ([f6a7316](https://github.com/adobe/da-nx/commit/f6a731666dea831704ba8df6aae36a2e3f385927))
+
+# [1.61.0](https://github.com/adobe/da-nx/compare/v1.60.0...v1.61.0) (2026-11-20)
+
+
+### Features
+
+* add deepL connector ([#746](https://github.com/adobe/da-nx/issues/746)) ([7181809](https://github.com/adobe/da-nx/commit/7181809a3abccdcb0463d6ccd398ca2ca80e6f7d))
+
 # [1.60.0](https://github.com/adobe/da-nx/compare/v1.59.0...v1.60.0) (2026-11-20)
 
 

@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../nx2/scripts/nx.js';
+import { formatLocalDate } from '../../nx/blocks/snapshot-admin/utils/utils.js';
 
 await setConfig({ hostnames: [] });
 await import('../../nx/blocks/snapshot-admin/snapshot-admin.js');
@@ -126,6 +127,22 @@ describe('NxSnapshot', () => {
       expect(el._message.heading).to.equal('Schedule Error');
       expect(posts).to.have.length(0);
     });
+
+    it('Removes every page when the URL list is cleared', async () => {
+      const bulks = [];
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (urlStr.endsWith('/*')) bulks.push(JSON.parse(opts.body));
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement({ basics: { name: 'test-snapshot', open: true } });
+      el._editUrls = true;
+      await el.updateComplete;
+      el.shadowRoot.querySelector('[name="edit-urls"]').value = '';
+      await el.handleSave();
+      expect(bulks).to.deep.equal([{ delete: true, paths: ['/page1'] }]);
+    });
   });
 
   describe('handleSave - schedule failure', () => {
@@ -177,7 +194,8 @@ describe('NxSnapshot', () => {
       mockScheduleFailure([]);
       const el = await createElement({ isRegistered: true, userPermissions: true });
       const input = el.shadowRoot.querySelector('[name="scheduler"]');
-      input.value = future.slice(0, 16);
+      // datetime-local is local time; slicing the UTC ISO string breaks east of UTC.
+      input.value = formatLocalDate(future);
       await el.handleReview('approve');
       await el.updateComplete;
       expect(el._message.heading).to.equal('Schedule Error');
@@ -259,7 +277,7 @@ describe('NxSnapshot', () => {
       await el.updateComplete;
       save.blur();
       await done;
-      const dialog = el.shadowRoot.querySelector('nx-dialog');
+      const dialog = el.shadowRoot.querySelector('nx-snapshot-dialog');
       await dialog.updateComplete;
       expect(el.shadowRoot.activeElement === dialog).to.equal(true);
       dialog.handleAction();
@@ -267,7 +285,7 @@ describe('NxSnapshot', () => {
       expect(el.shadowRoot.activeElement === save).to.equal(true);
     });
 
-    it('Clears the busy state when saving throws', async () => {
+    it('Clears the busy state and reports the error when saving fails', async () => {
       setupFetchMock(originalFetch, {
         'admin.hlx.page/snapshot/': (urlStr, opts) => {
           if (opts?.method === 'POST') throw new TypeError('Failed to fetch');
@@ -276,12 +294,12 @@ describe('NxSnapshot', () => {
       });
       const el = await createElement();
       el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
-      const error = await el.handleSave().catch((e) => e);
-      expect(error).to.be.instanceOf(TypeError);
+      await el.handleSave();
+      expect(el._message.message).to.equal('Failed to fetch');
       expect(el._action).to.be.undefined;
     });
 
-    it('Clears the busy state when a review request throws', async () => {
+    it('Clears the busy state and reports the error when a review request fails', async () => {
       setupFetchMock(originalFetch, {
         'admin.hlx.page/snapshot/': (urlStr, opts) => {
           if (opts?.method === 'POST') throw new TypeError('Failed to fetch');
@@ -289,8 +307,8 @@ describe('NxSnapshot', () => {
         },
       });
       const el = await createElement();
-      const error = await el.executeReview('request').catch((e) => e);
-      expect(error).to.be.instanceOf(TypeError);
+      await el.executeReview('request');
+      expect(el._message.message).to.equal('Failed to fetch');
       expect(el._action).to.be.undefined;
     });
 
@@ -791,27 +809,41 @@ describe('NxSnapshot', () => {
       expect(el._action).to.be.undefined;
     });
 
+    const copyFetch = (failPath) => setupFetchMock(originalFetch, {
+      '/source/': (urlStr, opts) => {
+        if (opts?.method === 'POST') return new Response('', { status: 200 });
+        if (failPath && urlStr.includes(failPath)) return new Response('', { status: 500 });
+        return new Response('{}', { status: 200, headers: new Headers({ 'content-type': 'application/json' }) });
+      },
+    });
+    const jsonRes = (path) => ({ path, aemPreview: `https://main--site--org.aem.page${path}` });
+
     it('Marks snapshot exists after fork sync completes', async () => {
+      copyFetch();
       const el = await createElement();
-      // Simulate post-copy state update directly (copyManifest requires full DA stack)
-      const resources = [{ path: '/page1' }, { path: '/page2' }];
       el._snapshotExists = {};
-      const updated = { ...el._snapshotExists };
-      resources.forEach((res) => { updated[res.path] = true; });
-      el._snapshotExists = updated;
-      expect(el._snapshotExists['/page1']).to.equal(true);
-      expect(el._snapshotExists['/page2']).to.equal(true);
+      await el.executeCopy([jsonRes('/a.json'), jsonRes('/b.json')], 'fork', 'overwrite');
+      expect(el._snapshotExists).to.deep.equal({ '/a.json': true, '/b.json': true });
+      expect(el._action).to.be.undefined;
+      expect(el._message).to.be.undefined;
+    });
+
+    it('Only marks pages that copied and reports failures', async () => {
+      copyFetch('/b.json');
+      const el = await createElement();
+      el._snapshotExists = {};
+      await el.executeCopy([jsonRes('/a.json'), jsonRes('/b.json')], 'fork', 'overwrite');
+      expect(el._snapshotExists).to.deep.equal({ '/a.json': true });
+      expect(el._message.message).to.equal('1 of 2 pages could not be synced.');
+      expect(el._action).to.be.undefined;
     });
 
     it('Does not mark snapshot exists for promote direction', async () => {
+      copyFetch();
       const el = await createElement();
-      // Promote direction should not update _snapshotExists
       el._snapshotExists = {};
-      const direction = 'promote';
-      if (direction === 'fork') {
-        el._snapshotExists = { '/page1': true };
-      }
-      expect(el._snapshotExists['/page1']).to.be.undefined;
+      await el.executeCopy([jsonRes('/a.json')], 'promote', 'overwrite');
+      expect(el._snapshotExists).to.deep.equal({});
     });
   });
 
@@ -829,13 +861,27 @@ describe('NxSnapshot', () => {
     it('Auto-overwrites fork when snapshot does not exist', async () => {
       const el = await createElement();
       const res = { path: '/page1', aemPreview: 'https://main--site--org.aem.page/page1' };
-      el._snapshotExists = {};
+      el._snapshotExists = { '/page1': false };
       // Stub executeCopy to avoid actual copy operations
       let executedMode;
       el.executeCopy = async (resources, direction, mode) => { executedMode = mode; };
       el.handleCopySingleUrl(res, 'fork');
       expect(el._copyModeDetails).to.be.undefined;
       expect(executedMode).to.equal('overwrite');
+    });
+
+    it('Asks before syncing while the existence check is pending', async () => {
+      const el = await createElement();
+      const res = { path: '/page1', aemPreview: 'https://main--site--org.aem.page/page1' };
+      let executed = false;
+      el.executeCopy = async () => { executed = true; };
+      [undefined, null].forEach((state) => {
+        el._snapshotExists = { '/page1': state };
+        el.handleCopySingleUrl(res, 'fork');
+        expect(el._copyModeDetails).to.not.be.undefined;
+        el._copyModeDetails = undefined;
+      });
+      expect(executed).to.equal(false);
     });
 
     it('Opens copy mode dialog for fork when snapshot exists', async () => {
@@ -958,7 +1004,7 @@ describe('NxSnapshot', () => {
       expect([...links].map((link) => link.textContent.trim())).to.include('Edit in Experience Workspace');
     });
 
-    it('Shows Edit Snapshot in Experience Workspace when snapshot exists', async () => {
+    it('Shows Edit snapshot content when snapshot exists', async () => {
       const el = await createElement({ startOpen: true });
       el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': true };
@@ -967,63 +1013,76 @@ describe('NxSnapshot', () => {
       const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
       const links = accordion.querySelectorAll('a');
       expect(links.length).to.equal(4);
-      expect([...links].map((link) => link.textContent.trim())).to.include('Edit Snapshot in Experience Workspace');
+      expect([...links].map((link) => link.textContent.trim())).to.include('Edit snapshot content');
     });
 
     it('Hides Sync/Promote when hasLaunchPermission is false', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = false;
-      el._expandedUrl = '/page1';
+      el._launchEnabled = true;
       el._snapshotExists = { '/page1': true };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(0);
+      expect(el.shadowRoot.querySelector('.nx-url-actions')).to.be.null;
     });
 
-    it('Shows Sync Down but not Promote Up when snapshot does not exist', async () => {
+    it('Disables Promote when snapshot does not exist', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
       el._launchEnabled = true;
-      el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': false };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(1);
+      const buttons = el.shadowRoot.querySelector('.nx-url-actions').querySelectorAll('button');
+      expect(buttons.length).to.equal(2);
       expect(buttons[0].textContent).to.include('Sync');
+      expect(buttons[0].disabled).to.be.false;
+      expect(buttons[1].textContent).to.include('Promote');
+      expect(buttons[1].disabled).to.be.true;
+      expect(buttons[1].dataset.tooltip).to.equal('Sync this page first');
     });
 
-    it('Shows both Sync Down and Promote Up when snapshot exists', async () => {
+    it('Enables Sync and Promote when snapshot exists', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
       el._launchEnabled = true;
-      el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': true };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(2);
+      const buttons = el.shadowRoot.querySelector('.nx-url-actions').querySelectorAll('button');
+      expect(buttons[0].dataset.tooltip).to.equal('Sync from main content');
+      expect(buttons[1].disabled).to.be.false;
+      expect(buttons[1].dataset.tooltip).to.equal('Promote to main content');
     });
 
     it('Hides Sync/Promote when launchEnabled is false', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
       el._launchEnabled = false;
-      el._expandedUrl = '/page1';
-      el._snapshotExists = { '/page1': true };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(0);
+      expect(el.shadowRoot.querySelector('.nx-url-actions')).to.be.null;
     });
   });
 
   // --- URL row rendering ---
+
+  describe('header meta', () => {
+    it('Shows page count and scheduled badge only for a future schedule', async () => {
+      const el = await createElement();
+      const future = new Date(Date.now() + 86400000).toISOString();
+      el._manifest = { resources: [{ path: '/page1' }], metadata: { scheduledPublish: future } };
+      el.requestUpdate();
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-count').textContent).to.equal('1 page');
+      expect(el.shadowRoot.querySelector('.is-scheduled').textContent).to.include('Scheduled');
+
+      el._manifest = { resources: [], metadata: { scheduledPublish: '2000-01-01T00:00:00Z' } };
+      el.requestUpdate();
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.is-scheduled')).to.be.null;
+    });
+  });
 
   describe('renderUrls - accordion', () => {
     it('Renders URL rows instead of links', async () => {
@@ -1198,29 +1257,16 @@ describe('NxSnapshot', () => {
       expect(buttons.length).to.equal(2);
     });
 
-    it('Renders the Launch toggle as a keyboard-operable button', async () => {
+    it('Shows content actions as focusable buttons without a toggle', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
+      el._launchEnabled = true;
       el.requestUpdate();
       await el.updateComplete;
-      const toggle = el.shadowRoot.querySelector('.nx-launch-sub-heading');
-      expect(toggle.tagName).to.equal('BUTTON');
-      expect(toggle.getAttribute('type')).to.equal('button');
-      expect(toggle.getAttribute('aria-expanded')).to.equal('false');
-      expect(toggle.getAttribute('aria-controls')).to.equal('nx-launch-panel');
-      expect(el.shadowRoot.querySelector('#nx-launch-panel')).to.not.be.null;
-      expect(el.shadowRoot.querySelector('.nx-launch-action-group')).to.be.null;
-
-      toggle.click();
-      await el.updateComplete;
-      expect(toggle.getAttribute('aria-expanded')).to.equal('true');
-      const group = el.shadowRoot.querySelector('#nx-launch-panel .nx-launch-action-group');
-      expect(group).to.not.be.null;
-
-      toggle.click();
-      await el.updateComplete;
-      expect(toggle.getAttribute('aria-expanded')).to.equal('false');
-      expect(el.shadowRoot.querySelector('.nx-launch-action-group')).to.be.null;
+      expect(el.shadowRoot.querySelector('.nx-launch-sub-heading').tagName).to.equal('P');
+      const buttons = [...el.shadowRoot.querySelectorAll('.nx-launch-action-group button')];
+      expect(buttons.map((b) => b.textContent.trim())).to.deep.equal(['Sync all pages', 'Promote all pages']);
+      buttons.forEach((b) => expect(b.tabIndex).to.equal(0));
     });
   });
 

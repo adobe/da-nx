@@ -593,4 +593,4 @@ await source.get({ org: 'foo', site: 'bar', path: '/x.html' });
 expect(lastCall().url).to.equal('https://admin.da.live/source/foo/bar/x.html');
 ```
 
-The IMS dependency is mocked via the importmap in `web-test-runner.config.mjs` (`/nx2/utils/ims.js` → `/nx2/test/mocks/ims.js`).
+The IMS dependency is mocked via the importmap in `web-test-runner.config.mjs` (`/nx2/utils/ims.js` → `/test/nx2/mocks/ims.js`).
