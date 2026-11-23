@@ -302,6 +302,9 @@
 menu.items = [
   { id: 'edit', label: 'Edit' },
   { id: 'delete', label: 'Delete' },
+  { id: 'ideas', label: 'Ideas', trailing: { type: 'badge', label: 'New' } },
+  { id: 'inbox', label: 'Inbox', trailing: { type: 'badge', label: 3 } },
+  { id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'var(--s2-green-700)' } },
 ];
 menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));
 
@@ -310,7 +313,7 @@ menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));
 // on hover, and caps width at --nx-menu-max-width
 menu.items = [
   { section: 'Skills' },
-  { id: 'summarize', label: '/summarize', description: 'Summarize the current page' },
+  { id: 'summarize', label: '/summarize', description: 'Summarize the current page', trailing: { type: 'badge', label: 'New' } },
 ];</code></pre>
       </article>
 
@@ -874,6 +877,9 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
     const menuItems = [
       { id: 'edit', label: 'Edit' },
       { id: 'delete', label: 'Delete' },
+      { id: 'ideas', label: 'Ideas', trailing: { type: 'badge', label: 'New' } },
+      { id: 'inbox', label: 'Inbox', trailing: { type: 'badge', label: 3 } },
+      { id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'var(--s2-green-700)' } },
     ];
     [document.querySelector('#demo-menu'), document.querySelector('#demo-menu-m')].forEach((menu) => {
       menu.items = menuItems;
@@ -882,7 +888,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
     const descMenu = document.querySelector('#demo-menu-desc');
     descMenu.items = [
       { section: 'Skills' },
-      { id: 'summarize', label: '/summarize', description: 'Summarize the current page' },
+      { id: 'summarize', label: '/summarize', description: 'Summarize the current page', trailing: { type: 'badge', label: 'New' } },
       {
         id: 'evaluate-page',
         label: '/evaluate-page',

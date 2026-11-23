@@ -63,4 +63,59 @@ describe('nx-menu description', () => {
     const el = await createMenu([{ id: 'files', label: 'Files' }]);
     expect(el.shadowRoot.querySelector('.menu-item-status-dot')).to.be.null;
   });
+
+  it('renders a trailing dot with the supplied color', async () => {
+    const el = await createMenu([
+      { id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'rgb(0, 128, 0)' } },
+    ]);
+    expect(el.shadowRoot.querySelector('.menu-item-status-dot').style.background).to.equal('rgb(0, 128, 0)');
+    expect(el.shadowRoot.querySelector('.menu-item-badge')).to.be.null;
+  });
+
+  it('renders text and numeric badges, including zero, alongside descriptions', async () => {
+    const el = await createMenu([
+      { id: 'ideas', label: 'Ideas', description: 'Share suggestions', trailing: { type: 'badge', label: 'New' } },
+      { id: 'files', label: 'Files', trailing: { type: 'badge', label: 3 } },
+      { id: 'inbox', label: 'Inbox', trailing: { type: 'badge', label: 0 } },
+    ]);
+    const badges = [...el.shadowRoot.querySelectorAll('.menu-item-badge')];
+    expect(badges.map((badge) => badge.textContent)).to.deep.equal(['New', '3', '0']);
+    expect(el.shadowRoot.querySelector('.menu-item-description').textContent).to.equal('Share suggestions');
+    expect(badges[0].closest('button').textContent).to.include('Ideas');
+  });
+
+  it('prefers trailing over statusDot and preserves item selection', async () => {
+    const el = await createMenu([
+      { id: 'ideas', label: 'Ideas', statusDot: 'green', trailing: { type: 'badge', label: 'New' } },
+    ]);
+    expect(el.shadowRoot.querySelectorAll('.menu-item-badge')).to.have.length(1);
+    expect(el.shadowRoot.querySelector('.menu-item-status-dot')).to.be.null;
+    let selected;
+    el.addEventListener('select', (event) => { selected = event.detail; });
+    el.shadowRoot.querySelector('.menu-item-badge').click();
+    expect(selected).to.deep.equal({ id: 'ideas' });
+  });
+
+  it('omits empty or unsupported trailing content without falling back to statusDot', async () => {
+    const el = await createMenu([
+      { id: 'empty', label: 'Empty', trailing: { type: 'badge', label: ' ' } },
+      { id: 'missing', label: 'Missing', trailing: { type: 'badge' } },
+      { id: 'unknown', label: 'Unknown', statusDot: 'green', trailing: { type: 'icon' } },
+      { id: 'none', label: 'None', statusDot: 'green', trailing: null },
+    ]);
+    expect(el.shadowRoot.querySelector('.menu-item-badge, .menu-item-status-dot')).to.be.null;
+  });
+
+  it('replaces and removes trailing content when items change', async () => {
+    const el = await createMenu([
+      { id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'green' } },
+    ]);
+    el.items = [{ id: 'publish', label: 'Publish', trailing: { type: 'badge', label: 'New' } }];
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.menu-item-status-dot')).to.be.null;
+    expect(el.shadowRoot.querySelector('.menu-item-badge').textContent).to.equal('New');
+    el.items = [{ id: 'publish', label: 'Publish' }];
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.menu-item-badge, .menu-item-status-dot')).to.be.null;
+  });
 });

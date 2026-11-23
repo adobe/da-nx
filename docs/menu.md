@@ -48,6 +48,11 @@ Each entry in the `items` array is one of:
 // With a secondary description line
 { id: 'export', label: 'Export', description: 'Download as a .zip file' }
 
+// With a trailing badge or status dot
+{ id: 'ideas', label: 'Ideas', trailing: { type: 'badge', label: 'New' } }
+{ id: 'inbox', label: 'Inbox', trailing: { type: 'badge', label: 3 } }
+{ id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'var(--s2-green-700)' } }
+
 // Section header (non-interactive label)
 { section: 'Actions' }
 
@@ -56,6 +61,8 @@ Each entry in the `items` array is one of:
 ```
 
 `icon` values map to S2 icon names (e.g. `'Edit'`, `'Delete'`, `'Copy'`).
+
+Use `trailing` for one indicator at the end of an item: a quiet badge with short text or a count (including `0`), or a colored status dot. Omit it for no indicator. Badges use the same neutral style in light and dark mode and can be combined with descriptions.
 
 When any item has a description, the menu switches to a two-line layout: emphasized labels with a secondary description line underneath. Pass descriptions in full — don't truncate them in JS. The menu renders them on a single line and truncates visually with an ellipsis, shows the full text as a tooltip when hovering the description line, and keeps the complete text in the DOM for screen readers. Menus that contain descriptions are capped at `--nx-menu-max-width` (default `320px`) so the ellipsis can take effect; menus without descriptions size to their content.
 

@@ -113,6 +113,19 @@ class NxMenu extends LitElement {
     if (handled) e.preventDefault();
   }
 
+  _renderTrailing(item) {
+    const trailing = item.trailing === undefined && item.statusDot
+      ? { type: 'dot', color: item.statusDot } : item.trailing;
+    if (trailing?.type === 'dot' && trailing.color) {
+      return html`<span class="menu-item-status-dot" style="background:${trailing.color}"></span>`;
+    }
+    if (trailing?.type === 'badge' && ['string', 'number'].includes(typeof trailing.label)
+      && String(trailing.label).trim()) {
+      return html`<span class="menu-item-badge" title=${trailing.label}>${trailing.label}</span>`;
+    }
+    return nothing;
+  }
+
   _renderItem(item) {
     if (item.divider) return html`<li role="separator"><hr class="menu-divider"></li>`;
     if (item.section) return html`<li role="presentation"><span class="menu-section">${item.section}</span></li>`;
@@ -135,7 +148,7 @@ class NxMenu extends LitElement {
             <span class="menu-item-label">${item.label}</span>
             ${item.description ? html`<span class="menu-item-description" title=${item.description}>${item.description}</span>` : nothing}
           </span>
-          ${item.statusDot ? html`<span class="menu-item-status-dot" style="background:${item.statusDot}"></span>` : nothing}
+          ${this._renderTrailing(item)}
         </button>
       </li>
     `;
