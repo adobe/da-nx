@@ -461,24 +461,23 @@ needs_permission}` shape as the live event's `pending_calls`. An earlier
   matching that precedent, rather than inventing a softer treatment AO's own
   UI doesn't bother with.
 
-`renderPermissionCard`/`renderPermissionRow` (`renderers.js`) and the card's
-positioning (`chat-ao.css`) deliberately match nx-chat's own
-`renderApprovalCard`/`.approval-actions` — same floating-over-the-input
-placement (`position: absolute`, `.chat-form-wrap`-relative, verbatim the
-same offsets `question-card.js` already uses) and the same box treatment
-(background/border/shadow, tool-name-then-summary-then-right-aligned-buttons
-layout) — visual parity is intentional, but it's independent code, not
-shared, per this component's standing rule. No "Always approve" button, per
-the point above.
+`renderPermissionCard`/`renderPermissionRow` (`renderers.js`) render inline
+in an assistant message, like the pending question card, with the same
+padding, blue border, background, and corner radius. A "Waiting for your
+approval..." indicator replaces "Thinking..." until the gate is resolved.
+New requests follow the scroll only when already near the bottom; focusing
+Approve does not pull readers away from history. No "Always approve"
+button, per the point above.
 
-A tool call's `arguments` can be a large raw blob (a real case: a full
-rendered-HTML page body as one of the arguments) — capped the same way this
-file already caps other raw-content dumps: `.permission-row-detail` gets
-`.tool-call-detail`'s exact treatment (`max-height: 120px; overflow-y:
-auto`), and `.permission-card` itself gets `.question-card`'s exact
-treatment (`max-height: 60vh; overflow-y: auto`) so Approve/Reject stay
-reachable by scrolling the card, rather than the whole thing overflowing
-off-screen.
+Tool names use Coworker's frontend labels for built-in tools, otherwise
+replacing underscores with spaces and capitalizing words. The raw name
+remains available in the tooltip. Arguments stay collapsed behind Details.
+Objects, including JSON-encoded objects, expand into key/value rows with
+monospace values; nested objects and arrays retain their complete,
+pretty-printed JSON. Invalid JSON and non-object arguments fall back to
+plain text. Strings render as text, never as HTML. Expanded details use
+the conversation's normal scrolling rather than a floating card or nested
+scroll boxes.
 
 ## Markdown rendering
 

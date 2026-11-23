@@ -266,7 +266,7 @@
     flex-direction: column;
     gap: var(--s2-spacing-75);
 
-    &:has(nx-question-card), &:has(.tool-call-card), &:has(.tool-call-detail), &:has(.question-response-card) {
+    &:has(nx-question-card), &:has(.permission-card), &:has(.tool-call-card), &:has(.tool-call-detail), &:has(.question-response-card) {
       padding-top: 0;
       padding-bottom: 0;
     }
@@ -581,22 +581,14 @@
 }
 
 .permission-card {
-  position: absolute;
-  bottom: 10px;
-  left: -4px;
-  right: -4px;
-  z-index: 1;
-  max-height: 60vh;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--s2-spacing-100);
-  padding: var(--s2-spacing-100);
+  padding: var(--s2-spacing-200);
   box-sizing: border-box;
   background: var(--s2-gray-25);
-  border: 1px solid var(--s2-gray-200);
+  border: 1.5px solid var(--s2-blue-800);
   border-radius: var(--s2-corner-radius-500);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
 
   .permission-row {
     display: flex;
@@ -659,9 +651,36 @@
     color: var(--s2-gray-600);
     overflow-wrap: break-word;
     white-space: pre-wrap;
-    max-height: 200px;
-    overflow-y: auto;
     padding: var(--s2-spacing-100);
+  }
+
+  .permission-arguments {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2-spacing-100);
+    margin: 0;
+  }
+
+  .permission-argument {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s2-spacing-100);
+    white-space: normal;
+
+    dt {
+      flex-shrink: 0;
+      max-width: 40%;
+      overflow-wrap: anywhere;
+    }
+
+    dd {
+      min-width: 0;
+      margin: 0;
+      font-family: monospace;
+      color: var(--s2-gray-800);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
   }
 
   .permission-row-buttons {

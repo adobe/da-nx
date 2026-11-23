@@ -73,7 +73,13 @@ describe('renderPermissionCard keydown', () => {
         summary.click();
         expect(details.open).to.equal(true);
         expect(detail.checkVisibility()).to.equal(true);
-        expect(detail.textContent).to.equal(typeof args === 'string' ? args : JSON.stringify(args));
+        if (typeof args === 'string') {
+          expect(detail.textContent).to.equal(args);
+        } else {
+          expect(detail.querySelector('dt').textContent).to.equal('content');
+          expect(detail.querySelector('dd').textContent).to.equal(args.content);
+          expect(detail.querySelector('main')).to.equal(null);
+        }
         expect(decisions).to.deep.equal([]);
 
         summary.click();
@@ -81,6 +87,50 @@ describe('renderPermissionCard keydown', () => {
         expect(detail.checkVisibility()).to.equal(false);
         host.querySelector('.permission-approve-btn').click();
         expect(decisions).to.deep.equal([{ id: 'tc1', approved: true }]);
+      });
+    });
+
+    [false, true].forEach((serialized) => {
+      it(`renders ${serialized ? 'JSON-encoded' : 'object'} arguments as labeled values`, () => {
+        const args = {
+          brand_id: 'brand-123',
+          name: 'No green bananas',
+          count: 0,
+          enabled: false,
+          empty: '',
+          missing: null,
+          nested: { rule: 'Do not mention green bananas.' },
+          categories: ['claims', 'content'],
+        };
+        host = mount({
+          calls: [{
+            toolCallId: 'tc1',
+            toolName: 'some_tool',
+            arguments: serialized ? JSON.stringify(args) : args,
+          }],
+          decisions: {},
+        }, () => {});
+
+        expect([...host.querySelectorAll('dt')].map((el) => el.textContent))
+          .to.deep.equal(Object.keys(args));
+        expect([...host.querySelectorAll('dd')].map((el) => el.textContent))
+          .to.deep.equal([
+            'brand-123', 'No green bananas', '0', 'false', '', 'null',
+            '{\n  "rule": "Do not mention green bananas."\n}',
+            '[\n  "claims",\n  "content"\n]',
+          ]);
+        expect(host.querySelector('details').open).to.equal(false);
+      });
+    });
+
+    ['{"incomplete":', 'null', '42', '["one","two"]'].forEach((args) => {
+      it(`preserves non-object or invalid JSON arguments: ${args}`, () => {
+        host = mount({
+          calls: [{ toolCallId: 'tc1', toolName: 'some_tool', arguments: args }],
+          decisions: {},
+        }, () => {});
+        expect(host.querySelector('.permission-row-detail').textContent).to.equal(args);
+        expect(host.querySelector('dl')).to.equal(null);
       });
     });
 

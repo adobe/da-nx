@@ -111,9 +111,33 @@ export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
   `;
 }
 
+function renderPermissionArguments(value) {
+  let args = value;
+  if (typeof args === 'string') {
+    try {
+      args = JSON.parse(args);
+    } catch {
+      return formatToolCallDetail(value);
+    }
+  }
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return formatToolCallDetail(value);
+  }
+  return html`
+    <dl class="permission-arguments">
+      ${Object.entries(args).map(([key, val]) => html`
+        <div class="permission-argument">
+          <dt>${key}</dt>
+          <dd>${typeof val === 'string' ? val : JSON.stringify(val, null, 2)}</dd>
+        </div>
+      `)}
+    </dl>
+  `;
+}
+
 // See docs/chat-ao-component.md#permission-requests for the nx-chat visual-parity rationale.
 function renderPermissionRow(call, decisions, onDecide) {
-  const detail = formatToolCallDetail(call.arguments);
+  const detail = renderPermissionArguments(call.arguments);
   const decided = call.toolCallId in decisions;
   const label = Object.hasOwn(PERMISSION_TOOL_LABELS, call.toolName)
     ? PERMISSION_TOOL_LABELS[call.toolName]
@@ -124,7 +148,7 @@ function renderPermissionRow(call, decisions, onDecide) {
       ${detail ? html`
         <details class="permission-row-details">
           <summary><svg class="permission-details-chevron" viewBox="0 0 10 10" aria-hidden="true"><use href=${CHEVRON_HREF}></use></svg>Details</summary>
-          <span class="permission-row-detail">${detail}</span>
+          <div class="permission-row-detail">${detail}</div>
         </details>
       ` : nothing}
       ${decided ? html`
