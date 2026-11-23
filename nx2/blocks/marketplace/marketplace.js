@@ -91,7 +91,7 @@ class NxMarketplace extends LitElement {
   _renderActions(item) {
     return html`
       <div class="item-actions">
-        ${getActions(item).map(({ label, href }) => html`
+        ${getActions({ ...item, view: this._view }).map(({ label, href }) => html`
           <a
             class="item-action"
             href=${href}

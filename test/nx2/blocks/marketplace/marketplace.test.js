@@ -369,6 +369,26 @@ describe('nx-marketplace', () => {
     expect(root.querySelectorAll('.item').length).to.equal(2);
   });
 
+  it('orders actions per view: view details last in list, first in grid', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [{
+        Title: 'A', Description: 'd', 'Doc Url': 'https://example.com/a', 'Try Url': 'https://example.com/t',
+      }],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+    const labels = () => [...el.shadowRoot.querySelectorAll('.item-actions a')].map((a) => a.textContent.trim());
+
+    expect(labels()).to.deep.equal(['Try out', 'View details']);
+    el._view = 'grid';
+    await el.updateComplete;
+    expect(labels()).to.deep.equal(['View details', 'Try out']);
+  });
+
   it('shows error message', async () => {
     restoreFetch = installFetch(() => new Response('', { status: 500 }));
     div = document.createElement('div');

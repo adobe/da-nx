@@ -125,6 +125,11 @@ describe('getActions', () => {
     ]);
   });
 
+  it('puts view details first in grid view', () => {
+    const actions = getActions({ docHref: 'https://example.com/a', tryHref: 'https://example.com/t', view: 'grid' });
+    expect(actions.map(({ id }) => id)).to.deep.equal(['details', 'try']);
+  });
+
   it('omits actions without a url', () => {
     expect(getActions({ docHref: 'https://example.com/a' }).map(({ id }) => id)).to.deep.equal(['details']);
     expect(getActions({ tryHref: 'https://example.com/t' }).map(({ id }) => id)).to.deep.equal(['try']);

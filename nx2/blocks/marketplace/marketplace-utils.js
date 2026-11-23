@@ -79,12 +79,12 @@ export function getVisibleItems({ items, filter, query, sort }) {
   return sortItems({ items: searchItems({ items: filtered, query }), sort });
 }
 
-// Try out first so View details always sits at the end (right) of the row.
-export function getActions({ docHref, tryHref }) {
-  return [
-    tryHref && { id: 'try', label: 'Try out', href: tryHref },
-    docHref && { id: 'details', label: 'View details', href: docHref },
-  ].filter(Boolean);
+// List rows: View details last (rightmost). Grid cards: View details first.
+export function getActions({ docHref, tryHref, view = 'list' }) {
+  const details = docHref && { id: 'details', label: 'View details', href: docHref };
+  const tryOut = tryHref && { id: 'try', label: 'Try out', href: tryHref };
+  const ordered = view === 'grid' ? [details, tryOut] : [tryOut, details];
+  return ordered.filter(Boolean);
 }
 
 async function loadMarketplace({ origin }) {
