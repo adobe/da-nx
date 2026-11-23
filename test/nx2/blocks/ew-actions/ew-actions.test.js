@@ -305,6 +305,63 @@ describe('nx-ew-actions', () => {
     });
   });
 
+  describe('structured content form save', () => {
+    const state = { org: 'org', site: 'site', path: 'docs/page' };
+    const body = {
+      webPath: '/docs/page',
+      preview: { url: 'https://main.example/docs/page' },
+      live: { url: 'https://live.example/docs/page' },
+    };
+    let formEditor;
+
+    beforeEach(() => {
+      restoreFetch = installFetch({ '/sidekick/': {} });
+      formEditor = document.createElement('ew-form-editor');
+      document.body.append(formEditor);
+    });
+    afterEach(() => formEditor.remove());
+
+    async function setup() {
+      const preview = sinon.stub(aem, 'preview').callsFake(async () => new Response(JSON.stringify(body)));
+      const publish = sinon.stub(aem, 'publish').callsFake(async () => new Response(JSON.stringify(body)));
+      sinon.stub(window, 'open');
+      el = await makeEl();
+      sinon.stub(el, '_saveVersion').resolves();
+      el._hashState = state;
+      await el.updateComplete;
+      return { preview, publish };
+    }
+
+    it('saves the form before the preflight gate and publish', async () => {
+      formEditor.forceSave = sinon.stub().resolves({ ok: true });
+      const { preview, publish } = await setup();
+      el._enforcePreflight = true;
+      const preflight = sinon.stub(el, 'requestPreflight').resolves({ status: 'success' });
+      await el._runAemAction('publish');
+      expect(formEditor.forceSave.calledOnce).to.be.true;
+      sinon.assert.callOrder(formEditor.forceSave, preflight, preview, publish);
+    });
+
+    ['preview', 'publish'].forEach((action) => {
+      it(`blocks ${action} with the save error when the form fails to save`, async () => {
+        formEditor.forceSave = async () => ({ ok: false, error: 'Form save failed' });
+        const { preview } = await setup();
+        const showError = sinon.stub(el, '_showActionError').resolves();
+        await el._runAemAction(action);
+        expect(preview.called).to.be.false;
+        expect(showError.calledOnceWithExactly(action, 'Form save failed')).to.be.true;
+      });
+    });
+
+    it('deploys when the form editor cannot save yet', async () => {
+      const { preview } = await setup();
+      const showError = sinon.spy(el, '_showActionError');
+      await el._runAemAction('preview');
+      expect(preview.calledOnce).to.be.true;
+      expect(showError.called).to.be.false;
+    });
+  });
+
   describe('metadata destinations', () => {
     const state = { org: 'org', site: 'site', path: 'docs/page' };
     const aemPath = '/org/site/docs/page';

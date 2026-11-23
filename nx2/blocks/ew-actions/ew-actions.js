@@ -492,11 +492,10 @@ class NXEwActions extends LitElement {
       return;
     }
 
-    // Flush pending collab updates to da-admin before AEM reads it,
-    // otherwise the last ~2s of edits (held in da-collab's debounce) are missed.
-    const editorDoc = document.querySelector('ew-editor-doc');
-    if (editorDoc?.forceSave) {
-      const flushResult = await editorDoc.forceSave();
+    // Flush da-collab's 2 s debounce or pending form edits so AEM reads the saved document.
+    const editor = document.querySelector('ew-editor-doc, ew-form-editor');
+    if (editor?.forceSave) {
+      const flushResult = await editor.forceSave();
       if (!flushResult?.ok) {
         await this._showActionError(action, flushResult?.error || 'Unable to confirm save. Please retry or reload the editor.');
         return;
