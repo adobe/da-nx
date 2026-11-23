@@ -7,7 +7,7 @@ import {
   validateServiceValues,
 } from '../../../nx/blocks/loc/utils/validate-config.js';
 
-const CONNECTORS = ['deepl', 'glaas', 'globallink', 'google', 'lionbridge', 'sample', 'smartling', 'trados'];
+const CONNECTORS = ['deepl', 'glaas', 'globallink', 'google', 'lilt', 'lionbridge', 'sample', 'smartling', 'trados'];
 
 const lang = (overrides = {}) => ({
   name: 'German',
@@ -51,6 +51,21 @@ describe('loc validate-config', () => {
     it('accepts a google config with no connector values', async () => {
       const config = service([['translation.service.name', 'google']]);
       expect((await validateConfig(sheets({ config }))).errors).to.deep.equal([]);
+    });
+
+    it('accepts a lilt config with an api key', async () => {
+      const config = service([
+        ['translation.service.name', 'Lilt'],
+        ['translation.service.prod.apiKey', 'key'],
+      ]);
+      expect((await validateConfig(sheets({ config }))).errors).to.deep.equal([]);
+    });
+
+    it('reports a lilt config without an api key', async () => {
+      const config = service([['translation.service.name', 'Lilt']]);
+      expect((await validateConfig(sheets({ config }))).errors).to.deep.equal([
+        'Translation service "Lilt" is missing "translation.service.prod.apiKey".',
+      ]);
     });
 
     it('reports a missing service name', async () => {

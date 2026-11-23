@@ -10,6 +10,9 @@ export const dnt = { addDnt };
 
 export { isConnected };
 
+export const requiredKeys = [];
+export const requiredCredentialKeys = ['apiKey'];
+
 const OCTET_HEADERS = { 'Content-Type': 'application/octet-stream' };
 
 const AI_MODE = 'ai';
