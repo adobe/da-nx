@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import NxChatAo from '../../../../nx2/blocks/chat-ao/chat-ao.js';
 import { MENU_OPTIONS } from '../../../../nx2/blocks/shared/chat/constants.js';
-import { resetMockIms, setMockIms } from '../../../../nx2/test/mocks/ims.js';
+import { resetMockIms, setMockIms } from '../../mocks/ims.js';
 
 describe('Coworker menu navigation', () => {
   let originalOpen;

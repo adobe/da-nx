@@ -20,13 +20,19 @@ set `value` to supply a selection instead. It is hidden when no sites are availa
 | `site-select` | Emits `{ value }` for the default selection or user selection. Bubbles across shadow roots. |
 | `site-add` | Dispatch this request to navigate to `/start`, including when the selector is hidden. |
 
-Listen before the selector connects to receive its initial selection:
+Listen for selection changes:
 
 ```js
 document.addEventListener('site-select', ({ detail: { value } }) => {
   console.log(value);
 });
 ```
+
+For initial state, import `getSelectedSite()` from
+`nx2/blocks/siteselector/siteselector.js`. It reads the connected selector's current
+`value` without querying the DOM: `org/site`, `''` when unselected, or `undefined`
+when no selector is connected. If multiple selectors are connected, it reads the
+most recently connected one. Continue using `site-select` for subsequent changes.
 
 Add site navigates directly to `/start` without a dialog or an organization selection.
 It preserves preview settings while removing `org`, `site`, `browse`, and the hash.

@@ -219,6 +219,46 @@ describe('auth', () => {
     });
   });
 
+  describe('checkConnection', () => {
+    const statusResponse = (connected) => (
+      new Response(JSON.stringify({ connected }), { status: 200 })
+    );
+
+    it('returns true when the integration reports connected', async () => {
+      installFetch(async () => statusResponse(true));
+
+      expect(await checkConnection('example', 'acme', 'site11', 'prod')).to.equal(true);
+      expect(calls[0].url).to.equal(
+        `${LOGIN_ORIGIN}/acme/sites/site11/integrations/example/status?env=prod`,
+      );
+      expect(calls[0].method).to.equal('GET');
+    });
+
+    it('returns false when the integration reports not connected', async () => {
+      installFetch(async () => statusResponse(false));
+
+      expect(await checkConnection('example', 'acme', 'site12', 'prod')).to.equal(false);
+    });
+
+    it('returns false on a failed response', async () => {
+      installFetch(async () => new Response('', { status: 500 }));
+
+      expect(await checkConnection('example', 'acme', 'site13', 'prod')).to.equal(false);
+    });
+
+    it('returns false when the body has no connected flag', async () => {
+      installFetch(async () => new Response('{}', { status: 200 }));
+
+      expect(await checkConnection('example', 'acme', 'site14', 'prod')).to.equal(false);
+    });
+
+    it('returns false on a non-JSON body', async () => {
+      installFetch(async () => new Response('<html></html>', { status: 200 }));
+
+      expect(await checkConnection('example', 'acme', 'site15', 'prod')).to.equal(false);
+    });
+  });
+
   describe('hasImsSession', () => {
     it('resolves true when there is a current IMS session', async () => {
       expect(await hasImsSession()).to.equal(true);

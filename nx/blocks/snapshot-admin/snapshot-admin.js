@@ -1,18 +1,18 @@
 import { html, LitElement, repeat, nothing } from 'da-lit';
 import getStyle from '../../../nx2/public/utils/styles.js';
-import { getConfig } from '../../../nx2/scripts/nx.js';
 import { fetchSnapshots, setOrgSite, isRegistered, getUserPublishPermission, fetchLaunchPermission } from './utils/utils.js';
 
-import '../../../nx2/public/sl/components.js';
 import './views/dialog.js';
 import './views/snapshot.js';
 
 const EL_NAME = 'nx-snapshot-admin';
 
 // Styles
-const { nxBase } = getConfig();
-const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
-const styles = await getStyle(import.meta.url);
+const [buttons, form, styles] = await Promise.all([
+  getStyle(new URL('../../../nx2/styles/buttons.css', import.meta.url).href),
+  getStyle(new URL('../../../nx2/styles/form.css', import.meta.url).href),
+  getStyle(import.meta.url),
+]);
 
 class NxSnapshotAdmin extends LitElement {
   static properties = {
@@ -20,6 +20,7 @@ class NxSnapshotAdmin extends LitElement {
     _error: { state: true },
     _sitePathError: { state: true },
     _snapshots: { state: true },
+    _loading: { state: true },
     _isRegistered: { state: false },
     _userPermissions: { state: true },
     _hasLaunchPermission: { state: true },
@@ -27,7 +28,7 @@ class NxSnapshotAdmin extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [sl, styles];
+    this.shadowRoot.adoptedStyleSheets = [buttons, form, styles];
     this.getSnapshots();
   }
 
@@ -50,7 +51,10 @@ class NxSnapshotAdmin extends LitElement {
     // Set org and site on the module for future use
     setOrgSite(org, site);
 
-    const result = await fetchSnapshots();
+    this._loading = true;
+    const result = await fetchSnapshots()
+      .catch((e) => ({ error: e.message || 'Could not load snapshots.' }))
+      .finally(() => { this._loading = false; });
     if (result.error) {
       this._error = { heading: 'Note', message: result.error, open: true };
       return;
@@ -92,7 +96,7 @@ class NxSnapshotAdmin extends LitElement {
   }
 
   get _siteInput() {
-    return this.shadowRoot.querySelector('sl-input[name="site"]');
+    return this.shadowRoot.querySelector('input[name="site"]');
   }
 
   renderSnapshots() {
@@ -104,16 +108,12 @@ class NxSnapshotAdmin extends LitElement {
     const s = count === 1 ? '' : 's';
 
     return html`
-      <hr/>
       <div class="nx-snapshot-list-header">
         <h2>${count} snapshot${s}</h2>
-        ${filterName ? html`<sl-button size="small" @click=${this.handleClearFilter}>See All</sl-button>` : nothing}
-        ${filterName ? nothing : html`<sl-button @click=${this.handleNew}>Add new</sl-button>`}
+        ${filterName ? html`<button type="button" class="nx-action-btn nx-snapshot-see-all" @click=${this.handleClearFilter}>See All</button>` : nothing}
+        ${filterName ? nothing : html`<button type="button" class="nx-btn-accent" @click=${this.handleNew}>Add new</button>`}
       </div>
-      <div class="nx-snapshot-list-labels">
-        <p>Name</p>
-        <p>Review</p>
-      </div>
+      ${count === 0 && !filterName ? html`<p class="nx-snapshot-empty">No snapshots yet. Select <b>Add new</b> to capture a set of pages.</p>` : nothing}
       ${snapshots ? html`
         <div class="nx-snapshot-list">
           <ul>
@@ -131,19 +131,28 @@ class NxSnapshotAdmin extends LitElement {
 
   render() {
     return html`
-      <h1>Snapshots</h1>
-      <form class="nx-site-path" @submit=${this.handleSetSite}>
-        <sl-input
-          type="text"
-          name="site"
-          placeholder="/my-org/my-site"
-          .value="${this.sitePath || ''}"
-          error=${this._sitePathError || nothing}>
-        </sl-input>
-        <sl-button class="primary outline" @click=${this.handleSetSite}>Get Snapshots</sl-button>
+      <div class="nx-snapshot-admin-header">
+        <h1>Snapshots</h1>
+        <p>Capture, review and publish a set of pages together.</p>
+      </div>
+      <form class="nx-site-path nx-form-field ${this._sitePathError ? 'nx-field-error' : ''}" @submit=${this.handleSetSite}>
+        <label for="snapshot-site">Site</label>
+        <div class="nx-site-path-row">
+          <input
+            id="snapshot-site"
+            class="nx-input"
+            type="text"
+            name="site"
+            placeholder="/my-org/my-site"
+            aria-invalid=${this._sitePathError ? 'true' : 'false'}
+            .value=${this.sitePath || ''}>
+          <button type="submit" class="nx-btn-primary">Get Snapshots</button>
+        </div>
+        ${this._sitePathError ? html`<p class="nx-input-error-msg">${this._sitePathError}</p>` : nothing}
       </form>
-      ${this._snapshots ? this.renderSnapshots() : nothing}
-      <nx-dialog @action=${this.handleDialog} .details=${this._error}></nx-dialog>
+      ${this._loading ? html`<p class="nx-snapshot-loading" role="status">Loading snapshots…</p>` : nothing}
+      ${this._snapshots && !this._loading ? this.renderSnapshots() : nothing}
+      <nx-snapshot-dialog @action=${this.handleDialog} .details=${this._error}></nx-snapshot-dialog>
     `;
   }
 }
