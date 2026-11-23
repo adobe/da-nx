@@ -1,3 +1,10 @@
+## [1.62.1](https://github.com/adobe/da-nx/compare/v1.62.0...v1.62.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **quick-edit:** scope comment marker styles so site button css cannot override them ([9f14741](https://github.com/adobe/da-nx/commit/9f147414b752ca84654e49631c21ba8fea6191d7))
+
 # [1.62.0](https://github.com/adobe/da-nx/compare/v1.61.1...v1.62.0) (2026-11-20)
 
 
