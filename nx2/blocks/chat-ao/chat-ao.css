@@ -261,6 +261,10 @@
     max-width: 80%;
     align-self: flex-end;
     background-color: rgb(247 248 255);
+
+    .message-content {
+      white-space: pre-wrap;
+    }
   }
 
   &.message-assistant {
