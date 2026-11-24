@@ -670,15 +670,35 @@ export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false 
   return resp;
 };
 
+// Upgrade header -> true, 2xx/404 without it -> false, anything else rejects uncached.
 export const isHlx6 = (() => {
   const cache = {};
+
+  const getRetryWait = (resp) => {
+    const secs = parseInt(resp.headers.get('retry-after') ?? resp.headers.get('x-retry-after'), 10);
+    return secs >= 0 ? secs * 1000 : PING_DEFAULT_WAIT;
+  };
+
+  const ping = async (path, retries = PING_RETRIES) => {
+    const resp = await daFetch({ url: `${HLX_ADMIN}/ping${path}` });
+    const upgrade = resp.headers?.get('x-api-upgrade-available') ?? null;
+    if (upgrade !== null) return true;
+    if (resp.ok || resp.status === 404) return false;
+
+    const wait = PING_RETRY_STATUSES.includes(resp.status) ? getRetryWait(resp) : Infinity;
+    if (retries > 0 && wait <= PING_MAX_WAIT) {
+      await new Promise((resolve) => { setTimeout(resolve, wait); });
+      return ping(path, retries - 1);
+    }
+    // A TypeError, like a failed fetch, so callers that handle network errors handle this too.
+    throw new TypeError(`Could not check the site's API version (${resp.status ?? 'no response'})`);
+  };
 
   const fetchUpgradeStatus = async (path) => {
     const lsCache = JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {};
     if (lsCache[path]) return true;
 
-    const resp = await daFetch({ url: `${HLX_ADMIN}/ping${path}` });
-    const upgraded = resp.headers.get('x-api-upgrade-available') !== null;
+    const upgraded = await ping(path);
     if (upgraded) {
       lsCache[path] = true;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(lsCache));
@@ -687,10 +707,13 @@ export const isHlx6 = (() => {
   };
 
   return (org, site) => {
-    if (!site) return false;
+    if (!site || site === '.da') return false;
 
     const path = `/${org}/${site}`;
-    cache[path] ??= fetchUpgradeStatus(path);
+    cache[path] ??= fetchUpgradeStatus(path).catch((error) => {
+      delete cache[path];
+      throw error;
+    });
     return cache[path];
   };
 })();
@@ -734,6 +757,10 @@ const CONFIG = 'config';
 const VERSIONS = 'versions';
 const REF = 'main';
 const STORAGE_KEY = 'hlx6-upgrade';
+const PING_RETRIES = 2;
+const PING_RETRY_STATUSES = [429, 503];
+const PING_DEFAULT_WAIT = 1000;
+const PING_MAX_WAIT = 5000;
 const HLX6_ONLY = { error: 'Requires Helix 6 upgrade', status: 501 };
 
 const TYPE_MAP = {
