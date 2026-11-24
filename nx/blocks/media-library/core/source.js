@@ -79,5 +79,10 @@ export async function listSource(path) {
   const resp = await daFetch(getListUrl({ sourceOrigin, path }));
   if (!resp.ok) return { ok: false, status: resp.status, items: [] };
   const body = await resp.json();
-  return { ok: true, status: resp.status, items: toListItems({ sourceOrigin, path, body }) };
+  if (sourceOrigin === AEM_API_ORIGIN && !Array.isArray(body)) {
+    return { ok: false, status: 502, items: [] };
+  }
+  return {
+    ok: true, status: resp.status, items: toListItems({ sourceOrigin, path, body }), sourceOrigin,
+  };
 }

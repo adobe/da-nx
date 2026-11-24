@@ -1,5 +1,7 @@
 import { listSource } from './source.js';
-import { Paths, Domains, DA_LIVE_EDIT_BASE } from './constants.js';
+import {
+  Paths, Domains, DA_LIVE_EDIT_BASE, AEM_API_ORIGIN,
+} from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
 import { getMessage } from './messages.js';
 import {
@@ -191,9 +193,10 @@ export async function validateSitePath(sitePath) {
       const listing = await listSource(`/${org}/${repo}/`);
 
       if (listing.ok) {
-        const { items } = listing;
+        const { items, sourceOrigin } = listing;
 
-        if (!items || items.length === 0) {
+        // DA lists a missing site as empty; an empty Helix 6 site is valid.
+        if (sourceOrigin !== AEM_API_ORIGIN && !items?.length) {
           logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
           return {
             valid: false,
