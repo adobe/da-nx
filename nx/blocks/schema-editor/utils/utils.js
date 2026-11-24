@@ -26,8 +26,8 @@ function getTheme() {
 
 const SCHEMAS_PATH = '/.da/forms/schemas';
 
-// Names the source bus stores unchanged (it collapses and trims hyphens, maps index to index.md).
-const STABLE_NAME = /^(?!index$)[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// Names the source bus stores unchanged (it collapses and trims hyphens).
+const STABLE_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 // Org-level schemas (`/{org}/.da/...`) only exist on admin.da.live. Calling it
 // directly skips the Helix 6 check source.* would run for site `.da`.
@@ -127,7 +127,7 @@ async function storedId(resp, id) {
 async function checkNewName(prefix, id, target) {
   const { org, site } = fromPath(prefix);
   if (!site || !(await isHlx6(org, site))) return undefined;
-  if (!STABLE_NAME.test(id)) return 'Use lowercase letters and numbers, separated by single hyphens (not "index").';
+  if (!STABLE_NAME.test(id)) return 'Use lowercase letters and numbers, separated by single hyphens.';
   const { status } = await source.getMetadata(target);
   if (status === 404) return undefined;
   if (status >= 200 && status < 300) return 'A schema with this name already exists.';
