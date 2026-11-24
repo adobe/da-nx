@@ -53,7 +53,8 @@ export async function copyProject(project, email) {
   // Replace the last path segment (timestamp) with the new timestamp
   const newPath = path.substring(0, path.lastIndexOf('/') + 1) + newTimestamp;
 
-  await saveSource(`${newPath}.json`, JSON.stringify(newProject));
+  const resp = await saveSource(`${newPath}.json`, JSON.stringify(newProject));
+  if (!resp.ok) throw new Error(`Copy failed (${resp.status})`);
 
   // Return just the path and timestamp for the new project
   return { path: newPath, lastModified: newTimestamp, newProject };
@@ -63,6 +64,7 @@ export async function archiveProject(project) {
   const { path } = project;
 
   const newPath = path.replace(TRANSLATION_PATH_ACTIVE, TRANSLATION_PATH_ARCHIVE);
-  await moveSource(`${path}.json`, `${newPath}.json`);
+  const resp = await moveSource(`${path}.json`, `${newPath}.json`);
+  if (!resp.ok) throw new Error(`Archive failed (${resp.status})`);
   return newPath;
 }
