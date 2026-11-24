@@ -285,7 +285,11 @@ export const source = {
     }
     const nextToken = resp?.headers?.get?.('da-continuation-token') || null;
     const { permissions } = resp || {};
-    if (!resp?.ok) return { ok: false, items: [], continuationToken: nextToken, permissions };
+    if (!resp?.ok) {
+      return {
+        ok: false, items: [], continuationToken: nextToken, permissions, status: resp?.status,
+      };
+    }
     let raw;
     try {
       raw = await resp.json();
