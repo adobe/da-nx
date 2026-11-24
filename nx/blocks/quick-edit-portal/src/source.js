@@ -7,6 +7,16 @@ export function getOrgSite(mountpoint) {
   return { org, site: sites };
 }
 
+export function getInitSite(config) {
+  const {
+    mountpoint, contentSourceType, apiUpgrade, owner, repo,
+  } = config ?? {};
+  const url = typeof mountpoint === 'string' ? mountpoint : mountpoint?.url;
+  if (url) return getOrgSite(url);
+  const sourceBus = mountpoint?.type === 'sourcebus' || contentSourceType === 'sourcebus' || apiUpgrade === true;
+  return sourceBus ? { org: owner, site: repo } : {};
+}
+
 const getDocPath = (pathname) => (pathname.endsWith('/') ? `${pathname}index.html` : `${pathname}.html`);
 
 export async function loadDocSource({ org, site, pathname }) {

@@ -82,8 +82,12 @@ parallel one. If you do add a new key:
 `config.mountpoint` is the site's content source: the sidekick passes its
 `contentSourceUrl`, which is `https://content.da.live/{org}/{site}/` on DA sites and
 `https://api.aem.live/{org}/sites/{site}/source` on hlx6 (source bus) sites. Some
-sites build the DA shape themselves when there's no sidekick. The standalone portal reads
-org/site from either shape and asks nx2 `api.js` (`isHlx6`) where the document lives,
+sites build the DA shape themselves when there's no sidekick. A source bus site can also have
+no url (site config `content.source` is just `{ type: 'sourcebus' }`), and then the sidekick
+sends no mountpoint. In that case the portal uses `config.owner` / `config.repo` if the config
+marks a source bus (`mountpoint.type` or `contentSourceType` is `sourcebus`) or an upgraded
+site (`apiUpgrade: true`). The standalone portal reads org/site from either url shape and asks
+nx2 `api.js` (`isHlx6`) where the document lives,
 so the payload shape doesn't decide the store. It names the collab room with
 `getSourceUrl`, the url the da-live editors use, so quick edit and the canvas join the
 same room.

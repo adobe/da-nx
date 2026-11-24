@@ -1,5 +1,5 @@
 import { signIn, handlePreview, getImageCookie } from './src/utils.js';
-import { getOrgSite, loadDocSource } from './src/source.js';
+import { getInitSite, loadDocSource } from './src/source.js';
 import createProse from './src/prose.js';
 import {
   updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove,
@@ -72,14 +72,8 @@ export default async function decorate(el) {
       const [port] = e.ports;
 
       const { config, location } = e.data.payload ?? {};
-      const mountPoint = config?.mountpoint;
       const path = location?.pathname;
-
-      if (!mountPoint) {
-        return;
-      }
-
-      const { org: owner, site: repo } = getOrgSite(mountPoint);
+      const { org: owner, site: repo } = getInitSite(config);
 
       if (!owner || !repo) {
         return;
