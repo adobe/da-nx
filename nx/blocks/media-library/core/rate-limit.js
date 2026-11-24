@@ -20,10 +20,6 @@ export function createRateLimiter(initialRate, { delay = defaultDelay, now = Dat
     backoff(seconds) {
       nextStart = Math.max(nextStart, now() + seconds * 1000);
     },
-    reset() {
-      nextStart = 0;
-      intervalMs = Math.ceil(1000 / initialRate);
-    },
   };
 }
 
