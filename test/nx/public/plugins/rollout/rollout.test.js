@@ -157,7 +157,7 @@ describe('rollout plugin report', () => {
     sinon.restore();
   });
 
-  it('links destinations where upstream removed an edited block or reordered blocks', async () => {
+  it('links destinations where upstream reordered blocks', async () => {
     const el = document.createElement('test-da-rollout');
     el.prefixes = [{
       path: '/apac', active: true, status: 'success', skipped: 1, removedUpstream: 1, reordered: true, edit: '/org/site/apac/page',
@@ -165,7 +165,7 @@ describe('rollout plugin report', () => {
     document.body.append(el);
     await el.updateComplete;
     const links = [...el.shadowRoot.querySelectorAll('.review-link')];
-    expect(links.map((link) => link.textContent)).to.deep.equal(['upstream removed an edited block', 'upstream reordered blocks']);
+    expect(links.map((link) => link.textContent)).to.deep.equal(['upstream reordered blocks']);
     expect(links.every((link) => link.getAttribute('href') === 'https://da.live/edit#/org/site/apac/page')).to.be.true;
     el.remove();
   });

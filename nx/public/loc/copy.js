@@ -267,7 +267,6 @@ export function createCopy({
 
   const smartOverwriteCopy = async (url, title) => {
     delete url.outcome;
-    delete url.removedUpstream;
     delete url.reordered;
     try {
       const { config } = await getConfig(url.destination);
@@ -279,7 +278,6 @@ export function createCopy({
       url.skipped = report.skipped;
       const outcome = SMART_OUTCOMES[report.outcome];
       if (outcome) url.outcome = outcome;
-      if (report.removedUpstream) url.removedUpstream = report.removedUpstream;
       if (report.reordered) url.reordered = true;
       return response;
     } catch (error) {

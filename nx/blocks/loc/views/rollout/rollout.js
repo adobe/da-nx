@@ -242,7 +242,6 @@ class NxLocRollout extends LitElement {
         </div>
         ${locale.review?.length ? html`
           <ul class="review-list">${renderPageItems(locale.review)}</ul>` : nothing}
-        ${renderPageList('Upstream removed a block these pages edited (local version kept):', locale.removedUpstream)}
         ${renderPageList('Upstream reordered blocks on these pages (some moves not applied):', locale.reordered)}
       </li>`;
   }

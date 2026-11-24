@@ -324,13 +324,15 @@ describe('smartOverwriteCopy', () => {
     expect(ungroup(saved)).to.include(`/org/site/apac/page.html|${next.join(',')}`);
   });
 
-  it('keeps the localized block and reports it as skipped', async () => {
+  it('marks a block both sides edited for review', async () => {
     const base = await hashesOf('<p>A</p><p>B</p>');
     destHtml = toPage('<p>A</p><p>B local</p>', baseRow(`/org/site/apac/page.html|${base.join(',')}`));
     const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
-    expect(ungroup(saved)).to.include('<p>A</p><p>B local</p>');
-    expect(ungroup(saved)).to.not.include('B global');
-    expect(url.skipped).to.equal(1);
+    expect(url.status).to.equal('success');
+    expect(url.outcome).to.equal('review');
+    expect(url.skipped).to.equal(0);
+    expect(saved).to.include('data-diff-kind="changed"');
+    expect(mainOf(ungroup(saved))).to.equal('<div><p>A</p><da-diff-deleted data-mdast="ignore"><p>B global</p></da-diff-deleted><p da-diff-added="">B local</p></div>');
   });
 
   it('falls back to a merge when the recorded base is for another page', async () => {
@@ -535,15 +537,16 @@ describe('smartOverwriteCopy', () => {
     expect(ungroup(saved)).to.include('rolloutorder');
   });
 
-  it('reports upstream deleting a block the page edited without asking for review', async () => {
+  it('marks a block the page edited for review when upstream deleted it', async () => {
     const base = await hashesOf('<p>A</p><p>B</p><p>C</p>');
     destHtml = toPage('<p>A</p><p>B local</p><p>C</p>', baseRow(`/org/site/apac/page.html|${base.join(',')}`));
     const url = await rollout(smartOverwriteCopy, '<p>A</p><p>C</p>');
     expect(url.status).to.equal('success');
-    expect(url.skipped).to.equal(1);
-    expect(url.removedUpstream).to.equal(1);
-    expect(url.outcome).to.not.equal('review');
-    expect(mainOf(ungroup(saved))).to.equal('<div><p>A</p><p>B local</p><p>C</p></div>');
+    expect(url.skipped).to.equal(0);
+    expect(url.outcome).to.equal('review');
+    expect(url).to.not.have.property('removedUpstream');
+    expect(saved).to.include('data-diff-kind="removed"');
+    expect(mainOf(ungroup(saved))).to.equal('<div><p>A</p><p da-diff-added="">B local</p><p>C</p></div>');
   });
 
   it('marks the local copy for review when upstream moved and edited a block the page edited', async () => {
@@ -595,20 +598,21 @@ describe('smartOverwriteCopy', () => {
     expect(mainOf(flat(saved))).to.equal('<div><p>A</p><p>N</p><p>B</p></div>');
   });
 
-  it('applies an upstream addition to a section the page removed, once', async () => {
+  it('offers an upstream addition to a section the page removed for review, once', async () => {
     const sections = (...list) => list.map((items) => items.split(' ').map((t) => `<p>${t}</p>`).join('')).join('</div><div>');
     const base = await hashesOf(sections('A', 'B', 'C'));
     destHtml = toPage(sections('Al', 'C'), baseRow(`/org/site/apac/page.html|${base.join(',')}`));
     const source = sections('A', 'B N', 'C');
     const url = await rollout(smartOverwriteCopy, source);
-    expect(url.outcome).to.be.undefined;
-    expect(url.skipped).to.equal(1);
-    expect(mainOf(ungroup(saved))).to.equal(`<div>${sections('Al N', 'C')}</div>`);
-    destHtml = saved;
+    expect(url.outcome).to.equal('review');
+    expect(url.skipped).to.equal(0);
+    expect(saved).to.include('data-diff-kind="added"');
+    expect(mainOf(ungroup(saved))).to.equal('<div><p>Al</p><da-diff-deleted data-mdast="ignore"><p>N</p></da-diff-deleted></div><div><p>C</p></div>');
+    destHtml = saved.replace(/<da-diff-deleted[^>]*>[\s\S]*?<\/da-diff-deleted>/, '');
     saved = undefined;
     const again = await rollout(smartOverwriteCopy, source);
     expect(again.outcome).to.equal('unchanged');
-    expect(ungroup(saved)).to.be.undefined;
+    expect(saved).to.be.undefined;
   });
 
   it('applies an upstream move of a block the page left in place', async () => {

@@ -232,10 +232,6 @@ export async function rolloutLang(conf) {
     const review = localeSaved.filter((url) => url.outcome === 'review').map((url) => url.destination);
     if (review.length) locale.review = review;
     else delete locale.review;
-    const removedUpstream = localeSaved.filter((url) => url.removedUpstream)
-      .map((url) => url.destination);
-    if (removedUpstream.length) locale.removedUpstream = removedUpstream;
-    else delete locale.removedUpstream;
     const reordered = localeSaved.filter((url) => url.reordered).map((url) => url.destination);
     if (reordered.length) locale.reordered = reordered;
     else delete locale.reordered;
