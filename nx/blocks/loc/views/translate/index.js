@@ -341,7 +341,8 @@ export async function sendAllForTranslation(conf, connector) {
  *  are not mutated (this function builds its own `options` override).
  * @param {Object} connector - The active loc connector.
  * @param {Object} lang - The dependent language to submit; mutated in
- *  place (`translation.status`, and `waitingFor` is deleted).
+ *  place (`translation.status`, and `waitingFor` is deleted). A failed read
+ *  throws before that, so the language stays waiting.
  * @param {Object[]} originalUrls - The project's full supplied urls.
  * @param {string} [sourceLocation] - The project's default source
  *  location, the fallback prefix when a url is under no configured source.
@@ -371,6 +372,8 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     baseUrls,
     true,
   );
+  const errors = [...new Set(urls.filter((url) => url.error).map((url) => url.error))];
+  if (errors.length) throw new Error(`Could not send ${lang.name}: ${errors.join(' ')}`);
   lang.translation.status = 'not started';
   delete lang.waitingFor;
 
@@ -396,7 +399,10 @@ export async function checkWaitingLanguages(conf, connector, originalUrls, origi
     }
   }
 
+  const errors = [];
   for (const lang of readyLangs) {
-    await sendLanguageForTranslation(conf, connector, lang, originalUrls, originalSourceLocation);
+    await sendLanguageForTranslation(conf, connector, lang, originalUrls, originalSourceLocation)
+      .catch((error) => errors.push(error.message));
   }
+  if (errors.length) throw new Error(errors.join(' '));
 }

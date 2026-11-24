@@ -158,7 +158,10 @@ class NxLocDashboard extends LitElement {
     this.abortCurrentAndGetNewController();
 
     try {
-      await this.ensureInitialized();
+      await this.ensureInitialized().catch((error) => {
+        if (error.name !== 'AbortError') throw error;
+        return this.ensureInitialized();
+      });
       this._isLoading = true;
       await this._projectData.applyFilters(filters, this._dataAbortController.signal);
       this.updateShowRangeToFirstPage();

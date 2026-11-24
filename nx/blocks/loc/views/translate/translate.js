@@ -254,7 +254,10 @@ class NxLocTranslate extends LitElement {
       if (this._message?.type !== 'error') {
         // See if anything is finished immediately
         if (managed) await this.checkAndSaveLangs(conf);
-        else this.checkAndSaveLangs(conf);
+        else {
+          this.checkAndSaveLangs(conf)
+            .catch((error) => this.handleMessage({ text: error.message, type: 'error' }));
+        }
       }
     } catch (error) {
       if (!managed) throw error;

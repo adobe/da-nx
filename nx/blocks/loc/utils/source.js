@@ -38,7 +38,7 @@ export function createLimiter({
     }
   };
 
-  const limit = async (task) => {
+  const limit = async (task, { signal } = {}) => {
     await acquire();
     try {
       let delay = Math.max(nextStart, pausedUntil) - now();
@@ -47,6 +47,7 @@ export function createLimiter({
         await wait(delay);
         delay = Math.max(nextStart, pausedUntil) - now();
       }
+      signal?.throwIfAborted();
       nextStart = now() + minIntervalMs;
       return await task();
     } finally {
@@ -68,11 +69,13 @@ function getRetryDelay({ result, attempt, delays }) {
   return delays[attempt];
 }
 
-export async function withRetry(task, { limiter, delays = HLX6_RETRY_DELAYS_MS, attempt = 0 }) {
+export async function withRetry(task, {
+  limiter, signal, delays = HLX6_RETRY_DELAYS_MS, attempt = 0,
+}) {
   let result;
   let error;
   try {
-    result = await limiter(task);
+    result = await limiter(task, { signal });
   } catch (e) {
     if (e?.name === 'AbortError') throw e;
     error = e;
@@ -83,7 +86,9 @@ export async function withRetry(task, { limiter, delays = HLX6_RETRY_DELAYS_MS, 
     return result;
   }
   limiter.pause(getRetryDelay({ result, attempt, delays }));
-  return withRetry(task, { limiter, delays, attempt: attempt + 1 });
+  return withRetry(task, {
+    limiter, signal, delays, attempt: attempt + 1,
+  });
 }
 
 const limiters = {};
@@ -96,7 +101,7 @@ async function checkSite(org, site) {
   }
 }
 
-async function run(path, task, { retry = true } = {}) {
+async function run(path, task, { retry = true, signal } = {}) {
   const { org, site } = fromPath(path);
   const hlx6 = await checkSite(org, site);
   if (!hlx6) return task(hlx6);
@@ -106,7 +111,9 @@ async function run(path, task, { retry = true } = {}) {
     minIntervalMs: HLX6_MIN_START_INTERVAL_MS,
   });
   const paced = () => task(hlx6);
-  return retry ? withRetry(paced, { limiter: limiters[key] }) : limiters[key](paced);
+  return retry
+    ? withRetry(paced, { limiter: limiters[key], signal })
+    : limiters[key](paced, { signal });
 }
 
 export async function getSource(path, { noCache, signal } = {}) {
@@ -117,7 +124,7 @@ export async function getSource(path, { noCache, signal } = {}) {
     // api.aem.live does not allow cache-control in CORS and answers no-store anyway.
     if (noCache && !hlx6) opts.headers = { 'Cache-Control': 'no-cache' };
     return source.get(path, { opts: Object.keys(opts).length ? opts : undefined });
-  });
+  }, { signal });
 }
 
 export function saveSource(path, body) {
@@ -126,7 +133,7 @@ export function saveSource(path, body) {
 
 export async function listSource(path, { signal } = {}) {
   signal?.throwIfAborted();
-  return run(path, () => source.list(path, { opts: signal ? { signal } : undefined }));
+  return run(path, () => source.list(path, { opts: signal ? { signal } : undefined }), { signal });
 }
 
 export function moveSource(path, destination) {
