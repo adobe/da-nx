@@ -1,4 +1,4 @@
-import { CMA_BRIDGE_HTTP_BASE, CMA_BRIDGE_WS_BASE } from '../ao-constants.js';
+import { CMA_BRIDGE_HTTP_BASE, CMA_BRIDGE_WS_BASE } from '../cma/constants.js';
 import { resolveAoHttpBase, resolveAoWsBase } from './uploads.js';
 
 // Single place that maps a resolved harness to its backend base hosts (#962):
