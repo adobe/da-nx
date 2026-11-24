@@ -99,9 +99,14 @@ Callers don't usually need to think about this — using a namespace method hand
 const upgraded = await isHlx6('adobe', 'aem-boilerplate');
 ```
 
-`isHlx6(org, site)` returns a `Promise<boolean>`. It memoizes per `(org, site)` in module memory and persists positive results in `localStorage` under the key `hlx6-upgrade`. Detection works by pinging `${HLX_ADMIN}/ping/{org}/{site}` and looking for the `x-api-upgrade-available` header.
+`isHlx6(org, site)` returns a `Promise<boolean>`. It pings `${HLX_ADMIN}/ping/{org}/{site}`:
 
-Returns `false` immediately when `site` is missing.
+- The `x-api-upgrade-available` header -> `true`, kept in module memory and in `localStorage` under the key `hlx6-upgrade`.
+- A 2xx or 404 without the header -> `false`, kept in module memory.
+- A 429 or 5xx is retried up to 2 times, 1 s apart.
+- Anything else (a failed fetch, 401/403, a 429/5xx after the retries) rejects with a `TypeError`, like a failed fetch. A failure isn't cached, so the next call pings again. The namespace methods below reject with it.
+
+Returns `false` without a ping when `site` is missing or `.da`.
 
 Most callers don't call `isHlx6` directly — they let the namespace methods do the routing.
 
