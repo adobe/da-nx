@@ -265,11 +265,12 @@ export async function signIn() {
 
 // Not aem.preview: daFetch also sends the token in x-content-source-authorization (da-nx#866).
 async function requestPreview({ owner, repo, path }) {
+  const { accessToken } = await loadApiIms();
+  if (!accessToken) return 'not signed in';
   const page = path.endsWith('/') ? `${path}index` : path;
   const url = await isHlx6(owner, repo)
     ? `${AEM_API}/${owner}/sites/${repo}/preview${page}`
     : `${HLX_ADMIN}/preview/${owner}/${repo}/main${page}`;
-  const { accessToken } = await loadApiIms();
   const resp = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${accessToken.token}` } });
   return resp.ok ? undefined : (resp.statusText || `${resp.status}`);
 }
