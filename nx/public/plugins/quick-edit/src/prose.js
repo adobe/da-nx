@@ -215,6 +215,11 @@ export function captureFocusedEditor() {
   return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
 }
 
+export function cannotEditLinkImage(element, schema) {
+  return !schema.nodes.image?.spec.attrs?.editAs
+    && !!element.querySelector('a[data-edit-as="image"]');
+}
+
 /** FOCUS_EDITOR: put the caret back where the user left it, reopening the editor if it
  * settled to static markup while focus was in the host. */
 export function restoreEditorFocus(ctx) {
@@ -238,6 +243,10 @@ function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin
   }
 
   const schema = getSchema();
+  if (cannotEditLinkImage(element, schema)) {
+    if (ctx.pendingEditor?.element === element) ctx.pendingEditor = null;
+    return;
+  }
   const node = schema.nodeFromJSON(state);
 
   // A node that is not valid top-level `doc` content (e.g. a `table_cell`, which
