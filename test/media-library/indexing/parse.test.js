@@ -299,5 +299,22 @@ describe('parse', () => {
       const images = extractImageUrls(md, false);
       expect(images).to.deep.equal(['/media_1abc.png', './images/logo.png']);
     });
+
+    it('keeps media_ names in folders as they are', () => {
+      const md = '![](/images/media_cafe.png)';
+      expect(extractImageUrls(md, false)).to.deep.equal(['/images/media_cafe.png']);
+    });
+  });
+
+  describe('media_ names in folders on helix 5 pages', () => {
+    it('keeps the fragment path', () => {
+      const md = '[Frag](/fragments/media_cafe.html)';
+      expect(extractFragmentReferences(md, false)).to.deep.equal(['/fragments/media_cafe.html']);
+    });
+
+    it('keeps the PDF path', () => {
+      const md = '[Report](/reports/media_cafe.pdf)';
+      expect(extractLinks(md, /\.pdf$/, false)).to.deep.equal(['/reports/media_cafe.pdf']);
+    });
   });
 });
