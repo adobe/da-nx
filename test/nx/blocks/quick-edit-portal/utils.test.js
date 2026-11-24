@@ -110,6 +110,15 @@ describe('quick-edit portal media bus images', () => {
     expect(doc.querySelector('img').getAttribute('src')).to.equal(ref);
   });
 
+  it('keeps linked media bus images relative', () => {
+    const resolved = new URL(ref, document.baseURI).href;
+    const html = `<body><main><div><p><a href="${resolved}" data-edit-as="image">${resolved}</a></p></div></main></body>`;
+    const doc = new DOMParser().parseFromString(keepMediaBusImagesRelative(html), 'text/html');
+    const link = doc.querySelector('a');
+    expect(link.getAttribute('href')).to.equal(ref);
+    expect(link.textContent).to.equal(ref);
+  });
+
   it('leaves other pictures alone', () => {
     const src = 'https://content.da.live/org/site/.page/pic.png';
     const html = `<body><main>${picture(src, src)}</main></body>`;
