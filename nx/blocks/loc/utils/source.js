@@ -93,11 +93,12 @@ export async function withRetry(task, {
 
 const limiters = {};
 
+// Like main, which always used admin.da.live, a failed check means a legacy DA site.
 async function checkSite(org, site) {
   try {
     return await isHlx6(org, site);
-  } catch (cause) {
-    throw new Error(`Could not check where ${org}/${site} keeps its content. Try again.`, { cause });
+  } catch {
+    return false;
   }
 }
 
