@@ -116,21 +116,14 @@ export async function loadSchemas(org, site) {
   );
 }
 
-// The source bus can store a document under another name than requested.
-async function storedId(resp, id) {
-  const { source: saved } = await resp.json().catch(() => ({}));
-  if (!saved?.contentUrl) return id;
-  return saved.contentUrl.split(/[?#]/)[0].split('/').pop().replace(/\.html$/, '');
-}
-
 // Helix 6 has no create-only save, so a create first checks that the name is free.
 async function checkNewName(prefix, id, target) {
   const { org, site } = fromPath(prefix);
   if (!site || !(await isHlx6(org, site))) return undefined;
   if (!STABLE_NAME.test(id)) return 'Use lowercase letters and numbers, separated by single hyphens.';
-  const { status } = await source.getMetadata(target);
+  const { ok, status } = await source.getMetadata(target);
+  if (ok) return 'A schema with this name already exists.';
   if (status === 404) return undefined;
-  if (status >= 200 && status < 300) return 'A schema with this name already exists.';
   return `Error checking the schema name. Status: ${status ?? 'network error'}`;
 }
 
@@ -141,7 +134,7 @@ export async function saveSchema(prefix, id, jsonStr, { create } = {}) {
     if (nameError) return { error: nameError };
     const resp = await storeFor(target).save(target, { body: toSchemaHtml(jsonStr) });
     if (!resp.ok) return { error: `Error saving. Status: ${resp.status}` };
-    return { ok: true, id: await storedId(resp, id) };
+    return { ok: true };
   } catch {
     return { error: 'Error saving. Status: network error' };
   }

@@ -217,10 +217,10 @@ class SchemaEditor extends LitElement {
       this.showError(result.error);
       return;
     }
-    this._schemas[result.id] = { status: 'loaded', schema: parsed };
+    this._schemas[id] = { status: 'loaded', schema: parsed };
     if (this._createNew) {
       this._createNew = undefined;
-      this._currentSchema = result.id;
+      this._currentSchema = id;
     }
     this._schemaErrors = undefined;
     this._alert = { type: 'success', message: 'Schema saved.' };

@@ -222,19 +222,18 @@ describe('schema editor utils', () => {
 
     it('creates a schema only after checking that the name is free', async () => {
       const { org, site } = uniqueOrgSite();
-      const path = `/${org}/sites/${site}/source/.da/forms/schemas/my-schema.html`;
-      const url = `${AEM_API}${path}`;
+      const url = `${AEM_API}/${org}/sites/${site}/source/.da/forms/schemas/my-schema.html`;
       installRoutes({
         hlx6: true,
         routes: {
           [`HEAD ${url}`]: status(404),
-          [`POST ${url}`]: status(201, { location: path }),
+          [`POST ${url}`]: status(201, { location: '/.da/forms/schemas/my-schema.html' }),
         },
       });
 
       const result = await saveSchema(`/${org}/${site}`, 'my-schema', JSON.stringify(SCHEMA), { create: true });
 
-      expect(result).to.deep.equal({ ok: true, id: 'my-schema' });
+      expect(result).to.deep.equal({ ok: true });
       expect(calls.filter((c) => c.url === url).map((c) => c.method)).to.deep.equal(['HEAD', 'POST']);
     });
 
@@ -293,19 +292,6 @@ describe('schema editor utils', () => {
 
       expect(result.error).to.be.undefined;
       expect(calls.filter((c) => c.url === url).map((c) => c.method)).to.deep.equal(['HEAD', 'POST']);
-    });
-
-    it('returns the schema name the source bus stored', async () => {
-      const { org, site } = uniqueOrgSite();
-      const folder = `/${org}/sites/${site}/source/.da/forms/schemas`;
-      installRoutes({
-        hlx6: true,
-        routes: { [`POST ${AEM_API}${folder}/my-schema.html`]: status(201, { location: `${folder}/stored-schema.html` }) },
-      });
-
-      const result = await saveSchema(`/${org}/${site}`, 'my-schema', '{}');
-
-      expect(result).to.deep.equal({ ok: true, id: 'stored-schema' });
     });
 
     it('keeps markup and entities in schema text when saving and reading it back', async () => {
