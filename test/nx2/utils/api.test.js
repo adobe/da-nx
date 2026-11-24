@@ -177,6 +177,80 @@ describe('api.js', () => {
       const pingCalls = calls.filter((c) => c.url.includes(`${HLX_ADMIN}/ping/`));
       expect(pingCalls).to.have.lengthOf(0);
     });
+
+    const installPings = (responses) => {
+      restoreFetch();
+      calls.length = 0;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method || 'GET' });
+        const next = responses.length > 1 ? responses.shift() : responses[0];
+        if (next instanceof Error) throw next;
+        return new Response('', next);
+      };
+    };
+    const pingCount = () => callsTo(`${HLX_ADMIN}/ping/`).length;
+
+    it('caches a legacy answer from a 404 ping without the upgrade header', async () => {
+      installPings([{ status: 404 }]);
+      const o = uniq('org');
+      const s = uniq('site');
+      expect(await isHlx6(o, s)).to.equal(false);
+      expect(await isHlx6(o, s)).to.equal(false);
+      expect(pingCount()).to.equal(1);
+    });
+
+    it('rejects a thrown ping and pings again on the next call', async () => {
+      installPings([new TypeError('Failed to fetch'), { status: 200, headers: { 'x-api-upgrade-available': 'true' } }]);
+      const o = uniq('org');
+      const s = uniq('site');
+      let error;
+      await isHlx6(o, s).catch((e) => { error = e; });
+      expect(error).to.be.instanceOf(Error);
+      expect(await isHlx6(o, s)).to.equal(true);
+      expect(pingCount()).to.equal(2);
+    });
+
+    it('rejects a 500 ping without the upgrade header and does not cache it', async () => {
+      installPings([{ status: 500 }, { status: 200 }]);
+      const o = uniq('org');
+      const s = uniq('site');
+      let error;
+      await isHlx6(o, s).catch((e) => { error = e; });
+      expect(error).to.be.instanceOf(TypeError);
+      expect(await isHlx6(o, s)).to.equal(false);
+      expect(pingCount()).to.equal(2);
+    });
+
+    it('retries a 503 ping after its retry-after delay', async () => {
+      installPings([
+        { status: 503, headers: { 'retry-after': '0' } },
+        { status: 200, headers: { 'x-api-upgrade-available': 'true' } },
+      ]);
+      expect(await isHlx6(uniq('org'), uniq('site'))).to.equal(true);
+      expect(pingCount()).to.equal(2);
+    });
+
+    it('gives up after a bounded number of 429 retries', async () => {
+      installPings([{ status: 429, headers: { 'x-retry-after': '0' } }]);
+      let error;
+      await isHlx6(uniq('org'), uniq('site')).catch((e) => { error = e; });
+      expect(error).to.be.instanceOf(TypeError);
+      expect(pingCount()).to.equal(3);
+    });
+
+    it('does not retry a 429 ping that asks for a long wait', async () => {
+      installPings([{ status: 429, headers: { 'retry-after': '60' } }]);
+      let error;
+      await isHlx6(uniq('org'), uniq('site')).catch((e) => { error = e; });
+      expect(error).to.be.instanceOf(TypeError);
+      expect(pingCount()).to.equal(1);
+    });
+
+    it('returns false for the reserved .da folder without pinging', async () => {
+      expect(await isHlx6(uniq('org'), '.da')).to.equal(false);
+      expect(pingCount()).to.equal(0);
+    });
   });
 
   describe('source', () => {
