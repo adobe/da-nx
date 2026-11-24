@@ -147,37 +147,30 @@ describe('loc views on Helix 6', () => {
     });
   });
 
-  describe('when the site check fails', () => {
-    let unreachable;
-    let message;
+  describe('when a project or page read throws on a legacy DA site', () => {
+    let legacy;
+    const message = 'Failed to fetch';
+    const failReads = () => installFetch(({ method }) => {
+      if (method === 'GET') throw new TypeError(message);
+      return new Response('', { status: 200 });
+    });
 
     beforeEach(() => {
-      unreachable = makeSite({ pingFails: true });
-      message = `Could not check where ${unreachable.org}/${unreachable.site} keeps its content. Try again.`;
+      legacy = makeSite();
     });
 
     it('shows an error on the dashboard and lets the user retry', async () => {
-      installFetch();
-      let error;
-      try {
-        await createProjectData({
-          org: unreachable.org, site: unreachable.site, currentUser: 'me', handleError: () => {},
-        });
-      } catch (e) {
-        error = e;
-      }
+      failReads();
+      const error = await createProjectData({
+        org: legacy.org, site: legacy.site, currentUser: 'me', handleError: () => {},
+      }).then(() => undefined, (e) => e);
       expect(error.message).to.equal(message);
-      expect(calls).to.deep.equal([]);
 
       const Dashboard = customElements.get('nx-loc-dashboard');
       const attempts = [Promise.reject(error), Promise.resolve()];
       const ctx = { initializeProjectsAndUser: () => attempts.shift() };
-      let first;
-      try {
-        await Dashboard.prototype.ensureInitialized.call(ctx);
-      } catch (e) {
-        first = e;
-      }
+      const first = await Dashboard.prototype.ensureInitialized.call(ctx)
+        .then(() => undefined, (e) => e);
       expect(first).to.equal(error);
       expect(ctx._error.message).to.equal(message);
       expect(ctx._isLoading).to.equal(false);
@@ -187,18 +180,18 @@ describe('loc views on Helix 6', () => {
     });
 
     it('reports an error when loading a project', async () => {
-      installFetch();
-      const path = `/${unreachable.org}/${unreachable.site}/.da/translation/active/1`;
+      failReads();
+      const path = `/${legacy.org}/${legacy.site}/.da/translation/active/1`;
       const result = await loadProject({ path, updateDocTitle: false });
       expect(result).to.deep.equal({ message: { text: message } });
     });
 
     it('stops a rollout before writing anything', async () => {
-      installFetch(() => new Response('', { status: 201 }));
+      failReads();
       const lang = { name: 'English', location: '/en', locales: [{ code: '/en/us' }], rollout: {} };
       const result = await rolloutLang({
-        org: unreachable.org,
-        site: unreachable.site,
+        org: legacy.org,
+        site: legacy.site,
         title: 'Proj',
         options: { 'source.language': { location: '/en' }, 'rollout.conflict.behavior': 'overwrite' },
         lang,
@@ -207,16 +200,16 @@ describe('loc views on Helix 6', () => {
       });
       expect(result.aborted).to.equal(true);
       expect(result.errors[0].error).to.include(message);
-      expect(calls).to.deep.equal([]);
+      expect(calls.filter(({ method }) => method !== 'GET')).to.deep.equal([]);
     });
 
     it('marks pages as errors in validate', async () => {
-      installFetch();
+      failReads();
       const Validate = customElements.get('nx-loc-validate');
-      const url = new URL(`https://main--${unreachable.site}--${unreachable.org}.aem.page/en/page`);
+      const url = new URL(`https://main--${legacy.site}--${legacy.org}.aem.page/en/page`);
       const ctx = {
-        _org: unreachable.org,
-        _site: unreachable.site,
+        _org: legacy.org,
+        _site: legacy.site,
         _urls: [url],
         getOriginMatches: async () => [],
         checkUrl: Validate.prototype.checkUrl,
@@ -230,11 +223,11 @@ describe('loc views on Helix 6', () => {
     });
 
     it('shows an error in validate when the config cannot be read', async () => {
-      installFetch();
+      failReads();
       const Validate = customElements.get('nx-loc-validate');
       const ctx = {
-        _org: unreachable.org,
-        _site: unreachable.site,
+        _org: legacy.org,
+        _site: legacy.site,
         _urls: [],
         findConfigValue: Validate.prototype.findConfigValue,
         getOriginMatches: Validate.prototype.getOriginMatches,

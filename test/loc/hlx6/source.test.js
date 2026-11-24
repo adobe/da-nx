@@ -166,7 +166,35 @@ describe('loc source helpers', () => {
   });
 
   describe('when the site check fails', () => {
-    it('rejects every call with a clear error and sends nothing', async () => {
+    it('sends copy engine requests and config reads to admin.da.live, as main does', async () => {
+      installFetch(({ url }) => (url.endsWith('/.da/translate.json')
+        ? new Response('', { status: 404 })
+        : new Response('', { status: 200 })));
+      const { org, site } = makeSite({ pingFails: true });
+      const page = `${DA_ADMIN}/source/${org}/${site}/de/page.html`;
+      const version = `${DA_ADMIN}/versionsource/${org}/${site}/de/page.html`;
+      const body = new FormData();
+      body.append('data', new Blob(['<main></main>'], { type: 'text/html' }));
+      const label = JSON.stringify({ label: 'Proj - Rolled Out' });
+      const resps = await Promise.all([
+        sourceFetch(page),
+        sourceFetch(page, { method: 'POST', body }),
+        sourceFetch(version, { method: 'POST', body: label }),
+      ]);
+      expect(resps.map(({ status }) => status)).to.deep.equal([200, 200, 200]);
+      expect(await loadCopyConfig({ org, site })).to.deep.equal({ config: { data: [] } });
+      expect(calls.map(({ method, url }) => `${method} ${url}`)).to.deep.equal([
+        `GET ${page}`,
+        `POST ${page}`,
+        `POST ${version}`,
+        `GET ${DA_ADMIN}/source/${org}/${site}/.da/translate.json`,
+        `GET ${DA_ADMIN}/source/${org}/.da/translate.json`,
+      ]);
+      expect(calls[1].body).to.equal(body);
+      expect(calls[2].body).to.equal(label);
+    });
+
+    it('never sends a read or a write to the source bus', async () => {
       installFetch();
       const { org, site } = makeSite({ pingFails: true });
       const results = await Promise.allSettled([
@@ -175,14 +203,11 @@ describe('loc source helpers', () => {
         listSource(`/${org}/${site}/.da/translation/active`),
         moveSource(`/${org}/${site}/a.json`, `/${org}/${site}/b.json`),
         createVersion(`/${org}/${site}/de/page.html`, 'label'),
-        sourceFetch(`${DA_ADMIN}/source/${org}/${site}/de/page.html`),
-        loadCopyConfig({ org, site }),
       ]);
-      expect(results.map(({ status }) => status)).to.deep.equal(Array(7).fill('rejected'));
       results.forEach(({ reason }) => {
-        expect(reason.message).to.equal(`Could not check where ${org}/${site} keeps its content. Try again.`);
+        expect(reason?.message ?? '').not.to.include('Could not check where');
       });
-      expect(calls).to.deep.equal([]);
+      expect(calls.filter(({ url }) => url.startsWith(AEM_API))).to.deep.equal([]);
     });
   });
 

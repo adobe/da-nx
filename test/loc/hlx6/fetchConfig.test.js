@@ -60,20 +60,6 @@ describe('fetchConfig', () => {
     expect(options.config.data[0].value).to.equal('org');
   });
 
-  it('reports a failed site check instead of an empty config and does not cache it', async () => {
-    const unreachable = makeSite({ pingFails: true });
-    const reachable = makeSite({ hlx6: true });
-    installFetch(() => json({ config: { data: [{ key: 'from', value: 'site' }] } }));
-    const fetchConfig = await loadFetchConfig();
-    const failed = await fetchConfig(unreachable.org, unreachable.site);
-    const message = `Could not check where ${unreachable.org}/${unreachable.site} keeps its content. Try again.`;
-    expect(failed).to.deep.equal({ loadError: message });
-    expect(calls).to.deep.equal([]);
-    expect((await validateConfig(failed)).errors).to.deep.equal([message]);
-    const options = await fetchConfig(reachable.org, reachable.site);
-    expect(options.config.data[0].value).to.equal('site');
-  });
-
   it('reports a failed org config read on legacy DA sites and does not cache it', async () => {
     const first = makeSite();
     const second = makeSite();
@@ -85,7 +71,9 @@ describe('fetchConfig', () => {
       return new Response('', { status: 404 });
     });
     const fetchConfig = await loadFetchConfig();
-    expect(await fetchConfig(first.org, first.site)).to.deep.equal({ loadError: 'Failed to fetch' });
+    const failed = await fetchConfig(first.org, first.site);
+    expect(failed).to.deep.equal({ loadError: 'Failed to fetch' });
+    expect((await validateConfig(failed)).errors).to.deep.equal(['Failed to fetch']);
     const options = await fetchConfig(second.org, second.site);
     expect(options.config.data[0].value).to.equal('second');
   });
