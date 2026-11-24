@@ -13,6 +13,28 @@ function recordingDelay() {
   return { calls, delay, now, clock };
 }
 
+function fakeTimers() {
+  const clock = { t: 0 };
+  let timers = [];
+  const now = () => clock.t;
+  const delay = (ms) => new Promise((resolve) => { timers.push({ at: clock.t + ms, resolve }); });
+  const settle = () => new Promise((resolve) => { setTimeout(resolve, 0); });
+  // Delivers every timer due at t, also the ones that should have fired earlier.
+  const runUntil = async (t) => {
+    clock.t = t;
+    const due = timers.filter((timer) => timer.at <= t);
+    timers = timers.filter((timer) => timer.at > t);
+    due.forEach((timer) => timer.resolve());
+    await settle();
+  };
+  const runAll = async () => {
+    while (timers.length) {
+      await runUntil(Math.max(clock.t, Math.min(...timers.map((timer) => timer.at))));
+    }
+  };
+  return { now, delay, runUntil, runAll, settle };
+}
+
 function response(status, headers = {}) {
   return new Response(status === 204 ? null : '{}', { status, headers });
 }
@@ -59,6 +81,43 @@ describe('createPacedFetch', () => {
     await pacedFetch('/c');
 
     expect(calls).to.deep.equal([]);
+  });
+
+  it('keeps starts apart when timers fire late', async () => {
+    const { now, delay, runUntil, runAll, settle } = fakeTimers();
+    const starts = [];
+    const fetchFn = async (url) => {
+      starts.push([url, now()]);
+      return response(200);
+    };
+    const pacedFetch = createPacedFetch({ fetchFn, rate: 8, delay, now });
+
+    const all = Promise.all(['/a', '/b', '/c', '/d'].map((url) => pacedFetch(url)));
+    await settle();
+    await runUntil(1000);
+    await runAll();
+    await all;
+
+    expect(starts).to.deep.equal([['/a', 0], ['/b', 1000], ['/c', 1125], ['/d', 1250]]);
+  });
+
+  it('holds queued requests back until x-retry-after has passed', async () => {
+    const { now, delay, runAll, settle } = fakeTimers();
+    const starts = [];
+    let count = 0;
+    const fetchFn = async (url) => {
+      starts.push([url, now()]);
+      count += 1;
+      return count === 1 ? response(429, { 'x-retry-after': '3' }) : response(200);
+    };
+    const pacedFetch = createPacedFetch({ fetchFn, rate: 8, delay, now });
+
+    const all = Promise.all([pacedFetch('/a'), pacedFetch('/b')]);
+    await settle();
+    await runAll();
+    await all;
+
+    expect(starts).to.deep.equal([['/a', 0], ['/a', 3000], ['/b', 3125]]);
   });
 
   it('retries a 429 after x-retry-after seconds', async () => {
