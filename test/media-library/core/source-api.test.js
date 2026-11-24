@@ -93,10 +93,6 @@ describe('source-api', () => {
         },
       ]);
     });
-
-    it('returns no items for a non-array Helix 6 body', () => {
-      expect(toListItems({ sourceOrigin: AEM_API_ORIGIN, path: '/org/site', body: {} })).to.deep.equal([]);
-    });
   });
 
   describe('toSaveOptions', () => {

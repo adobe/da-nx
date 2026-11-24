@@ -2,7 +2,9 @@ import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { DA_ADMIN, HLX_ADMIN } from '../../../nx/utils/utils.js';
 import { setImsDetails } from '../../../nx/blocks/media-library/core/ims-adapter.js';
-import { isHlx6, getSourceOrigin, saveSource } from '../../../nx/blocks/media-library/core/source.js';
+import {
+  isHlx6, getSourceOrigin, saveSource, listSource,
+} from '../../../nx/blocks/media-library/core/source.js';
 import { listFolder, checkIndex, loadSheet } from '../../../nx/blocks/media-library/indexing/admin-api.js';
 import {
   checkIndexLock,
@@ -202,6 +204,16 @@ describe('media library source access', () => {
       const items = await listFolder(`/${org}/site/.da/media-insights`, org, 'site');
 
       expect(items).to.deep.equal(daItems);
+    });
+
+    it('reports a Helix 6 listing that is not an array as a failed listing', async () => {
+      const org = uniqueOrg('hlx6');
+      stubFetch([[`${AEM}/${org}/sites/site/source/.da/`, () => json({})]]);
+
+      const listing = await listSource(`/${org}/site/.da`);
+
+      expect(listing.ok).to.equal(false);
+      expect(listing.status).to.equal(502);
     });
   });
 

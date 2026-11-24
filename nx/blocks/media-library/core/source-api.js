@@ -41,7 +41,6 @@ function toDaItem(parent, item) {
 
 export function toListItems({ sourceOrigin, path, body }) {
   if (!isSourceBus(sourceOrigin)) return Array.isArray(body) ? body : (body?.sources || []);
-  if (!Array.isArray(body)) return [];
   const parent = path.replace(/\/+$/, '');
   return body
     .filter((item) => item?.name && !item.name.startsWith('.'))
