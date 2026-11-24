@@ -316,35 +316,6 @@ describe('schema editor utils', () => {
       expect(stored).not.to.include('<img');
       expect(schemas.faqs).to.deep.equal({ status: 'loaded', schema });
     });
-
-    it('fails to load, and lists nothing else, when the backend check fails', async () => {
-      const { org, site } = uniqueOrgSite();
-      const orgPath = `/${org}/.da/forms/schemas`;
-      installRoutes({
-        pingFails: true,
-        routes: {
-          [`GET ${DA_ADMIN}/list${orgPath}`]: json([{ name: 'faqs', ext: 'html', path: `${orgPath}/faqs.html` }]),
-        },
-      });
-
-      let error;
-      await loadSchemas(org, site).catch((e) => { error = e; });
-
-      expect(error).to.be.instanceOf(Error);
-      expect(calls.filter((c) => c.url.startsWith(DA_ADMIN))).to.be.empty;
-    });
-
-    it('does not save or delete when the backend check fails', async () => {
-      const { org, site } = uniqueOrgSite();
-      installRoutes({ pingFails: true, routes: {} });
-
-      const saved = await saveSchema(`/${org}/${site}`, 'my-schema', '{}');
-      const deleted = await deleteSchema(`/${org}/${site}`, 'my-schema');
-
-      expect(saved.error).to.equal('Error saving. Status: network error');
-      expect(deleted.error).to.equal('Error deleting. Status: network error');
-      expect(calls.filter((c) => !c.url.startsWith(`${HLX_ADMIN}/ping/`))).to.be.empty;
-    });
   });
 
   describe('legacy DA site', () => {
@@ -395,6 +366,58 @@ describe('schema editor utils', () => {
       const schemas = await loadSchemas(org, site);
 
       expect(Object.keys(schemas)).to.deep.equal(['faqs']);
+    });
+
+    it('fails to load when the site listing fails at the network level', async () => {
+      const { org, site } = uniqueOrgSite();
+      const path = `/${org}/${site}/.da/forms/schemas`;
+      installRoutes({
+        hlx6: false,
+        routes: { [`GET ${DA_ADMIN}/list${path}`]: () => { throw new TypeError('Failed to fetch'); } },
+      });
+
+      let error;
+      await loadSchemas(org, site).catch((e) => { error = e; });
+
+      expect(error).to.be.instanceOf(Error);
+      expect(calls.filter((c) => c.url.startsWith(`${DA_ADMIN}/list/${org}/.da`))).to.be.empty;
+    });
+
+    it('lists the site schemas from admin.da.live when the backend check fails', async () => {
+      const { org, site } = uniqueOrgSite();
+      const path = `/${org}/${site}/.da/forms/schemas`;
+      installRoutes({
+        pingFails: true,
+        routes: {
+          [`GET ${DA_ADMIN}/list${path}`]: json([{ name: 'faqs', ext: 'html', path: `${path}/faqs.html` }]),
+          [`GET ${DA_ADMIN}/source${path}/faqs.html`]: html(schemaHtml(JSON.stringify(SCHEMA))),
+        },
+      });
+
+      const schemas = await loadSchemas(org, site);
+
+      expect(schemas).to.deep.equal({ faqs: { status: 'loaded', schema: SCHEMA } });
+      expect(calls.filter((c) => c.url.startsWith(AEM_API))).to.be.empty;
+    });
+
+    it('saves and deletes on admin.da.live when the backend check fails', async () => {
+      const { org, site } = uniqueOrgSite();
+      const url = `${DA_ADMIN}/source/${org}/${site}/.da/forms/schemas/my-schema.html`;
+      installRoutes({
+        pingFails: true,
+        routes: {
+          [`POST ${url}`]: () => new Response('{}', { status: 201 }),
+          [`DELETE ${url}`]: () => new Response(null, { status: 204 }),
+        },
+      });
+
+      const saved = await saveSchema(`/${org}/${site}`, 'my-schema', JSON.stringify(SCHEMA), { create: true });
+      const deleted = await deleteSchema(`/${org}/${site}`, 'my-schema');
+
+      expect(saved.error).to.be.undefined;
+      expect(deleted.error).to.be.undefined;
+      expect(calls.filter((c) => !c.url.startsWith(`${HLX_ADMIN}/ping/`)).map((c) => `${c.method} ${c.url}`))
+        .to.deep.equal([`POST ${url}`, `DELETE ${url}`]);
     });
 
     it('lists org-level schemas when no site is given', async () => {

@@ -55,7 +55,9 @@ describe('schema editor', () => {
   });
 
   it('shows a load error, and no editor, when the schemas cannot be loaded', async () => {
-    await mount(() => ({}), { pingFails: true });
+    await mount((path) => ({
+      [`GET ${DA_ADMIN}/list${path}`]: () => { throw new TypeError('Failed to fetch'); },
+    }), { pingFails: true });
 
     expect(el._alert.message).to.equal('Could not load schemas. Reload the page to try again.');
     expect(el.shadowRoot.querySelector('.schema-select-wrapper')).to.be.null;
