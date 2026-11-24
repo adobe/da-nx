@@ -459,7 +459,9 @@ async function fetchProject({ path, updates, updateDocTitle = true }) {
     opts.body = body;
   }
 
-  const resp = await daFetch({ url: `${DA_ADMIN}/source${path}.json`, opts });
+  const resp = await daFetch({ url: `${DA_ADMIN}/source${path}.json`, opts })
+    .catch((error) => error);
+  if (resp instanceof Error) return { message: { text: resp.message } };
   if (!resp.ok) {
     if (resp.status === 401 || resp.status === 403) {
       const [org, site] = path.substring(1).split('/');
