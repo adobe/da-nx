@@ -266,6 +266,52 @@ describe('media library source access', () => {
     });
   });
 
+  describe('index lock writes', () => {
+    it('sends a Helix 6 lock delete once, even when it fails', async () => {
+      const org = uniqueOrg('hlx6');
+      const lockUrl = `${AEM}/${org}/sites/site/source/.da/media-insights/index-lock.json`;
+      const calls = stubFetch([[lockUrl, () => new Response('', { status: 503 })]]);
+
+      const error = await removeIndexLock(`/${org}/site`).catch((e) => e);
+
+      expect(error instanceof Error).to.equal(true);
+      expect(calls.filter((c) => c.url === lockUrl)).to.have.length(1);
+    });
+
+    it('sends a Helix 6 lock write once, even after a network error', async () => {
+      const org = uniqueOrg('hlx6');
+      const lockUrl = `${AEM}/${org}/sites/site/source/.da/media-insights/index-lock.json`;
+      const calls = stubFetch([[lockUrl, () => { throw new TypeError('Failed to fetch'); }]]);
+
+      await createIndexLock(`/${org}/site`).catch(() => {});
+
+      expect(calls.filter((c) => c.url === lockUrl)).to.have.length(1);
+    });
+
+    it('waits for a running heartbeat when it stops, and sends no more', async () => {
+      const org = uniqueOrg('hlx6');
+      const lockUrl = `${AEM}/${org}/sites/site/source/.da/media-insights/index-lock.json`;
+      let release;
+      const calls = stubFetch([[lockUrl, () => new Promise((resolve) => {
+        release = () => resolve(new Response('', { status: 201 }));
+      })]]);
+      const { startIndexLockHeartbeat } = await import('../../../nx/blocks/media-library/indexing/locks.js');
+      const stop = startIndexLockHeartbeat({ sitePath: `/${org}/site`, lockData: {}, intervalMs: 5 });
+      while (!release) await new Promise((resolve) => { setTimeout(resolve, 5); });
+
+      let stopped = false;
+      const stopping = Promise.resolve(stop()).then(() => { stopped = true; });
+      await new Promise((resolve) => { setTimeout(resolve, 20); });
+      const stoppedBeforeRelease = stopped;
+      release();
+      await stopping;
+      await new Promise((resolve) => { setTimeout(resolve, 20); });
+
+      expect(stoppedBeforeRelease).to.equal(false);
+      expect(calls.filter((c) => c.url === lockUrl)).to.have.length(1);
+    });
+  });
+
   describe('loadMediaSheet', () => {
     it('loads a chunked Helix 6 index from the source bus', async () => {
       const org = uniqueOrg('hlx6');

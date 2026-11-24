@@ -203,6 +203,41 @@ describe('createPacedFetch', () => {
     expect(error).to.be.instanceOf(TypeError);
   });
 
+  it('does not retry a write that may have happened when asked not to', async () => {
+    const { delay, now } = recordingDelay();
+    let count = 0;
+    const fetchFn = async () => {
+      count += 1;
+      if (count === 1) throw new TypeError('Failed to fetch');
+      return response(503);
+    };
+    const pacedFetch = createPacedFetch({ fetchFn, delay, now });
+
+    const error = await pacedFetch('/a', { method: 'DELETE' }, { retry: false }).catch((e) => e);
+    const resp = await pacedFetch('/b', { method: 'DELETE' }, { retry: false });
+
+    expect(error instanceof TypeError).to.equal(true);
+    expect(resp.status).to.equal(503);
+    expect(count).to.equal(2);
+  });
+
+  it('still retries a 429 when asked not to retry, since the server did not run it', async () => {
+    const { delay, now } = recordingDelay();
+    const statuses = [429, 201];
+    let count = 0;
+    const fetchFn = async () => {
+      const status = statuses[count];
+      count += 1;
+      return response(status);
+    };
+    const pacedFetch = createPacedFetch({ fetchFn, delay, now });
+
+    const resp = await pacedFetch('/a', { method: 'POST' }, { retry: false });
+
+    expect(resp.status).to.equal(201);
+    expect(count).to.equal(2);
+  });
+
   it('does not retry other statuses', async () => {
     const { delay, now } = recordingDelay();
     let count = 0;
