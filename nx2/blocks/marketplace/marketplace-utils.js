@@ -23,10 +23,9 @@ export function normalizeItem({ row, origin }) {
   const description = (row.Description ?? '').trim();
   const category = (row.Category ?? '').trim();
   const iconHref = toSafeHref({ value: row.Logo, origin });
-  const date = (row.Date ?? '').trim();
 
   return {
-    title, description, docHref, tryHref, category, iconHref, date,
+    title, description, docHref, tryHref, category, iconHref,
   };
 }
 
@@ -46,8 +45,6 @@ export function filterByCategory({ items, filter = ALL_FILTER.value }) {
   return items.filter(({ category }) => category?.toLowerCase() === filter);
 }
 
-export const SORT_OPTIONS = [{ id: 'name', label: 'Name' }, { id: 'newest', label: 'Newest' }];
-
 export function searchItems({ items, query }) {
   const needle = (query ?? '').trim().toLowerCase();
   if (!needle) return items;
@@ -55,28 +52,8 @@ export function searchItems({ items, query }) {
     title.toLowerCase().includes(needle) || description.toLowerCase().includes(needle)));
 }
 
-const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
-
-const toTime = ({ date }) => {
-  const time = Date.parse(date);
-  return Number.isNaN(time) ? undefined : time;
-};
-
-function byNewest(a, b) {
-  const [timeA, timeB] = [toTime(a), toTime(b)];
-  if (timeA === timeB) return byTitle(a, b);
-  if (timeA === undefined) return 1;
-  if (timeB === undefined) return -1;
-  return timeB - timeA;
-}
-
-export function sortItems({ items, sort = 'name' }) {
-  return [...items].sort(sort === 'newest' ? byNewest : byTitle);
-}
-
-export function getVisibleItems({ items, filter, query, sort }) {
-  const filtered = filterByCategory({ items, filter });
-  return sortItems({ items: searchItems({ items: filtered, query }), sort });
+export function getVisibleItems({ items, filter, query }) {
+  return searchItems({ items: filterByCategory({ items, filter }), query });
 }
 
 // List rows: View details last (rightmost). Grid cards: View details first.

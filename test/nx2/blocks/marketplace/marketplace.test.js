@@ -197,9 +197,9 @@ describe('nx-marketplace', () => {
   it('filters by category with the Type rail', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
-        { Title: 'Core App', Category: 'Core', Date: '2024-01-01', 'Doc Url': 'https://example.com/a' },
-        { Title: 'Ext App', Category: 'Extension', Date: '2025-01-01', 'Doc Url': 'https://example.com/b' },
-        { Title: 'Other App', Category: 'Other', Date: '2023-01-01', 'Doc Url': 'https://example.com/c' },
+        { Title: 'Core App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Other App', Category: 'Other', 'Doc Url': 'https://example.com/c' },
       ],
     }));
     div = document.createElement('div');
@@ -233,9 +233,9 @@ describe('nx-marketplace', () => {
   it('searches and shows no-results message', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
-        { Title: 'Core App', Category: 'Core', Date: '2024-01-01', 'Doc Url': 'https://example.com/a' },
-        { Title: 'Ext App', Category: 'Extension', Date: '2025-01-01', 'Doc Url': 'https://example.com/b' },
-        { Title: 'Other App', Category: 'Other', Date: '2023-01-01', 'Doc Url': 'https://example.com/c' },
+        { Title: 'Core App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Other App', Category: 'Other', 'Doc Url': 'https://example.com/c' },
       ],
     }));
     div = document.createElement('div');
@@ -291,12 +291,12 @@ describe('nx-marketplace', () => {
     expect(el.shadowRoot.querySelector('.empty') === null).to.equal(true);
   });
 
-  it('sorts by newest via the sort menu', async () => {
+  it('keeps sheet order and has no sort control', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
-        { Title: 'Core App', Category: 'Core', Date: '2024-01-01', 'Doc Url': 'https://example.com/a' },
-        { Title: 'Ext App', Category: 'Extension', Date: '2025-01-01', 'Doc Url': 'https://example.com/b' },
-        { Title: 'Other App', Category: 'Other', Date: '2023-01-01', 'Doc Url': 'https://example.com/c' },
+        { Title: 'Zeta App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Alpha App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Mid App', Category: 'Other', 'Doc Url': 'https://example.com/c' },
       ],
     }));
     div = document.createElement('div');
@@ -306,13 +306,10 @@ describe('nx-marketplace', () => {
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    const titles = () => [...el.shadowRoot.querySelectorAll('.item h3')].map((h) => h.textContent);
-    const menu = el.shadowRoot.querySelector('.controls nx-menu');
-    expect(menu.items.map(({ id }) => id)).to.deep.equal(['name', 'newest']);
-    menu.dispatchEvent(new CustomEvent('select', { detail: { id: 'newest' } }));
-    await el.updateComplete;
-    expect(titles()).to.deep.equal(['Ext App', 'Core App', 'Other App']);
-    expect(menu.querySelector('button').textContent).to.contain('Sort by: Newest');
+    const titles = [...el.shadowRoot.querySelectorAll('.item h3')].map((h) => h.textContent);
+    expect(titles).to.deep.equal(['Zeta App', 'Alpha App', 'Mid App']);
+    expect(el.shadowRoot.querySelector('nx-menu')).to.equal(null);
+    expect(el.shadowRoot.querySelector('.toolbar').textContent).to.not.contain('Sort by');
   });
 
   it('hides the rail when the sheet has fewer than two categories', async () => {

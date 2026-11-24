@@ -3,7 +3,6 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../scripts/nx.js';
 import { loadStyle } from '../../utils/utils.js';
 import {
-  SORT_OPTIONS,
   fetchMarketplace,
   getActions,
   getCategoryFilters,
@@ -12,12 +11,7 @@ import {
 
 const { codeBase } = getConfig();
 
-const [buttonStyle, style] = await Promise.all([
-  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
-  loadStyle(import.meta.url),
-]);
-
-const SORT_ICON_HREF = `${codeBase}/img/icons/s2-icon-sortdown-20-n.svg#icon`;
+const style = await loadStyle(import.meta.url);
 
 const VIEW_ITEMS = [
   {
@@ -35,17 +29,15 @@ class NxMarketplace extends LitElement {
     _filters: { state: true },
     _filter: { state: true },
     _query: { state: true },
-    _sort: { state: true },
     _view: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [buttonStyle, style];
+    this.shadowRoot.adoptedStyleSheets = [style];
     this._failedIconHrefs ??= new Set();
     this._filter ??= 'all';
     this._query ??= '';
-    this._sort ??= 'name';
     this._view ??= 'list';
     if (this._items === undefined && !this._error) {
       this._load().catch(() => { this._error = 'Could not load marketplace.'; });
@@ -61,7 +53,6 @@ class NxMarketplace extends LitElement {
     // Load controls before the first render so they don't shift the layout once they appear.
     await Promise.all([
       import('../shared/search/search.js'),
-      import('../shared/menu/menu.js'),
       import('../shared/segmented-btn/segmented.js'),
     ]).catch(() => {});
     // A Type rail needs at least two categories besides "All".
@@ -118,7 +109,6 @@ class NxMarketplace extends LitElement {
   }
 
   _renderToolbar() {
-    const sortLabel = SORT_OPTIONS.find(({ id }) => id === this._sort)?.label;
     const label = `Search ${this._items.length} Capabilities`;
     return html`
       <div class="toolbar">
@@ -130,17 +120,6 @@ class NxMarketplace extends LitElement {
             size="m"
             @change=${({ detail: { value } }) => { this._view = value; }}
           ></nx-segmented-btn>
-          <nx-menu
-            .items=${SORT_OPTIONS}
-            size="m"
-            placement="below-end"
-            @select=${({ detail: { id } }) => { this._sort = id; }}
-          >
-            <button type="button" slot="trigger" class="nx-action-btn-quiet">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><use href=${SORT_ICON_HREF}></use></svg>
-              Sort by: ${sortLabel}
-            </button>
-          </nx-menu>
           <nx-search
             variant="field"
             size="m"
@@ -178,7 +157,6 @@ class NxMarketplace extends LitElement {
         <div class="toolbar-skeleton" aria-hidden="true">
           <div class="controls">
             <span class="skeleton-block"></span>
-            <span class="skeleton-block"></span>
             <span class="skeleton-block wide"></span>
           </div>
         </div>
@@ -207,7 +185,6 @@ class NxMarketplace extends LitElement {
       items: this._items,
       filter: this._filters ? this._filter : 'all',
       query: this._query,
-      sort: this._sort,
     });
 
     const count = `${visible.length} ${visible.length === 1 ? 'capability' : 'capabilities'}`;

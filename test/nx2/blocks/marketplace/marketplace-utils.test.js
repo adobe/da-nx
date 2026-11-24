@@ -8,9 +8,7 @@ import {
   getCategoryFilters,
   getActions,
   searchItems,
-  sortItems,
   getVisibleItems,
-  SORT_OPTIONS,
 } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
 
 const origin = 'https://main--da-live--adobe.aem.page';
@@ -31,7 +29,6 @@ describe('normalizeItem', () => {
       Owner: ' Adobe ',
       Category: ' Core ',
       Logo: 'https://example.com/t.png',
-      Date: ' 2026-11-03 ',
     };
     expect(normalizeItem({ row, origin })).to.deep.equal({
       title: 'MSM',
@@ -40,7 +37,6 @@ describe('normalizeItem', () => {
       tryHref: 'https://da.live/app/x/msm',
       category: 'Core',
       iconHref: 'https://example.com/t.png',
-      date: '2026-11-03',
     });
   });
 
@@ -107,7 +103,6 @@ describe('normalizeItem', () => {
     const result = normalizeItem({ row, origin });
     expect(result.description).to.equal('');
     expect(result.category).to.equal('');
-    expect(result.date).to.equal('');
   });
 
   it('ignores the Type column', () => {
@@ -183,12 +178,6 @@ describe('getCategoryFilters', () => {
   });
 });
 
-describe('SORT_OPTIONS', () => {
-  it('lists name and newest', () => {
-    expect(SORT_OPTIONS).to.deep.equal([{ id: 'name', label: 'Name' }, { id: 'newest', label: 'Newest' }]);
-  });
-});
-
 describe('searchItems', () => {
   const items = [
     { title: 'Anchor Links', description: 'Jump' },
@@ -217,41 +206,16 @@ describe('searchItems', () => {
   });
 });
 
-describe('sortItems', () => {
-  const titles = (list) => list.map(({ title }) => title);
-
-  it('sorts by name case-insensitively by default', () => {
-    const items = [{ title: 'beta' }, { title: 'Alpha' }, { title: 'alpha2' }, { title: 'Beta2' }];
-    const expected = ['Alpha', 'alpha2', 'beta', 'Beta2'];
-    expect(titles(sortItems({ items }))).to.deep.equal(expected);
-    expect(titles(sortItems({ items, sort: 'name' }))).to.deep.equal(expected);
-  });
-
-  it('sorts newest first, undated last by title, without mutating', () => {
-    const items = [
-      { title: 'D', date: '2026-10-01' },
-      { title: 'C', date: '' },
-      { title: 'B', date: '2026-11-19' },
-      { title: 'A', date: 'nope' },
-    ];
-    const copy = [...items];
-    expect(titles(sortItems({ items, sort: 'newest' }))).to.deep.equal(['B', 'D', 'A', 'C']);
-    expect(items).to.deep.equal(copy);
-  });
-});
-
 describe('getVisibleItems', () => {
-  it('filters, searches and sorts together', () => {
+  it('filters and searches together, keeping sheet order', () => {
     const items = [
-      { title: 'Old ext', description: 'tool', category: 'Extension', date: '2026-01-01' },
-      { title: 'New ext', description: 'tool', category: 'Extension', date: '2026-11-01' },
-      { title: 'Core tool', description: 'tool', category: 'Core', date: '2026-12-01' },
-      { title: 'Other', description: 'x', category: 'Extension', date: '2026-12-01' },
+      { title: 'Zeta ext', description: 'tool', category: 'Extension' },
+      { title: 'Alpha ext', description: 'tool', category: 'Extension' },
+      { title: 'Core tool', description: 'tool', category: 'Core' },
+      { title: 'Other', description: 'x', category: 'Extension' },
     ];
-    const result = getVisibleItems({
-      items, filter: 'extension', query: 'tool', sort: 'newest',
-    });
-    expect(result.map(({ title }) => title)).to.deep.equal(['New ext', 'Old ext']);
+    const result = getVisibleItems({ items, filter: 'extension', query: 'tool' });
+    expect(result.map(({ title }) => title)).to.deep.equal(['Zeta ext', 'Alpha ext']);
   });
 });
 

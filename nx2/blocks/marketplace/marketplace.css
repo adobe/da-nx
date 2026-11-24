@@ -27,10 +27,6 @@
   max-width: 100%;
 }
 
-.controls svg {
-  fill: currentcolor;
-}
-
 .body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
