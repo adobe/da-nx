@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import {
   HLX_ADMIN, AEM_API, DA_ADMIN, DA_CONTENT,
 } from '../../../nx2/utils/utils.js';
@@ -212,39 +213,58 @@ describe('api.js', () => {
     });
 
     it('rejects a 500 ping without the upgrade header and does not cache it', async () => {
-      installPings([{ status: 500 }, { status: 200 }]);
+      installPings([{ status: 500 }, { status: 500 }, { status: 500 }, { status: 200 }]);
+      const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
       const o = uniq('org');
       const s = uniq('site');
       let error;
-      await isHlx6(o, s).catch((e) => { error = e; });
+      const first = isHlx6(o, s).catch((e) => { error = e; });
+      await clock.tickAsync(2000);
+      await first;
+      clock.restore();
       expect(error).to.be.instanceOf(TypeError);
+      expect(pingCount()).to.equal(3);
       expect(await isHlx6(o, s)).to.equal(false);
-      expect(pingCount()).to.equal(2);
+      expect(pingCount()).to.equal(4);
     });
 
-    it('retries a 503 ping after its retry-after delay', async () => {
+    it('retries a 502 and a 503 ping after 1 s each', async () => {
       installPings([
-        { status: 503, headers: { 'retry-after': '0' } },
+        { status: 502 },
+        { status: 503 },
         { status: 200, headers: { 'x-api-upgrade-available': 'true' } },
       ]);
-      expect(await isHlx6(uniq('org'), uniq('site'))).to.equal(true);
-      expect(pingCount()).to.equal(2);
+      const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+      const result = isHlx6(uniq('org'), uniq('site'));
+      await clock.tickAsync(2000);
+      clock.restore();
+      expect(await result).to.equal(true);
+      expect(pingCount()).to.equal(3);
     });
 
     it('gives up after a bounded number of 429 retries', async () => {
-      installPings([{ status: 429, headers: { 'x-retry-after': '0' } }]);
+      installPings([{ status: 429 }]);
+      const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
       let error;
-      await isHlx6(uniq('org'), uniq('site')).catch((e) => { error = e; });
+      const result = isHlx6(uniq('org'), uniq('site')).catch((e) => { error = e; });
+      await clock.tickAsync(2000);
+      await result;
+      clock.restore();
       expect(error).to.be.instanceOf(TypeError);
       expect(pingCount()).to.equal(3);
     });
 
-    it('does not retry a 429 ping that asks for a long wait', async () => {
-      installPings([{ status: 429, headers: { 'retry-after': '60' } }]);
-      let error;
-      await isHlx6(uniq('org'), uniq('site')).catch((e) => { error = e; });
-      expect(error).to.be.instanceOf(TypeError);
-      expect(pingCount()).to.equal(1);
+    it('retries a 429 ping after 1 s even when retry-after asks for longer', async () => {
+      installPings([
+        { status: 429, headers: { 'retry-after': '60' } },
+        { status: 200, headers: { 'x-api-upgrade-available': 'true' } },
+      ]);
+      const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+      const result = isHlx6(uniq('org'), uniq('site'));
+      await clock.tickAsync(1000);
+      clock.restore();
+      expect(await result).to.equal(true);
+      expect(pingCount()).to.equal(2);
     });
 
     it('returns false for the reserved .da folder without pinging', async () => {
