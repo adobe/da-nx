@@ -43,8 +43,7 @@ class NxLocRollout extends LitElement {
     lang.rolloutTime = undefined;
     lang.rolledOut = 0;
     lang.errors = [];
-    const load = (path) => getSource(path);
-    const resolver = createRolloutResolver({ load, sitePath: this.sitePath });
+    const resolver = createRolloutResolver({ load: getSource, sitePath: this.sitePath });
     const items = lang.locales.reduce((acc, locale) => {
       const localeItems = this.urls.map((url) => {
         const source = `${this.sitePath}${lang.location}${url.basePath}`;

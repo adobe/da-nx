@@ -96,7 +96,8 @@ async function checkSite(org, site) {
   }
 }
 
-async function run({ org, site }, task, { retry = true } = {}) {
+async function run(path, task, { retry = true } = {}) {
+  const { org, site } = fromPath(path);
   const hlx6 = await checkSite(org, site);
   if (!hlx6) return task(hlx6);
   const key = `/${org}/${site}`;
@@ -110,35 +111,30 @@ async function run({ org, site }, task, { retry = true } = {}) {
 
 export async function getSource(path, { noCache, signal } = {}) {
   signal?.throwIfAborted();
-  const args = fromPath(path);
-  return run(args, (hlx6) => {
+  return run(path, (hlx6) => {
     const opts = {};
     if (signal) opts.signal = signal;
     // api.aem.live does not allow cache-control in CORS and answers no-store anyway.
     if (noCache && !hlx6) opts.headers = { 'Cache-Control': 'no-cache' };
-    return source.get({ ...args, opts: Object.keys(opts).length ? opts : undefined });
+    return source.get(path, { opts: Object.keys(opts).length ? opts : undefined });
   });
 }
 
 export function saveSource(path, body) {
-  const args = fromPath(path);
-  return run(args, () => source.save({ ...args, body }));
+  return run(path, () => source.save(path, { body }));
 }
 
 export async function listSource(path, { signal } = {}) {
   signal?.throwIfAborted();
-  const args = fromPath(path);
-  return run(args, () => source.list({ ...args, opts: signal ? { signal } : undefined }));
+  return run(path, () => source.list(path, { opts: signal ? { signal } : undefined }));
 }
 
 export function moveSource(path, destination) {
-  const args = fromPath(path);
-  return run(args, () => source.move({ ...args, destination }), { retry: false });
+  return run(path, () => source.move(path, { destination }), { retry: false });
 }
 
 export function createVersion(path, label) {
-  const args = fromPath(path);
-  return run(args, () => versions.create({ ...args, comment: label }));
+  return run(path, () => versions.create(path, { comment: label }));
 }
 
 const DA_ROUTES = ['source', 'versionsource'].map((kind) => ({ kind, prefix: `${DA_ADMIN}/${kind}` }));

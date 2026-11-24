@@ -187,8 +187,7 @@ async function prepareLangRollout({
 
   // Convert base lang urls to the full locale list
   const urlsToSave = formatRolloutUrls(org, site, lang, [...urls, ...sheets], snapshot);
-  const load = (path) => getSource(path);
-  const resolver = createRolloutResolver({ load, sitePath: `/${org}/${site}` });
+  const resolver = createRolloutResolver({ load: getSource, sitePath: `/${org}/${site}` });
   return { urlsToSave, resolver };
 }
 
