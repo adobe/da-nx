@@ -39,7 +39,7 @@ flowchart TD
   diff3 --> who{"Per block: who differs from the baseline?<br/>(baseline = global when apac last received it)"}
   who -- "only global (new global edit)" --> apply["Apply global change"]
   who -- "only apac (localized, old or new)" --> keep["Keep apac"]
-  who -- "both, differently" --> skip["Keep apac<br/>skipped, reported or marked for review"]
+  who -- "both, differently" --> skip["Mark for review<br/>(or keep apac: skipped)"]
   copy --> save["Save page + record new rolloutbase"]
   merge --> save
   take --> save
@@ -98,48 +98,49 @@ result and saves a version.
 | unchanged | changed | keep destination |
 | changed identically | changed identically | keep destination |
 | inserted at a spot | inserted at the same spot | keep both (destination first, no duplicates) |
-| changed | changed differently | keep destination: **skipped**, reported or **needs review** (below) |
+| changed | changed differently | **needs review** (marked), or keep destination: **skipped** (below) |
 
-When both sides changed the same region, the destination wins. What the report says depends on whether the result
-may be wrong (notation: baseline → upstream / destination):
+When both sides changed the same region, the rollout marks what the author hasn't seen yet. Only conflicts it can't
+mark keep the destination's version (notation: baseline → upstream / destination; rules defined in da-merge's
+[README](https://github.com/adobe/da-tools/blob/main/da-merge/README.md#smart-overwrite-conflicts)):
 
 | # | Case (example) | Result | Report |
 |---|---|---|---|
-| 1 | Both edited the same block (`A B C` → `A G C` / `A L C`) | `A L C` | skipped |
+| 1 | Both edited the same block (`A B C` → `A G C` / `A L C`) | `G` (Upstream) before `L` (Local), kind `changed` | needs review |
 | 2 | The page deleted a block upstream edited (`A B C` → `A B2 C` / `A C`) | `A C` | skipped |
-| 3 | Upstream deleted a block the page edited (`A B C` → `A C` / `A L C`) | `A L C` | skipped, and the page is listed under "upstream removed an edited block" |
-| 4 | Upstream moved and edited a block the page edited (`A X B C` → `A B C X2` / `A Xl B C`) | `A Xl B C X2`, `Xl` marked Local | needs review |
-| 5 | Upstream removed one of two identical copies, the page edited one (`A B B C` → `A B C` / `A B Bl C`) | `A B Bl C`, `Bl` marked Local | needs review |
+| 3 | Upstream deleted a block the page edited (`A B C` → `A C` / `A L C`) | `A L C`, `L` marked Local, kind `removed` | needs review |
+| 4 | Upstream moved and edited a block the page edited (`A X B C` → `A B C X2` / `A Xl B C`) | `A Xl B C X2`: row 3 for `Xl`, and the insert `X2` is applied | needs review |
+| 5 | Upstream removed one of two identical copies, the page edited one (`A B B C` → `A B C` / `A B Bl C`) | `A B Bl C`: row 3 for `Bl`, the twin stays | needs review |
 | 6 | Upstream's change also covers blocks the page didn't touch (`A B C` → `A2 Y B C` / `L B C`) | upstream's `A2 Y` (Upstream) before `L` (Local), then `B C` | needs review |
-| 7 | Upstream added content to a section the page removed (or anything else of rows 4–6 that holds a section break) | the destination's version, no markers; an addition at the end of the removed section is applied to the section before it | skipped |
+| 7a | Upstream added content to a section the page removed | the new blocks marked Upstream, kind `added`, at the end of the section before it | needs review |
+| 7b | Upstream deleted a section the page edited (`\| A \| B C` → `\| A` / `\| A \| Bl C`) | the page's blocks in that section marked Local, kind `removed` | needs review |
+| 7c | Upstream's change in a conflict adds or removes a section break, or new upstream blocks would land before the page's first section | the destination's version, no markers | skipped |
 | 8 | Both inserted at the same spot, one of them with a section break | the destination's version, no markers | skipped |
 
-- Rows 1–3 and 7–8 count as skipped. Rows 7–8 leave no markers, so the author compares the page with upstream by
-  hand; marking them needs stored markup for section breaks, which is not built yet. Rows 4–6 mark the page, so it is
-  listed under "needs review".
-- Rows 3, 4 and 5 look the same inside the conflict (upstream deleted, the page changed). A deleted block that
-  repeats in the baseline is row 5; otherwise, if upstream also added a new block anywhere on the page (a possible
-  move), it is row 4; otherwise row 3. An unrelated upstream addition elsewhere therefore turns a row 3 case into
-  row 4, so the author sees more, not less.
+- Rows 2, 7c and 8 count as skipped. They leave no markers, so the author compares the page with upstream by hand;
+  marking 7c and 8 needs stored markup for section breaks, which is not built yet. All other rows mark the page, so
+  it is listed under "needs review".
+- Rows 3, 4 and 5 look the same inside the conflict (upstream deleted, the page changed) and are marked the same
+  way. There is no move detection: in row 4 the moved copy is a new block, applied like any insert.
+- da-merge still counts rows 3–5 and 7b in `report.removedUpstream`; the rollout doesn't list them separately.
 - Marked blocks use the `da-diff-*` markup, grouped per conflict: one `<da-diff-deleted data-mdast="ignore">` around
   consecutive Upstream blocks (merge writes the same attribute, which the editor also saves, so a preview of a page
   nobody has opened yet leaves the Upstream blocks out); for Local, exactly like merge, the `da-diff-added`
   attribute on each block (on the first div of a block group; on the `<li>` for a list item). Every marker of a
   conflict also has the same `data-diff-group` id (`g1`, `g2`, …), a `data-diff-side` (`source` or `local`) and a
-  `data-diff-kind` (`changed` or `added`). The first Upstream marker has `data-diff-reason="both-changed"` (or a
+  `data-diff-kind` (`changed`, `added`, or `removed` when upstream removed the page's blocks). The first Upstream
+  marker (the first Local one in a group without Upstream blocks) has `data-diff-reason="both-changed"` (or a
   fallback reason: `no-baseline`, `page-too-large`). The format is defined by da-merge; editors must run a
   `@adobe/da-parser` that keeps these attributes. When both sides hold the same kinds of blocks, the pair renders as
   a tabbed choice (Keep Local / Keep Upstream / Keep Both) in the editor; otherwise each side shows its own
   keep/delete, as in a merge review.
-  Rows 4–5 mark only the page's copy, so after keeping it the author may need to delete the other copy by hand.
+  Rows 3–5 and 7b mark only the page's blocks: keeping them keeps the page as it is, deleting them follows upstream.
+  In row 4 the author may need to delete the applied copy by hand.
   In row 6 the editor shows the Upstream group and the Local blocks as separate boxes, each with its own
   keep/delete, as extra blocks do in a merge review (no tabbed choice).
-- Row 6 offers upstream's whole change, so it can include blocks the page deleted: `| H A B` → `| H A Y B` / `| H`
-  gives `| H` followed by `A Y B` marked Upstream, and an emptied page gets the whole upstream page marked. The
-  page's own content is unchanged; the author deletes the Upstream group to keep the page as it was.
-- Row 7 also covers upstream deleting a section the page edited (`| A | B C` → `| A` / `| A | Bl C`): the page keeps
-  its section, but nothing is marked and the page isn't listed under "needs review" or "upstream removed an edited
-  block", but it counts as skipped. The content is correct; the author has to find the section on the page.
+- Rows 6 and 7a offer only blocks new to the page: baseline blocks the page deleted stay deleted. So `| H A B` →
+  `| H A Y B` / `| H` gives `| H` followed by `Y` marked Upstream (kind `added`). The page's own content is
+  unchanged; the author deletes the Upstream group to keep the page as it was.
 - Like skipped changes, marked changes are not offered again: the next baseline already contains
   them. Markers still open on the page stay as they are (see "Unresolved review").
 
@@ -208,8 +209,7 @@ change is not offered again: the next baseline already contains it. Conflicts wi
 page also count as skipped (see "Unresolved review").
 
 Known limitation: a section break dropped as empty (rule 5) stays in the baseline. Upstream content added to that
-section later counts as skipped (row 7): added at the end of the section it is applied to the section
-before it; added anywhere else in it, it is not applied. Leaving the break out of the baseline
+section later is row 7a: it is marked for review at the end of the section before it. Leaving the break out of the baseline
 instead would let it come back on later rollouts and move localized blocks into it (see the "keeps local content in
 its section" test).
 
@@ -226,13 +226,13 @@ rollout. When the page itself moved a block so that upstream's move no longer ch
 
 Known limitation: upstream moving and editing a block the page edited, while also replacing another block at the
 spot it moved to (`A X B C D` → `A B X2 D` / `A Xl B C D`), looks like an in-place edit (`C` → `X2`) plus a
-deletion of `X`. It is treated as row 3: the result `A Xl B X2 D` has no markers, and the page is listed under
-"upstream removed an edited block", so the author still opens it and finds both `Xl` and `X2`.
+deletion of `X`. The result is `A Xl B X2 D` with `Xl` marked as in row 3, so the page is listed under
+"needs review" and the author finds both `Xl` and `X2`.
 
 Known limitation: if the page deleted the same block upstream deleted and edited the block next to it
-(`A B C D` → `A C D` / `A Cl D`), the merge can't tell this apart from editing the deleted block, so the page is
-listed under "upstream removed an edited block" (or marked for review if upstream also added blocks). The content is
-correct; the listing is a false positive.
+(`A B C D` → `A C D` / `A Cl D`), the merge can't tell this apart from editing the deleted block, so `Cl` is
+marked as in row 3 and the page is listed under "needs review". The content is correct; the marker is a false
+positive.
 
 Each smart rollout also reports, per page:
 - **unchanged**: nothing new to apply since the sync point (upstream unchanged, or only rejected changes), so
@@ -240,11 +240,9 @@ Each smart rollout also reports, per page:
   markers. A write of only the `rolloutorder` row saves no version (Loc app: "N unchanged" per locale; plugin:
   "unchanged").
 - **needs review**: after the rollout, the page has `da-diff-*` markers to accept or reject in the editor, also when
-  nothing was written (e.g. a first rollout without a sync point, or an uncertain case: rows 4–6 above).
+  nothing was written (e.g. a first rollout without a sync point, or a conflict: rows 1, 3–6, 7a and 7b above).
   The Loc app lists these pages under each locale, each linking to the page in the DA editor; in the plugin, "needs
   review" links to the page. The list is saved with the project and replaced by the next rollout.
-- **upstream removed an edited block** (row 3): the page kept its edited block. The Loc app lists these pages under
-  "Upstream removed a block these pages edited (local version kept):"; in the plugin, the label links to the page.
 - **upstream reordered blocks** (rule 4): the page kept its order for at least one upstream move. The Loc app
   lists these pages under "Upstream reordered blocks on these pages (some moves not applied):"; in the plugin,
   the label links to the page.
