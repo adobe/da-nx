@@ -62,6 +62,21 @@ describe('loc views on Helix 6', () => {
       expect(calls[1].url).to.equal(`${base}/.da/translation/active/1.json`);
     });
 
+    it('reports a failed copy or a partial archive as an error', async () => {
+      installFetch(({ method }) => {
+        if (method === 'GET') return json({ org, site, title: 'Proj', langs: [] });
+        if (method === 'PUT') return new Response(null, { status: 201 });
+        return new Response(null, { status: 403 });
+      });
+      const projectPath = `/${org}/${site}/.da/translation/active/1`;
+      const [copied, archived] = await Promise.allSettled([
+        copyProject({ path: projectPath }, 'me@example.com'),
+        archiveProject({ path: projectPath }),
+      ]);
+      expect(copied.reason?.message).to.equal('Copy failed (403)');
+      expect(archived.reason?.message).to.equal('Archive failed (403)');
+    });
+
     it('treats a missing project folder as an empty list', async () => {
       installFetch(() => new Response('', { status: 404 }));
       const errors = [];
