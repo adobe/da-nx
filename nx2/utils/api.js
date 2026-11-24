@@ -334,7 +334,7 @@ export const source = {
   _saveDA: withArgs(async ({ org, site, path, body }) => {
     const url = await getDaApiPath(SOURCE, org, site, path);
     const formData = new FormData();
-    formData.append('data', new Blob([body], { type: findContentType(path) }));
+    formData.append('data', new Blob([body], { type: findContentType(path, body) }));
     const opts = {
       method: 'POST',
       body: formData,
@@ -357,7 +357,7 @@ export const source = {
       method: 'POST',
       body,
       headers: {
-        'content-type': findContentType(path) || 'application/octet-stream',
+        'content-type': findContentType(path, body) || 'application/octet-stream',
       },
     };
     const resp = await daFetch({ url, opts });
@@ -757,12 +757,13 @@ const TYPE_MAP = {
 };
 
 /**
- * finds the content type by path extension
+ * finds the content type by path extension, else the type of a Blob body
  * @param path
+ * @param body
  */
-function findContentType(path) {
+function findContentType(path, body) {
   const ext = Object.keys(TYPE_MAP).find((e) => path.toLowerCase().endsWith(e));
-  return TYPE_MAP[ext];
+  return TYPE_MAP[ext] ?? (body?.type || undefined);
 }
 
 // Rewrite relative `media_` refs (src/href/srcset) to absolute URLs against
