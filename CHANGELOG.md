@@ -1,3 +1,10 @@
+# [1.64.0](https://github.com/adobe/da-nx/compare/v1.63.0...v1.64.0) (2026-11-24)
+
+
+### Features
+
+* introduce trailing item support for menu ([#1045](https://github.com/adobe/da-nx/issues/1045)) ([58a83f3](https://github.com/adobe/da-nx/commit/58a83f30914e97d05706d5a0a09918339cf39a9e))
+
 # [1.63.0](https://github.com/adobe/da-nx/compare/v1.62.1...v1.63.0) (2026-11-24)
 
 
