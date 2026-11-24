@@ -5,16 +5,18 @@ export { AEM_API, DA_ADMIN };
 export const calls = [];
 
 const hlx6Sites = new Set();
+const unreachableSites = new Set();
 
 let origFetch;
 let counter = 0;
 
-export function makeSite({ hlx6 = false } = {}) {
+export function makeSite({ hlx6 = false, pingFails = false } = {}) {
   counter += 1;
   const id = `${counter}-${Math.floor(Math.random() * 1e6)}`;
   const org = `locorg-${id}`;
   const site = `locsite-${id}`;
   if (hlx6) hlx6Sites.add(`/${org}/${site}`);
+  if (pingFails) unreachableSites.add(`/${org}/${site}`);
   return { org, site };
 }
 
@@ -26,7 +28,9 @@ export function installFetch(respond = () => new Response('{}', { status: 200 })
     const href = url.toString();
     if (href.startsWith(window.location.origin)) return passthrough(url, opts);
     if (href.startsWith(`${HLX_ADMIN}/ping/`)) {
-      const upgraded = hlx6Sites.has(href.slice(`${HLX_ADMIN}/ping`.length));
+      const sitePath = href.slice(`${HLX_ADMIN}/ping`.length);
+      if (unreachableSites.has(sitePath)) throw new TypeError('Failed to fetch');
+      const upgraded = hlx6Sites.has(sitePath);
       return new Response('', { status: 200, headers: upgraded ? { 'x-api-upgrade-available': 'true' } : {} });
     }
     const call = {

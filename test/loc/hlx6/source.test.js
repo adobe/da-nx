@@ -148,6 +148,27 @@ describe('loc source helpers', () => {
     });
   });
 
+  describe('when the site check fails', () => {
+    it('rejects every call with a clear error and sends nothing', async () => {
+      installFetch();
+      const { org, site } = makeSite({ pingFails: true });
+      const results = await Promise.allSettled([
+        getSource(`/${org}/${site}/en/page.html`),
+        saveSource(`/${org}/${site}/de/page.html`, '<main></main>'),
+        listSource(`/${org}/${site}/.da/translation/active`),
+        moveSource(`/${org}/${site}/a.json`, `/${org}/${site}/b.json`),
+        createVersion(`/${org}/${site}/de/page.html`, 'label'),
+        sourceFetch(`${DA_ADMIN}/source/${org}/${site}/de/page.html`),
+        loadCopyConfig({ org, site }),
+      ]);
+      expect(results.map(({ status }) => status)).to.deep.equal(Array(7).fill('rejected'));
+      results.forEach(({ reason }) => {
+        expect(reason.message).to.equal(`Could not check where ${org}/${site} keeps its content. Try again.`);
+      });
+      expect(calls).to.deep.equal([]);
+    });
+  });
+
   describe('on a legacy DA site', () => {
     it('reads from admin.da.live and keeps the cache-control header', async () => {
       installFetch();

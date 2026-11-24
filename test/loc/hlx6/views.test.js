@@ -2,9 +2,13 @@ import { expect } from '@esm-bundle/chai';
 import { fetchProject, copyProject, archiveProject } from '../../../nx/blocks/loc/views/dashboard/index.js';
 import createProjectData from '../../../nx/blocks/loc/views/dashboard/project-data.js';
 import { rolloutLang } from '../../../nx/blocks/loc/views/rollout/index.js';
-import { getUrls, copySourceLangs } from '../../../nx/blocks/loc/views/translate/index.js';
+import {
+  getUrls, copySourceLangs, sendAllForTranslation,
+} from '../../../nx/blocks/loc/views/translate/index.js';
+import { clearConfigCache, loadProject } from '../../../nx/blocks/loc/utils/utils.js';
 import { fetchBlockSchema, fetchKeywordsFile } from '../../../nx/blocks/loc/connectors/glaas/translationMetadata.js';
 import '../../../nx/blocks/loc/views/validate/validate.js';
+import '../../../nx/blocks/loc/views/dashboard/dashboard.js';
 import {
   AEM_API, calls, installFetch, makeSite, restoreFetch, waitFor,
 } from './mock-fetch.js';
@@ -87,6 +91,129 @@ describe('loc views on Helix 6', () => {
         org, site, currentUser: 'me', initialType: 'active', handleError: (e) => errors.push(e),
       });
       expect(errors[0].criticalError.status).to.equal(403);
+    });
+  });
+
+  describe('when the site check fails', () => {
+    let unreachable;
+    let message;
+
+    beforeEach(() => {
+      unreachable = makeSite({ pingFails: true });
+      message = `Could not check where ${unreachable.org}/${unreachable.site} keeps its content. Try again.`;
+    });
+
+    it('shows an error on the dashboard and lets the user retry', async () => {
+      installFetch();
+      let error;
+      try {
+        await createProjectData({
+          org: unreachable.org, site: unreachable.site, currentUser: 'me', handleError: () => {},
+        });
+      } catch (e) {
+        error = e;
+      }
+      expect(error.message).to.equal(message);
+      expect(calls).to.deep.equal([]);
+
+      const Dashboard = customElements.get('nx-loc-dashboard');
+      const attempts = [Promise.reject(error), Promise.resolve()];
+      const ctx = { initializeProjectsAndUser: () => attempts.shift() };
+      let first;
+      try {
+        await Dashboard.prototype.ensureInitialized.call(ctx);
+      } catch (e) {
+        first = e;
+      }
+      expect(first).to.equal(error);
+      expect(ctx._error.message).to.equal(message);
+      expect(ctx._isLoading).to.equal(false);
+      await Dashboard.prototype.ensureInitialized.call(ctx);
+      expect(attempts).to.deep.equal([]);
+      expect(ctx._error).to.be.undefined;
+    });
+
+    it('reports an error when loading a project', async () => {
+      installFetch();
+      const path = `/${unreachable.org}/${unreachable.site}/.da/translation/active/1`;
+      const result = await loadProject({ path, updateDocTitle: false });
+      expect(result).to.deep.equal({ message: { text: message } });
+    });
+
+    it('stops a rollout before writing anything', async () => {
+      installFetch(() => new Response('', { status: 201 }));
+      const lang = { name: 'English', location: '/en', locales: [{ code: '/en/us' }], rollout: {} };
+      const result = await rolloutLang({
+        org: unreachable.org,
+        site: unreachable.site,
+        title: 'Proj',
+        options: { 'source.language': { location: '/en' }, 'rollout.conflict.behavior': 'overwrite' },
+        lang,
+        urls: [{ suppliedPath: '/en/page' }],
+        actions: { requestUpdate: () => {} },
+      });
+      expect(result.aborted).to.equal(true);
+      expect(result.errors[0].error).to.include(message);
+      expect(calls).to.deep.equal([]);
+    });
+
+    it('marks pages as errors in validate', async () => {
+      installFetch();
+      const Validate = customElements.get('nx-loc-validate');
+      const url = new URL(`https://main--${unreachable.site}--${unreachable.org}.aem.page/en/page`);
+      const ctx = {
+        _org: unreachable.org,
+        _site: unreachable.site,
+        _urls: [url],
+        getOriginMatches: async () => [],
+        checkUrl: Validate.prototype.checkUrl,
+        findFragments: async () => {},
+        requestUpdate: () => {},
+        updateSourceMessage: async () => {},
+      };
+      await Validate.prototype.checkUrls.call(ctx);
+      expect(url.status).to.equal(`error - ${message}`);
+      expect(url.checked).to.equal(false);
+    });
+
+    it('shows an error in validate when the config cannot be read', async () => {
+      installFetch();
+      const Validate = customElements.get('nx-loc-validate');
+      const ctx = {
+        _org: unreachable.org,
+        _site: unreachable.site,
+        _urls: [],
+        findConfigValue: Validate.prototype.findConfigValue,
+        getOriginMatches: Validate.prototype.getOriginMatches,
+      };
+      clearConfigCache();
+      await Validate.prototype.checkUrls.call(ctx);
+      clearConfigCache();
+      expect(ctx._message).to.deep.equal({ type: 'error', text: message });
+      expect(ctx._configSheet).to.be.undefined;
+    });
+
+    it('does not send pages to the vendor without their content', async () => {
+      installFetch(({ url }) => (url.endsWith('/.da/translate.json')
+        ? json({ config: { data: [] } })
+        : new Response(DOC, { status: 200 })));
+      const { urls } = await getUrls(
+        unreachable.org,
+        unreachable.site,
+        {},
+        '/en',
+        '/en',
+        [{ suppliedPath: '/en/page' }],
+        true,
+      );
+      expect(urls[0].content).to.be.undefined;
+      expect(urls[0].error).to.include(message);
+      let sent = false;
+      const connector = { sendAllLanguages: async () => { sent = true; } };
+      const conf = { langsWithUrls: [{ urls }], langs: [] };
+      const result = await sendAllForTranslation(conf, connector);
+      expect(result.errors).to.have.length(1);
+      expect(sent).to.equal(false);
     });
   });
 
