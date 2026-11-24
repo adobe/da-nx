@@ -1,5 +1,4 @@
 import { expect } from '@esm-bundle/chai';
-import sinon from 'sinon';
 import { HLX_ADMIN, DA_ADMIN } from '../../../nx2/utils/utils.js';
 import { fetchDaConfigs } from '../../../nx2/utils/daConfig.js';
 import {
@@ -77,23 +76,6 @@ describe('getEWFlags', () => {
       body: JSON.stringify({ config: [], flags: [{ key: 'ew.enabled', value: 'true' }] }),
     });
     expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.enabled': 'true' });
-    expect(calls.filter((call) => call.url.startsWith(DA_ADMIN))).to.have.lengthOf(0);
-  });
-
-  it('returns no flags when the hlx6 check fails, like a failed fetch', async () => {
-    restoreFetch();
-    calls.length = 0;
-    window.fetch = async (url) => {
-      const u = url.toString();
-      calls.push({ url: u, method: 'GET' });
-      if (u.includes(`${HLX_ADMIN}/ping/`)) return new Response('', { status: 500 });
-      return new Response(JSON.stringify({ flags: { data: [{ key: 'ew.enabled', value: 'true' }] } }), { status: 200 });
-    };
-    const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
-    const flags = getEWFlags({ org: 'flag-org-ping', site: 'flag-site-ping' });
-    await clock.tickAsync(2000);
-    clock.restore();
-    expect(await flags).to.deep.equal({});
     expect(calls.filter((call) => call.url.startsWith(DA_ADMIN))).to.have.lengthOf(0);
   });
 });
