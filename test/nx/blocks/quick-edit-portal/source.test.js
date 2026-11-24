@@ -5,20 +5,10 @@ import {
 } from '../../../nx2/mocks/fetch.js';
 import { getInitSite, getOrgSite, loadDocSource } from '../../../../nx/blocks/quick-edit-portal/src/source.js';
 
-const STORAGE_KEY = 'hlx6-upgrade';
-
 let counter = 0;
-const makeOrgSite = ({ hlx6 = false } = {}) => {
+const makeOrgSite = () => {
   counter += 1;
-  const org = `qe-org-${counter}-${Math.floor(Math.random() * 1e6)}`;
-  const site = `qe-site-${counter}`;
-  if (hlx6) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      ...(JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {}),
-      [`/${org}/${site}`]: true,
-    }));
-  }
-  return { org, site };
+  return { org: `qe-org-${counter}-${Math.floor(Math.random() * 1e6)}`, site: `qe-site-${counter}` };
 };
 
 describe('quick-edit portal source', () => {
@@ -76,8 +66,8 @@ describe('quick-edit portal source', () => {
 
   describe('loadDocSource', () => {
     it('uses the source bus url on hlx6, the same url the da-live canvas names its room with', async () => {
-      installFetch();
-      const { org, site } = makeOrgSite({ hlx6: true });
+      installFetch({ pingHlx6: true });
+      const { org, site } = makeOrgSite();
       const result = await loadDocSource({ org, site, pathname: '/drafts/page' });
 
       const expected = `${AEM_API}/${org}/sites/${site}/source/drafts/page.html`;
@@ -107,8 +97,8 @@ describe('quick-edit portal source', () => {
     });
 
     it('maps a folder path to its index document', async () => {
-      installFetch();
-      const { org, site } = makeOrgSite({ hlx6: true });
+      installFetch({ pingHlx6: true });
+      const { org, site } = makeOrgSite();
       const { sourceUrl } = await loadDocSource({ org, site, pathname: '/drafts/' });
       expect(sourceUrl).to.equal(`${AEM_API}/${org}/sites/${site}/source/drafts/index.html`);
     });
