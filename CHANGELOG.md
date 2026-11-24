@@ -1,3 +1,10 @@
+# [1.65.0](https://github.com/adobe/da-nx/compare/v1.64.0...v1.65.0) (2026-11-24)
+
+
+### Features
+
+* introduce coworker access check ([#1038](https://github.com/adobe/da-nx/issues/1038)) ([bb8e8f4](https://github.com/adobe/da-nx/commit/bb8e8f4c1ae1cba30a184b73e9df31b2b9cf61f7))
+
 # [1.64.0](https://github.com/adobe/da-nx/compare/v1.63.0...v1.64.0) (2026-11-24)
 
 
