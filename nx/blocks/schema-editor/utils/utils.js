@@ -75,9 +75,9 @@ export async function loadSchemas(org, site) {
 
   // Map of schema name -> tagged result. Schemas that failed to fetch are
   // dropped so the editor only lists ones it can actually open.
-  const entries = await Promise.all(
-    json.map(async (schema) => [schema.name, await loadSchema(schema)]),
-  );
+  const entries = await Promise.all(json
+    .filter((schema) => schema.ext === 'html')
+    .map(async (schema) => [schema.name, await loadSchema(schema)]));
   return Object.fromEntries(
     entries.filter(([, result]) => result.status !== 'load-failed'),
   );
