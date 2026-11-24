@@ -1,6 +1,8 @@
 import { daFetch } from './ims-adapter.js';
 import { DA_ADMIN, HLX_ADMIN } from '../../../utils/utils.js';
 import { AEM_API_ORIGIN } from './constants.js';
+import { getMessage } from './messages.js';
+import { getRetryAfterMs } from './rate-limit.js';
 import {
   getSourceUrl,
   getListUrl,
@@ -8,27 +10,43 @@ import {
   toSaveOptions,
 } from './source-api.js';
 
-// Same probe as nx2 isHlx6, but over the media library's daFetch so plugin-injected tokens work.
+const MAX_RETRY_AFTER_MS = 2000;
+
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+async function fetchAdmin(url, retryDelaysMs = [250, 500]) {
+  const resp = await daFetch(url);
+  if (![429, 503].includes(resp.status) || !retryDelaysMs.length) return resp;
+  const retryAfterMs = getRetryAfterMs(resp);
+  if (retryAfterMs > MAX_RETRY_AFTER_MS) return resp;
+  const [delayMs, ...rest] = retryDelaysMs;
+  await sleep(retryAfterMs || delayMs);
+  return fetchAdmin(url, rest);
+}
+
+const checkFailed = (resp) => new Error(getMessage('SOURCE_CHECK_FAILED', { status: resp.status }));
+
+// Ping like nx2 isHlx6, over the media library's daFetch so plugin-injected tokens work.
+// The ping header is also set for a source bus overlay alone, so check the primary source.
+async function probe(org, site) {
+  const ping = await fetchAdmin(`${HLX_ADMIN}/ping/${org}/${site}`);
+  if (!ping.ok && ping.status !== 404) throw checkFailed(ping);
+  if (!ping.headers.has('x-api-upgrade-available')) return false;
+  const config = await fetchAdmin(`${HLX_ADMIN}/sidekick/${org}/${site}/main/config.json`);
+  if (!config.ok) throw checkFailed(config);
+  const { contentSourceType, contentSourceUrl } = await config.json();
+  return contentSourceType === 'sourcebus' || !!contentSourceUrl?.startsWith(`${AEM_API_ORIGIN}/`);
+}
+
 export const isHlx6 = (() => {
   const cache = {};
-
-  const isTransient = ({ status }) => status === 429 || status >= 500;
-
-  const probe = async (org, site, retryDelaysMs = [250, 500]) => {
-    const resp = await daFetch(`${HLX_ADMIN}/ping/${org}/${site}`);
-    if (!isTransient(resp)) return resp.headers.get('x-api-upgrade-available') !== null;
-    if (!retryDelaysMs.length) return undefined;
-    const [delayMs, ...rest] = retryDelaysMs;
-    await new Promise((resolve) => { setTimeout(resolve, delayMs); });
-    return probe(org, site, rest);
-  };
 
   return (org, site) => {
     if (!org || !site) return Promise.resolve(false);
     const key = `/${org}/${site}`;
-    cache[key] ??= probe(org, site).then((hlx6) => {
-      if (hlx6 === undefined) delete cache[key];
-      return hlx6 ?? false;
+    cache[key] ??= probe(org, site).catch((error) => {
+      delete cache[key];
+      throw error;
     });
     return cache[key];
   };

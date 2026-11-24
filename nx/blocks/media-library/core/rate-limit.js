@@ -26,7 +26,7 @@ export function createRateLimiter(initialRate, { delay = defaultDelay, now = Dat
   };
 }
 
-function getRetryAfterMs(resp) {
+export function getRetryAfterMs(resp) {
   const seconds = parseInt(resp.headers.get('x-retry-after') || resp.headers.get('retry-after'), 10);
   return seconds > 0 ? seconds * 1000 : 0;
 }
