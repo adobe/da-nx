@@ -687,7 +687,7 @@ export const isHlx6 = (() => {
   };
 
   return (org, site) => {
-    if (!site) return false;
+    if (!site || site === '.da') return false;
 
     const path = `/${org}/${site}`;
     cache[path] ??= fetchUpgradeStatus(path);
