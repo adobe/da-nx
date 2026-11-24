@@ -157,17 +157,6 @@ describe('rollout plugin report', () => {
     sinon.restore();
   });
 
-  it('labels a destination left without a sync point', async () => {
-    const el = document.createElement('test-da-rollout');
-    el.prefixes = [{
-      path: '/apac', active: true, status: 'success', outcome: 'no-sync-point',
-    }];
-    document.body.append(el);
-    await el.updateComplete;
-    expect(el.shadowRoot.querySelector('.skipped-count').textContent).to.equal('no sync point');
-    el.remove();
-  });
-
   it('links destinations where upstream removed an edited block or reordered blocks', async () => {
     const el = document.createElement('test-da-rollout');
     el.prefixes = [{

@@ -107,7 +107,7 @@ export default class DaRollout extends LitElement {
     const name = prefix.path.replace('/', '');
     return html`
       <li class="da-prefix ${prefix.active ? 'is-active' : ''} status-${prefix.status || 'none'}" title=${prefix.error || nothing}>
-        <span>${name}${prefix.skipped ? html` <span class="skipped-count">${prefix.skipped} skipped (localized)</span>` : nothing}${prefix.outcome === 'unchanged' ? html` <span class="skipped-count">unchanged</span>` : nothing}${prefix.outcome === 'review' ? html` <a class="review-link" href="https://da.live/edit#${prefix.edit}" target="_blank" rel="noopener">needs review</a>` : nothing}${prefix.outcome === 'no-sync-point' ? html` <span class="skipped-count">no sync point</span>` : nothing}${prefix.sync ? html` <span class="skipped-count">${SYNC_LABELS[prefix.sync]}</span>` : nothing}</span>
+        <span>${name}${prefix.skipped ? html` <span class="skipped-count">${prefix.skipped} skipped (localized)</span>` : nothing}${prefix.outcome === 'unchanged' ? html` <span class="skipped-count">unchanged</span>` : nothing}${prefix.outcome === 'review' ? html` <a class="review-link" href="https://da.live/edit#${prefix.edit}" target="_blank" rel="noopener">needs review</a>` : nothing}${prefix.sync ? html` <span class="skipped-count">${SYNC_LABELS[prefix.sync]}</span>` : nothing}</span>
         <div class="prefix-actions">
           <button type="button" aria-label="Open ${name} in a new tab" @click=${() => this.open(prefix)}>
             <svg class="icon" aria-hidden="true"><use href="#spectrum-linkOut"/></svg>

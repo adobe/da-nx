@@ -28,12 +28,12 @@ flowchart TD
   start["Rollout global → apac<br/>(Smart Overwrite, keep local edits)"] --> base{"apac has a valid<br/>rolloutbase for this page?"}
   base -- "no" --> exists{"apac page has content?"}
   exists -- "no (missing or empty)" --> copy["Copy the global page"]
-  exists -- "yes (no sync point set, never rolled out)" --> merge["Today's merge<br/>(da-diff markers to review once)"]
-  base -- "yes" --> pending{"apac still has unresolved<br/>da-diff markers?"}
-  pending -- "yes" --> merge
-  pending -- "no" --> same{"global unchanged since<br/>the baseline?"}
+  exists -- "yes (no sync point set, never rolled out)" --> merge["Merge review<br/>(da-diff markers to review once)"]
+  base -- "yes" --> same{"global unchanged since<br/>the baseline?"}
   same -- "yes" --> nothing["Nothing to do<br/>(no write, no version)"]
-  same -- "no" --> unchanged{"apac has no localized blocks?<br/>(identical to global at the last rollout)"}
+  same -- "no" --> large{"more than 2,000 blocks<br/>on either side?"}
+  large -- "yes" --> merge
+  large -- "no" --> unchanged{"apac has no localized blocks?<br/>(identical to global at the last rollout)"}
   unchanged -- "yes, nothing localized" --> take["Take global as-is<br/>(minus rejected blocks)"]
   unchanged -- "no, apac has localized blocks" --> diff3["Block-level three-way merge<br/>baseline vs global vs apac"]
   diff3 --> who{"Per block: who differs from the baseline?<br/>(baseline = global when apac last received it)"}
@@ -61,25 +61,30 @@ On opted-in sites the baseline is recorded by:
   local stay local afterwards);
 - **Set sync point** (below).
 
-If the upstream page's content isn't all in `main > div` sections (e.g. loose content in `main`), no baseline can be
-computed: a plain merge or overwrite still saves the page, records none and removes the old one (it no longer
-matches the page). The report shows this (Loc app rollout step: "N without sync point" per locale, listing the
-upstream pages to fix; plugin: "no sync point"). Any other error while computing the baseline fails the page before
-anything is saved. If the translation config can't be read, an overwrite proceeds as on a site that hasn't opted in
-(the page takes upstream's metadata, so it has no sync point and its next smart rollout is a merge review). This is
+Pages are converted to the editor's form before they are compared (see "Editor form" below), so content outside
+`main > div` sections is put into sections and a baseline can always be computed. An error while computing the
+baseline fails the page before anything is saved. If the translation config can't be read, an overwrite proceeds as
+on a site that hasn't opted in (the page gets no sync point, so its next smart rollout is a merge review). This is
 only logged to the console, as the site may not have opted in.
 
+Plain merge and overwrite rollouts on sites that haven't opted in, and every other caller (translations, sync,
+snapshots, the public `mergeCopy` and `overwriteCopy`), remove the page's `rolloutbase` and `rolloutorder` rows: the
+page no longer matches them. Snapshot copies are the exception (below).
+
 Snapshots, translations and sync do not record baselines, and neither do rollouts or sync points into snapshot
-paths (`/.snapshots/…`). A snapshot keeps the page's baseline, so edits made in a snapshot count as local edits when
-merged or overwritten back. That baseline is keyed to the live page, so a smart rollout into a snapshot is a merge
+paths (`/.snapshots/…`). A snapshot keeps the page's baseline: creating a snapshot copies the live page's
+`rolloutbase` and `rolloutorder` rows into it, and overwriting or merging it back keeps them, so edits made in a
+snapshot count as local edits. That baseline is keyed to the live page, so a smart rollout into a snapshot is a merge
 review. The public `mergeCopy`
-([loc-copy.md](loc-copy.md)) can't tell whether its source is the page's rollout parent, so when it writes a merge it removes the
-baseline and the next smart rollout to that page is a merge review. Translations and sync write the upstream (language)
+([loc-copy.md](loc-copy.md)) can't tell whether its source is the page's rollout parent, so it removes the baseline
+and the next smart rollout to that page is a merge review. Translations and sync write the upstream (language)
 pages, so they are upstream edits that roll out normally.
 
 The next smart rollout does a block-level three-way merge (diff3, like `git merge`) of baseline (B), current
-upstream (S) and destination (D). Logic lives in `nx/public/loc/smart-merge.js` (merge) and
-`nx/public/loc/smart-overwrite.js` (read/save); both are Nexter-internal (not exported from `nx/public/loc/index.js`).
+upstream (S) and destination (D). The merge logic lives in the `@adobe/da-merge` package
+([da-tools](https://github.com/adobe/da-tools/tree/main/da-merge)), bundled in `nx/deps/da-merge`.
+`nx/public/loc/copy.js` only reads the pages and config, calls da-merge's `applyCopy` or `markInSync`, saves the
+result and saves a version.
 
 1. Diff B→S and B→D into change hunks (ranges of baseline blocks replaced by new blocks). Equal-length replacements
    are treated as in-place edits of each block.
@@ -106,10 +111,11 @@ may be wrong (notation: baseline → upstream / destination):
 | 4 | Upstream moved and edited a block the page edited (`A X B C` → `A B C X2` / `A Xl B C`) | `A Xl B C X2`, `Xl` marked Local | needs review |
 | 5 | Upstream removed one of two identical copies, the page edited one (`A B B C` → `A B C` / `A B Bl C`) | `A B Bl C`, `Bl` marked Local | needs review |
 | 6 | Upstream's change also covers blocks the page didn't touch (`A B C` → `A2 Y B C` / `L B C`) | upstream's `A2 Y` (Upstream) before `L` (Local), then `B C` | needs review |
-| 7 | Upstream added content to a section the page removed (or anything else of rows 4–6 that holds a section break) | the destination's version, no markers; an addition at the end of the removed section is applied to the section before it | needs review |
-| 8 | Both inserted at the same spot, one of them with a section break | the destination's version, no markers | needs review |
+| 7 | Upstream added content to a section the page removed (or anything else of rows 4–6 that holds a section break) | the destination's version, no markers; an addition at the end of the removed section is applied to the section before it | not reported |
+| 8 | Both inserted at the same spot, one of them with a section break | the destination's version, no markers | not reported |
 
-- Rows 1–3 count as "skipped (localized)". Rows 4–8 don't: they are listed under "needs review".
+- Rows 1–3 count as "skipped (localized)". Rows 4–6 mark the page, so it is listed under "needs review". Rows 7–8
+  leave no markers and are not reported.
 - Rows 3, 4 and 5 look the same inside the conflict (upstream deleted, the page changed). A deleted block that
   repeats in the baseline is row 5; otherwise, if upstream also added a new block anywhere on the page (a possible
   move), it is row 4; otherwise row 3. An unrelated upstream addition elsewhere therefore turns a row 3 case into
@@ -117,9 +123,13 @@ may be wrong (notation: baseline → upstream / destination):
 - Marked blocks use the `da-diff-*` markup, grouped per conflict: one `<da-diff-deleted data-mdast="ignore">` around
   consecutive Upstream blocks (merge writes the same attribute, which the editor also saves, so a preview of a page
   nobody has opened yet leaves the Upstream blocks out); for Local, exactly like merge, the `da-diff-added`
-  attribute on each block (on the first div of
-  a block group). When both sides hold the same kinds of blocks, the pair renders as a tabbed choice (Keep Local /
-  Keep Upstream / Keep Both) in the editor; otherwise each side shows its own keep/delete, as in a merge review.
+  attribute on each block (on the first div of a block group; on the `<li>` for a list item). Every marker of a
+  conflict also has the same `data-diff-group` id (`g1`, `g2`, …), a `data-diff-side` (`source` or `local`) and a
+  `data-diff-kind` (`changed` or `added`). The first Upstream marker has `data-diff-reason="both-changed"` (or a
+  fallback reason: `no-baseline`, `page-too-large`). The format is defined by da-merge; editors must run a
+  `@adobe/da-parser` that keeps these attributes. When both sides hold the same kinds of blocks, the pair renders as
+  a tabbed choice (Keep Local / Keep Upstream / Keep Both) in the editor; otherwise each side shows its own
+  keep/delete, as in a merge review.
   Rows 4–5 mark only the page's copy, so after keeping it the author may need to delete the other copy by hand.
   In row 6 the editor shows the Upstream group and the Local blocks as separate boxes, each with its own
   keep/delete, as extra blocks do in a merge review (no tabbed choice).
@@ -127,11 +137,10 @@ may be wrong (notation: baseline → upstream / destination):
   gives `| H` followed by `A Y B` marked Upstream, and an emptied page gets the whole upstream page marked. The
   page's own content is unchanged; the author deletes the Upstream group to keep the page as it was.
 - Row 7 also covers upstream deleting a section the page edited (`| A | B C` → `| A` / `| A | Bl C`): the page keeps
-  its section and is listed under "needs review", but nothing is marked and it isn't listed under "upstream removed
-  an edited block". The content is correct; the author has to find the section on the page.
-- Like skipped changes, marked and flagged changes are not offered again: the next baseline already contains them.
-  The exception: until the markers are resolved, every smart rollout to the page is a full merge review, which
-  offers again every upstream difference, including earlier skipped changes (see "Unresolved review").
+  its section, but nothing is marked and the page isn't listed under "needs review" or "upstream removed an edited
+  block". The content is correct, but nothing tells the author about the change.
+- Like skipped changes, marked and unreported changes are not offered again: the next baseline already contains
+  them. Markers still open on the page stay as they are (see "Unresolved review").
 
 Blocks rejected in a merge review (the page's `rejectedhashes`) are treated as if upstream never had them: before
 the merge they are removed from the upstream page, together with any section that held only rejected blocks, and
@@ -179,7 +188,7 @@ is applied, and a block upstream replaced with only rejected blocks is deleted l
    metadata stay with their content. Section breaks that would leave an empty section after merging are dropped,
    unless the destination or upstream already has an empty section.
 
-Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`):
+Guarantees (covered by seeded randomized tests in da-merge's `test/smart-merge.test.js`):
 - Destination identical to the baseline (nothing localized) → result equals upstream, minus rejected blocks.
 - Upstream unchanged, or equal to the destination → result equals the destination.
 - Every block the destination added or edited is kept.
@@ -194,11 +203,11 @@ Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`
   every move back.
 
 Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N skipped (localized)". A skipped
-change is not offered again: the next baseline already contains it, unless the page still has unresolved
-markers (see "Unresolved review").
+change is not offered again: the next baseline already contains it. Conflicts with markers still open on the
+page also count as skipped (see "Unresolved review").
 
 Known limitation: a section break dropped as empty (rule 5) stays in the baseline. Upstream content added to that
-section later is listed under "needs review" (row 7): added at the end of the section it is applied to the section
+section later is not reported (row 7): added at the end of the section it is applied to the section
 before it; added anywhere else in it, it is not applied. Leaving the break out of the baseline
 instead would let it come back on later rollouts and move localized blocks into it (see the "keeps local content in
 its section" test).
@@ -229,7 +238,7 @@ Each smart rollout also reports, per page:
   nothing was written except the `rolloutorder` row when upstream's reorder changed (Loc app: "N unchanged" per
   locale; plugin: "unchanged").
 - **needs review**: the saved page has `da-diff-*` markers to accept or reject in the editor (e.g. a first rollout
-  without a sync point, or a review that is still unresolved), or the merge hit an uncertain case (rows 4–8 above).
+  without a sync point, or an uncertain case: rows 4–6 above).
   The Loc app lists these pages under each locale, each linking to the page in the DA editor; in the plugin, "needs
   review" links to the page. The list is saved with the project and replaced by the next rollout.
 - **upstream removed an edited block** (row 3): the page kept its edited block. The Loc app lists these pages under
@@ -238,36 +247,57 @@ Each smart rollout also reports, per page:
   lists these pages under "Upstream reordered blocks on these pages (some moves not applied):"; in the plugin,
   the label links to the page.
 
-Merge and overwrite rollouts report only "without sync point" (above). The legacy project rollout view reports none of
-these.
+Merge and overwrite rollouts, and the legacy project rollout view, report none of these.
 
 - Unresolved review: while the destination still has `da-diff-*` markers (e.g. a first-run merge review that
-  was not resolved yet), every smart rollout is today's merge again, honoring earlier accept/reject decisions,
-  even when a baseline exists. Rejected upstream blocks stay out, but a local block the author already kept is
-  marked Local again, since keeping the local side isn't recorded. Pending upstream changes keep showing until the author resolves them and are never
-  dropped; once the markers are gone, the next smart rollout uses the baseline. Markers include the
-  `da-diff-added` attribute and the `<da-diff-added>` element that list items wrap their added content in.
+  was not resolved yet):
+  - With a baseline, adjacent open markers are kept as one fixed block. They are not diffed again, and the
+    three-way merge runs on the rest of the page against the baseline, so new upstream changes are applied and new
+    conflicts get new groups. An upstream change that touches an open group keeps the page as it is there and
+    counts as skipped. Pending upstream changes keep showing until the author resolves them.
+  - Without a baseline, the rollout is a merge review again, honoring earlier accept/reject decisions.
+  - A list is one block, so open markers in a list item also hold back upstream changes to the rest of that list
+    (they count as skipped).
+  - When upstream didn't change since the baseline, nothing is written and the page is reported as unchanged,
+    although it still has open markers.
+  - Markers include the `da-diff-added` attribute and the older `<da-diff-added>` element inside list items (the
+    editor form turns it into the attribute on the `<li>`).
 
 - No valid baseline yet (no sync point set and never rolled out on this site, or a baseline that is malformed or
   recorded for a different path):
-  - Destination already identical to upstream: kept exactly as authored; the baseline is recorded.
-  - Otherwise today's merge (every difference marked with `da-diff-*` for the author to review once, honoring
-    earlier accept/reject decisions), and the baseline is recorded. Because this is today's merge, it has merge's
-    existing normalizations (section wrapper attributes and empty paragraphs are dropped, whitespace in code blocks
-    is not compared); later smart rollouts keep them as authored.
+  - Destination already identical to upstream: its content is kept and the baseline is recorded.
+  - Otherwise a merge review (every difference marked with `da-diff-*` for the author to review once, with reason
+    `no-baseline`, honoring earlier accept/reject decisions), and the baseline is recorded.
   - To skip that one-time review for content that already exists (e.g. after an import), use **Set sync point**.
 - Nothing changed upstream since the baseline: nothing is written and no version is saved.
 - Missing destination, or an empty one without a baseline: the upstream page is copied (an emptied page leaves
   out blocks it rejected and keeps its review decisions) and the baseline is recorded. An empty destination
   with a baseline was emptied on purpose and is merged like any other.
-- Read or save failures and malformed documents are reported as errors and nothing is written; smart-overwrite never
-  falls back to a plain overwrite. As in the other modes, a failed version save after a successful page save is
-  reported as an error although the page was written.
+- Large pages: when upstream or the destination has more than 2,000 units (blocks and section breaks), the rollout
+  is a merge review with reason `page-too-large`, and the baseline is recorded.
+- Read or save failures, and a destination read that is empty but successful, are reported as errors and nothing is
+  written; smart-overwrite never falls back to a plain overwrite. As in the other modes, a failed version save after
+  a successful page save is reported as an error although the page was written.
 - Granularity is the block (paragraph, heading, block table, block group). Any edit inside a block counts as a
   change to that block (whitespace is ignored except inside code blocks, `<pre>`), and blocks are matched by
   content: an upstream block that is both moved and edited is seen as a deletion plus a new block, so if the
-  destination localized it both versions are kept, the localized one marked for review (row 4). Section wrapper attributes (e.g.
-  `<div id="…">`) and empty paragraphs are kept as authored.
+  destination localized it both versions are kept, the localized one marked for review (row 4).
+
+## Editor form
+
+Every copy (smart-overwrite, merge and overwrite) first converts upstream and the
+destination to the form the editor saves (`doc2aem(aem2doc(html))` from `@adobe/da-parser`), compares them in that
+form and saves the result in it. So a page nobody edited never shows false local changes, and:
+- Section wrapper attributes (e.g. `<div id="…">`), empty paragraphs, header and `<head>` content are dropped, as an
+  editor save would drop them.
+- Content outside `main > div` sections is put into sections, so it is merged and gets a baseline like any other.
+- Metadata values are kept as written.
+- Hashes stored before this change (`rolloutbase`, `acceptedhashes`, `rejectedhashes`) are matched to the editor
+  form, so existing sync points and review decisions keep working.
+
+Known limitation: content the editor can't hold is lost in that conversion, for example a second `<main>`. A
+`rolloutbase` value wrapped in a paragraph is also lost, so that page's next smart rollout is a merge review. Escaped
+markup in a metadata value (`&lt;img&gt;`) is saved as real markup.
 
 ## Set sync point
 
@@ -282,6 +312,8 @@ upstream edits made after that moment and keep every existing local difference.
 - **Library plugin (per page)**: choose "Set sync point (no content change)" and the regions, then **Set sync point**.
   Each region shows the result.
 - Pages that already have a baseline, missing or empty pages, sheets and pages with an unresolved review are skipped.
+  The page itself is saved as it is, with only the `rolloutbase` row added (upstream is converted to the editor
+  form to compute it). Known limitation: pages saved as a full HTML document with `<head>` content fail.
   Each page that is set gets a version labelled "Sync point set". Placeholders are filled for each locale, as in a
   rollout.
 - **Run it right after the import, before anyone edits the upstream pages.** Upstream edits made before setting it are

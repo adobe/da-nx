@@ -3,7 +3,6 @@ const VERSION_SAVE_EXTS = new Set(['json', 'html']);
 const MARKED_VERSION_LABEL = 'Sync point set';
 const NOT_ENABLED = 'Smart overwrite is not enabled for this site';
 const SMART_OUTCOMES = { unchanged: 'unchanged', 'needs-review': 'review' };
-const NO_SYNC_POINT = 'no-sync-point';
 
 function saveDaSource({
   url, body, contentType, fetch,
@@ -219,9 +218,7 @@ export function createCopy({
       const result = await applyCopy(url, {
         behavior: 'overwrite', recordBaseline, labels: options,
       });
-      const response = await saveResult(url, title, result);
-      if (response.ok && result.report.reason === NO_SYNC_POINT) url.outcome = NO_SYNC_POINT;
-      return response;
+      return await saveResult(url, title, result);
     } catch (error) {
       return fail(url, error);
     }
@@ -233,9 +230,7 @@ export function createCopy({
       delete url.outcome;
       const recordBaseline = await shouldRecord(url, options.recordBaseline);
       const result = await applyCopy(url, { behavior: 'merge', recordBaseline, labels: options });
-      const response = await saveResult(url, title, result);
-      if (response.ok && result.report.reason === NO_SYNC_POINT) url.outcome = NO_SYNC_POINT;
-      return response;
+      return await saveResult(url, title, result);
     } catch (error) {
       return fail(url, error);
     }
@@ -272,8 +267,7 @@ export function createCopy({
       if (!response.ok) return fail(url, responseError(response, 'Save'));
       const { report } = result;
       url.skipped = report.skipped;
-      const noSyncPoint = report.reason === NO_SYNC_POINT;
-      const outcome = noSyncPoint ? NO_SYNC_POINT : SMART_OUTCOMES[report.outcome];
+      const outcome = SMART_OUTCOMES[report.outcome];
       if (outcome) url.outcome = outcome;
       if (report.removedUpstream) url.removedUpstream = report.removedUpstream;
       if (report.reordered) url.reordered = true;
