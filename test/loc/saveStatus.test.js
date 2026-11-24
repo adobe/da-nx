@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { setImsDetails } from '../../nx/utils/daFetch.js';
-import { saveStatus } from '../../nx/blocks/loc/project/index.js';
+import { getDetails, saveStatus } from '../../nx/blocks/loc/project/index.js';
 
 // saveStatus must coalesce concurrent writes to the project JSON:
 // if a save is already in-flight, queue the latest state and flush
@@ -16,6 +16,7 @@ function makeFetchStub(delay = 5) {
       status: 200,
       headers: new Headers({ 'x-da-actions': 'read=true' }),
       text: async () => '',
+      json: async () => ({}),
     }), delay);
   }));
 }
@@ -48,6 +49,8 @@ describe('saveStatus', () => {
     globalThis.fetch = makeFetchStub();
     const state = makeState();
 
+    await getDetails();
+    globalThis.fetch.resetHistory();
     await saveStatus(state);
 
     const calls = globalThis.fetch.args.filter(([url]) => url.includes('.json'));
