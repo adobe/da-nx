@@ -6,7 +6,7 @@
 // context (why a message exists, which host implementations wire it up).
 export const MESSAGE_TYPES = Object.freeze({
   // Host <-> iframe: handshake
-  INIT: 'init', // { config: { mountpoint: DA content or hlx6 source bus url, owner, repo, apiUpgrade }, location: { pathname } }
+  INIT: 'init', // { config: { mountpoint: DA content or hlx6 source bus url, owner, repo }, location: { pathname } }
   READY: 'ready', // no payload
 
   // Host -> iframe

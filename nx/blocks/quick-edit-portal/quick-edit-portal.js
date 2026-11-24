@@ -73,7 +73,7 @@ export default async function decorate(el) {
 
       const { config, location } = e.data.payload ?? {};
       const path = location?.pathname;
-      const { org: owner, site: repo } = getInitSite(config);
+      const { org: owner, site: repo } = await getInitSite(config);
 
       if (!owner || !repo) {
         return;

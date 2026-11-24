@@ -84,10 +84,10 @@ parallel one. If you do add a new key:
 `https://api.aem.live/{org}/sites/{site}/source` on hlx6 (source bus) sites. Some
 sites build the DA shape themselves when there's no sidekick. A source bus site can also have
 no url (site config `content.source` is just `{ type: 'sourcebus' }`), and then the sidekick
-sends no mountpoint. In that case the portal uses `config.owner` / `config.repo` if the config
-marks a source bus (`mountpoint.type` or `contentSourceType` is `sourcebus`) or an upgraded
-site (`apiUpgrade: true`). The standalone portal reads org/site from either url shape and asks
-nx2 `api.js` (`isHlx6`) where the document lives,
+sends no mountpoint. In that case the portal uses `config.owner` / `config.repo` when the
+upgrade check (nx2 `isHlx6`) says the site is on Helix 6. It ignores `apiUpgrade`: the sidekick
+sends `true` for most legacy sites too. The standalone portal reads org/site from either url
+shape and asks nx2 `api.js` (`isHlx6`) where the document lives,
 so the payload shape doesn't decide the store. It names the collab room with
 `getSourceUrl`, the url the da-live editors use, so quick edit and the canvas join the
 same room.

@@ -1,4 +1,4 @@
-import { daFetch, getSourceUrl } from '../../../../nx2/utils/api.js';
+import { daFetch, getSourceUrl, isHlx6 } from '../../../../nx2/utils/api.js';
 
 export function getOrgSite(mountpoint) {
   const segments = new URL(mountpoint).pathname.split('/').filter(Boolean);
@@ -7,14 +7,12 @@ export function getOrgSite(mountpoint) {
   return { org, site: sites };
 }
 
-export function getInitSite(config) {
-  const {
-    mountpoint, contentSourceType, apiUpgrade, owner, repo,
-  } = config ?? {};
+export async function getInitSite(config) {
+  const { mountpoint, owner, repo } = config ?? {};
   const url = typeof mountpoint === 'string' ? mountpoint : mountpoint?.url;
   if (url) return getOrgSite(url);
-  const sourceBus = mountpoint?.type === 'sourcebus' || contentSourceType === 'sourcebus' || apiUpgrade === true;
-  return sourceBus ? { org: owner, site: repo } : {};
+  const hlx6 = owner && repo && await isHlx6(owner, repo).catch(() => false);
+  return hlx6 ? { org: owner, site: repo } : {};
 }
 
 const getDocPath = (pathname) => (pathname.endsWith('/') ? `${pathname}index.html` : `${pathname}.html`);
