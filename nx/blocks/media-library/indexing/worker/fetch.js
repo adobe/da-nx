@@ -214,6 +214,15 @@ export async function loadSheet(path, sourceOrigin, imsToken) {
   return [];
 }
 
+function saveSourceJson({
+  path, sourceOrigin, imsToken, json, method = 'PUT',
+}) {
+  const opts = toSaveOptions({
+    sourceOrigin, json, method, formData: true,
+  });
+  return workerDaFetch(getSourceUrl({ sourceOrigin, path }), imsToken, opts);
+}
+
 /**
  * Save sheet to DA storage
  * Worker-safe version of saveSheet from admin-api.js
@@ -225,12 +234,9 @@ export async function loadSheet(path, sourceOrigin, imsToken) {
  * @returns {Promise<Response>}
  */
 export async function saveSheet(data, path, sourceOrigin, imsToken) {
-  const json = createSheet(data);
-  return workerDaFetch(
-    getSourceUrl({ sourceOrigin, path }),
-    imsToken,
-    toSaveOptions({ sourceOrigin, json, method: 'PUT', formData: true }),
-  );
+  return saveSourceJson({
+    path, sourceOrigin, imsToken, json: createSheet(data),
+  });
 }
 
 /**
@@ -816,14 +822,9 @@ export async function saveIndexChunks(
       const chunkNum = i + idx;
       const chunkFileName = getChunkFileName(chunkNum, indexFilesChunkPrefix);
       const chunkPath = `${basePath}/${chunkFileName}`;
-      const sheets = { media: chunk };
-
-      const json = createMultiSheet(sheets);
-      return workerDaFetch(
-        getSourceUrl({ sourceOrigin, path: chunkPath }),
-        imsToken,
-        toSaveOptions({ sourceOrigin, json, method: 'PUT', formData: true }),
-      );
+      return saveSourceJson({
+        path: chunkPath, sourceOrigin, imsToken, json: createMultiSheet({ media: chunk }),
+      });
     });
 
     const responses = await Promise.all(batchPromises);
@@ -858,12 +859,9 @@ export async function saveIndexChunks(
  * @returns {Promise<Response>}
  */
 export async function saveIndexMeta(meta, path, sourceOrigin, imsToken) {
-  const json = createSheet([meta]);
-  return workerDaFetch(
-    getSourceUrl({ sourceOrigin, path }),
-    imsToken,
-    toSaveOptions({ sourceOrigin, json, method: 'POST', formData: true }),
-  );
+  return saveSourceJson({
+    path, sourceOrigin, imsToken, method: 'POST', json: createSheet([meta]),
+  });
 }
 
 /**

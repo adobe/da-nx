@@ -21,8 +21,7 @@ export function getSourceUrl({ sourceOrigin, path }) {
 
 export function getListUrl({ sourceOrigin, path }) {
   if (!isSourceBus(sourceOrigin)) return `${sourceOrigin}/list${path}`;
-  const { org, site, rest } = splitSitePath(path.replace(/\/+$/, ''));
-  return `${sourceOrigin}/${org}/sites/${site}/source${rest}/`;
+  return `${getSourceUrl({ sourceOrigin, path: path.replace(/\/+$/, '') })}/`;
 }
 
 function toDaItem(parent, item) {
