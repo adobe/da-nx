@@ -54,6 +54,10 @@ export async function getUrls(
   // Only fetch the content if needed
   if (fetchContent) {
     const config = await fetchConfig(org, site);
+    if (config.loadError) {
+      formattedUrls.forEach((url) => { url.error = config.loadError; });
+      return { urls: formattedUrls };
+    }
 
     // Fetch the content and add DNT
     const fetchUrl = async (url) => {
@@ -87,9 +91,11 @@ export async function getUrls(
       }
     };
 
-    const queue = new Queue(fetchUrl, MAX_CONCURRENT_READS);
+    const queue = new Queue(fetchUrl, MAX_CONCURRENT_READS, (url, error) => {
+      url.error = `Error fetching content from ${url.daDestPath} - ${error.message}`;
+    });
 
-    await Promise.allSettled(formattedUrls.map((url) => queue.push(url)));
+    await Promise.all(formattedUrls.map((url) => queue.push(url)));
   }
 
   return { urls: formattedUrls };

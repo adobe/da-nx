@@ -88,8 +88,16 @@ export async function withRetry(task, { limiter, delays = HLX6_RETRY_DELAYS_MS, 
 
 const limiters = {};
 
+async function checkSite(org, site) {
+  try {
+    return await isHlx6(org, site);
+  } catch (cause) {
+    throw new Error(`Could not check where ${org}/${site} keeps its content. Try again.`, { cause });
+  }
+}
+
 async function run({ org, site }, task, { retry = true } = {}) {
-  const hlx6 = await isHlx6(org, site);
+  const hlx6 = await checkSite(org, site);
   if (!hlx6) return task(hlx6);
   const key = `/${org}/${site}`;
   limiters[key] ??= createLimiter({
@@ -141,7 +149,7 @@ export async function sourceFetch(href, opts = {}) {
   if (!route) return daFetch({ url: href, opts });
   const path = href.slice(route.prefix.length);
   const { org, site } = fromPath(path);
-  if (!(await isHlx6(org, site))) return daFetch({ url: href, opts });
+  if (!(await checkSite(org, site))) return daFetch({ url: href, opts });
   if (route.kind === 'versionsource') {
     const { label } = opts.body ? JSON.parse(opts.body) : {};
     return createVersion(path, label);
@@ -167,7 +175,7 @@ async function loadHlx6Config({ org, site }) {
 
 // Helix 6 has no org-level source, so only the site's translate.json counts.
 export async function loadCopyConfig({ org, site }) {
-  if (!(await isHlx6(org, site))) return loadLegacyConfig({ org, site });
+  if (!(await checkSite(org, site))) return loadLegacyConfig({ org, site });
   const key = `/${org}/${site}`;
   hlx6Configs[key] ??= loadHlx6Config({ org, site }).catch((error) => {
     delete hlx6Configs[key];

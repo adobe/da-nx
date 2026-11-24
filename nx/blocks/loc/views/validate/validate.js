@@ -55,7 +55,11 @@ class NxLocValidate extends LitElement {
   }
 
   async findConfigValue(key) {
-    if (!this._configSheet) this._configSheet = await fetchConfig(this._org, this._site);
+    if (!this._configSheet) {
+      const sheet = await fetchConfig(this._org, this._site);
+      if (sheet.loadError) throw new Error(sheet.loadError);
+      this._configSheet = sheet;
+    }
 
     const foundRow = this._configSheet.config.data.find((row) => row.key === key);
 
@@ -124,11 +128,20 @@ class NxLocValidate extends LitElement {
   async checkUrls() {
     // See if there are any additional
     // origins to match fragments against
-    this._originMatches = await this.getOriginMatches();
+    try {
+      this._originMatches = await this.getOriginMatches();
+    } catch (error) {
+      this._message = { type: 'error', text: error.message };
+      return;
+    }
 
     const checkUrl = this.checkUrl.bind(this);
 
-    const queue = new Queue(checkUrl, MAX_CONCURRENT_READS);
+    const queue = new Queue(checkUrl, MAX_CONCURRENT_READS, (url, error) => {
+      url.status = `error - ${error.message}`;
+      url.checked = false;
+      this.requestUpdate();
+    });
 
     let notChecked;
     while (!notChecked || notChecked.length > 0) {
