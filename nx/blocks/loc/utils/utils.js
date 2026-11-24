@@ -453,14 +453,10 @@ async function fetchProject({ path, updates, updateDocTitle = true }) {
   // If there's no updates, and there's a cache, use it.
   if (!updates && PROJECT_CACHE[path]) return { project: PROJECT_CACHE[path] };
 
-  let resp;
-  try {
-    resp = updates
-      ? await saveSource(`${path}.json`, JSON.stringify(updates))
-      : await getSource(`${path}.json`);
-  } catch (error) {
-    return { message: { text: error.message } };
-  }
+  const resp = await (updates
+    ? saveSource(`${path}.json`, JSON.stringify(updates))
+    : getSource(`${path}.json`)).catch((error) => error);
+  if (resp instanceof Error) return { message: { text: resp.message } };
   if (!resp.ok) {
     if (resp.status === 401 || resp.status === 403) {
       const [org, site] = path.substring(1).split('/');
