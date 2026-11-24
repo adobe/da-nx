@@ -6,6 +6,9 @@ import {
 import { handlePreview, keepMediaBusImagesRelative } from '../../../../nx/blocks/quick-edit-portal/src/utils.js';
 import { MESSAGE_TYPES } from '../../../../nx/utils/message-types.js';
 
+// The IMS mock instance that nx2/utils/api.js loads through the import map.
+const { resetMockIms, setMockIms } = await import(`${window.location.origin}/nx2/utils/ims.js`);
+
 let counter = 0;
 const makeCtx = ({ hlx6 = false, path = '/drafts/page' } = {}) => {
   counter += 1;
@@ -84,6 +87,22 @@ describe('quick-edit portal preview', () => {
     expect(type).to.equal(MESSAGE_TYPES.PREVIEW);
     expect(payload.ok).to.equal(false);
     expect(payload.error).to.contain('Failed to preview');
+  });
+
+  it('reports a missing sign-in without sending a request', async () => {
+    installFetch();
+    setMockIms({ anonymous: true });
+    const ctx = makeCtx({ hlx6: true });
+    try {
+      await handlePreview(ctx);
+    } finally {
+      resetMockIms();
+    }
+
+    expect(calls.length).to.equal(0);
+    const { type, payload } = ctx.posted.at(-1);
+    expect(type).to.equal(MESSAGE_TYPES.PREVIEW);
+    expect(payload).to.deep.equal({ ok: false, error: 'Failed to preview: not signed in' });
   });
 
   it('reports a failed preview', async () => {
