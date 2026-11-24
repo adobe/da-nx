@@ -46,25 +46,27 @@
       <p>Source: <code>nx2/styles/buttons.css</code></p>
 
       <article class="sg-example">
-        <h3>Action button (small)</h3>
-        <div class="sg-demo">
-          <button type="button" class="nx-action-btn">Label</button>
-          <button type="button" class="nx-action-btn">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <use href="./icons/selected.svg#icon"></use>
-            </svg>
-            <span>Label</span>
-          </button>
-          <button type="button" class="nx-action-btn" disabled>Label</button>
-          <button type="button" class="nx-action-btn nx-btn-sm">Label</button>
-          <button type="button" class="nx-action-btn nx-btn-sm">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <use href="./icons/selected.svg#icon"></use>
-            </svg>
-            <span>Label</span>
-          </button>
-        </div>
-        <pre><code>&lt;button type="button" class="nx-action-btn"&gt;Label&lt;/button&gt;
+        <h3>Action buttons</h3>
+        <section class="sg-variant">
+          <h4>Default</h4>
+          <div class="sg-demo">
+            <button type="button" class="nx-action-btn">Label</button>
+            <button type="button" class="nx-action-btn">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
+              <span>Label</span>
+            </button>
+            <button type="button" class="nx-action-btn" disabled>Label</button>
+            <button type="button" class="nx-action-btn nx-btn-sm">Label</button>
+            <button type="button" class="nx-action-btn nx-btn-sm">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
+              <span>Label</span>
+            </button>
+          </div>
+          <pre><code>&lt;button type="button" class="nx-action-btn"&gt;Label&lt;/button&gt;
 
 &lt;!-- with icon --&gt;
 &lt;button type="button" class="nx-action-btn"&gt;
@@ -76,22 +78,22 @@
 
 &lt;!-- small variant --&gt;
 &lt;button type="button" class="nx-action-btn nx-btn-sm"&gt;Label&lt;/button&gt;</code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>Action button quiet (small)</h3>
-        <div class="sg-demo">
-          <button type="button" class="nx-action-btn-quiet">Label</button>
-          <button type="button" class="nx-action-btn-quiet">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <use href="./icons/selected.svg#icon"></use>
-            </svg>
-            <span>Label</span>
-          </button>
-          <button type="button" class="nx-action-btn-quiet" disabled>Label</button>
-          <button type="button" class="nx-action-btn-quiet nx-btn-sm">Label</button>
-        </div>
-        <pre><code>&lt;button type="button" class="nx-action-btn-quiet"&gt;Label&lt;/button&gt;
+        <section class="sg-variant">
+          <h4>Quiet</h4>
+          <div class="sg-demo">
+            <button type="button" class="nx-action-btn-quiet">Label</button>
+            <button type="button" class="nx-action-btn-quiet">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
+              <span>Label</span>
+            </button>
+            <button type="button" class="nx-action-btn-quiet" disabled>Label</button>
+            <button type="button" class="nx-action-btn-quiet nx-btn-sm">Label</button>
+          </div>
+          <pre><code>&lt;button type="button" class="nx-action-btn-quiet"&gt;Label&lt;/button&gt;
 
 &lt;!-- with icon --&gt;
 &lt;button type="button" class="nx-action-btn-quiet"&gt;
@@ -103,33 +105,33 @@
 
 &lt;!-- small variant --&gt;
 &lt;button type="button" class="nx-action-btn-quiet nx-btn-sm"&gt;Label&lt;/button&gt;</code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>Action button icon only (small + quiet)</h3>
-        <div class="sg-demo">
-          <button type="button" class="nx-action-btn-icon" aria-label="More actions">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <use href="./icons/selected.svg#icon"></use>
-            </svg>
-          </button>
-          <button type="button" class="nx-action-btn-icon is-active" aria-label="More actions">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <use href="./icons/selected.svg#icon"></use>
-            </svg>
-          </button>
-          <button type="button" class="nx-action-btn-icon" disabled aria-label="More actions">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <use href="./icons/selected.svg#icon"></use>
-            </svg>
-          </button>
-          <button type="button" class="nx-action-btn-icon nx-btn-sm" aria-label="More actions">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <use href="./icons/selected.svg#icon"></use>
-            </svg>
-          </button>
-        </div>
-        <pre><code>&lt;button type="button" class="nx-action-btn-icon" aria-label="More actions"&gt;
+        <section class="sg-variant">
+          <h4>Icon only</h4>
+          <div class="sg-demo">
+            <button type="button" class="nx-action-btn-icon" aria-label="More actions">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
+            </button>
+            <button type="button" class="nx-action-btn-icon is-active" aria-label="More actions">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
+            </button>
+            <button type="button" class="nx-action-btn-icon" disabled aria-label="More actions">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
+            </button>
+            <button type="button" class="nx-action-btn-icon nx-btn-sm" aria-label="More actions">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
+            </button>
+          </div>
+          <pre><code>&lt;button type="button" class="nx-action-btn-icon" aria-label="More actions"&gt;
   &lt;svg viewBox="0 0 20 20" aria-hidden="true"&gt;
     &lt;use href="path_to_icon"&gt;&lt;/use&gt;
   &lt;/svg&gt;
@@ -140,22 +142,25 @@
 
 &lt;!-- small variant --&gt;
 &lt;button type="button" class="nx-action-btn-icon nx-btn-sm" aria-label="More actions"&gt;...&lt;/button&gt;</code></pre>
+        </section>
       </article>
 
       <article class="sg-example">
-        <h3>Accent button</h3>
-        <div class="sg-demo">
-          <button type="button" class="nx-btn-accent">Label</button>
-          <button type="button" class="nx-btn-accent">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <use href="./icons/selected.svg#icon"></use>
-            </svg>
-            <span>Label</span>
-          </button>
-          <button type="button" class="nx-btn-accent" disabled>Label</button>
-          <button type="button" class="nx-btn-accent nx-btn-sm">Label</button>
-        </div>
-        <pre><code>&lt;button type="button" class="nx-btn-accent"&gt;Label&lt;/button&gt;
+        <h3>Call-to-action buttons</h3>
+        <section class="sg-variant">
+          <h4>Accent</h4>
+          <div class="sg-demo">
+            <button type="button" class="nx-btn-accent">Label</button>
+            <button type="button" class="nx-btn-accent">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
+              <span>Label</span>
+            </button>
+            <button type="button" class="nx-btn-accent" disabled>Label</button>
+            <button type="button" class="nx-btn-accent nx-btn-sm">Label</button>
+          </div>
+          <pre><code>&lt;button type="button" class="nx-btn-accent"&gt;Label&lt;/button&gt;
 
 &lt;!-- with icon --&gt;
 &lt;button type="button" class="nx-btn-accent"&gt;
@@ -167,22 +172,22 @@
 
 &lt;!-- small variant --&gt;
 &lt;button type="button" class="nx-btn-accent nx-btn-sm"&gt;Label&lt;/button&gt;</code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>Primary button</h3>
-        <div class="sg-demo">
-          <button type="button" class="nx-btn-primary">Label</button>
-          <button type="button" class="nx-btn-primary">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <use href="./icons/selected.svg#icon"></use>
-            </svg>
-            <span>Label</span>
-          </button>
-          <button type="button" class="nx-btn-primary" disabled>Label</button>
-          <button type="button" class="nx-btn-primary nx-btn-sm">Label</button>
-        </div>
-        <pre><code>&lt;button type="button" class="nx-btn-primary"&gt;Label&lt;/button&gt;
+        <section class="sg-variant">
+          <h4>Primary</h4>
+          <div class="sg-demo">
+            <button type="button" class="nx-btn-primary">Label</button>
+            <button type="button" class="nx-btn-primary">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
+              <span>Label</span>
+            </button>
+            <button type="button" class="nx-btn-primary" disabled>Label</button>
+            <button type="button" class="nx-btn-primary nx-btn-sm">Label</button>
+          </div>
+          <pre><code>&lt;button type="button" class="nx-btn-primary"&gt;Label&lt;/button&gt;
 
 &lt;!-- with icon --&gt;
 &lt;button type="button" class="nx-btn-primary"&gt;
@@ -194,6 +199,7 @@
 
 &lt;!-- small variant --&gt;
 &lt;button type="button" class="nx-btn-primary nx-btn-sm"&gt;Label&lt;/button&gt;</code></pre>
+        </section>
       </article>
     </section>
 
@@ -214,26 +220,29 @@
 
       <article class="sg-example">
         <h3>Text input</h3>
-        <div class="sg-demo">
-          <input class="nx-input" type="text" placeholder="Placeholder text" />
-        </div>
-        <pre><code>&lt;input class="nx-input" type="text" placeholder="Placeholder text"/&gt;</code></pre>
-      </article>
+        <section class="sg-variant">
+          <h4>Default</h4>
+          <div class="sg-demo">
+            <input class="nx-input" type="text" placeholder="Placeholder text" />
+          </div>
+          <pre><code>&lt;input class="nx-input" type="text" placeholder="Placeholder text"/&gt;</code></pre>
+        </section>
 
-      <article class="sg-example">
-        <h3>Form field with label + error</h3>
-        <div class="sg-demo">
-          <label class="nx-form-field nx-field-error">
-            Email
-            <input class="nx-input" type="email" value="not-an-email" />
-            <span class="nx-input-error-msg">Enter a valid email address.</span>
-          </label>
-        </div>
-        <pre><code>&lt;label class="nx-form-field nx-field-error"&gt;
+        <section class="sg-variant">
+          <h4>Label and error</h4>
+          <div class="sg-demo">
+            <label class="nx-form-field nx-field-error">
+              Email
+              <input class="nx-input" type="email" value="not-an-email" />
+              <span class="nx-input-error-msg">Enter a valid email address.</span>
+            </label>
+          </div>
+          <pre><code>&lt;label class="nx-form-field nx-field-error"&gt;
   Email
   &lt;input class="nx-input" type="email" value="not-an-email"/&gt;
   &lt;span class="nx-input-error-msg"&gt;Enter a valid email address.&lt;/span&gt;
 &lt;/label&gt;</code></pre>
+        </section>
       </article>
 
       <article class="sg-example">
@@ -314,6 +323,31 @@ menu.items = [
 ];</code></pre>
       </article>
 
+      <article class="sg-example" id="tooltips">
+        <h3>nx-tooltip <a href="https://github.com/adobe/da-nx/blob/main/docs/tooltip.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <p>Tooltips stay hidden in browsers without native popover support.</p>
+        <div class="sg-demo">
+          <button type="button" class="nx-action-btn" id="demo-tooltip-top">Top</button>
+          <nx-tooltip for="demo-tooltip-top">Save your changes</nx-tooltip>
+          <button type="button" class="nx-action-btn" id="demo-tooltip-bottom">Bottom</button>
+          <nx-tooltip for="demo-tooltip-bottom" placement="bottom">Save your changes</nx-tooltip>
+          <button type="button" class="nx-action-btn" id="demo-tooltip-left">Left</button>
+          <nx-tooltip for="demo-tooltip-left" placement="left">Save your changes</nx-tooltip>
+          <button type="button" class="nx-action-btn" id="demo-tooltip-right">Right</button>
+          <nx-tooltip for="demo-tooltip-right" placement="right">Save your changes</nx-tooltip>
+          <button type="button" class="nx-action-btn" id="demo-tooltip-long">Longer description</button>
+          <nx-tooltip for="demo-tooltip-long">Save a draft without publishing. You can continue editing
+            later.</nx-tooltip>
+        </div>
+        <pre><code>&lt;button id="save" type="button"&gt;Save&lt;/button&gt;
+&lt;nx-tooltip for="save"&gt;Save your changes&lt;/nx-tooltip&gt;
+
+&lt;button id="save-bottom" type="button"&gt;Save&lt;/button&gt;
+&lt;nx-tooltip for="save-bottom" placement="bottom"&gt;Save your changes&lt;/nx-tooltip&gt;
+</code></pre>
+      </article>
+
       <article class="sg-example">
         <h3>nx-dialog <a href="https://github.com/adobe/da-nx/blob/main/docs/dialog.md" target="_blank"
             rel="noopener">docs →</a></h3>
@@ -340,62 +374,64 @@ button.addEventListener('click', () =&gt; popover.show({ anchor: button }));</co
       </article>
 
       <article class="sg-example">
-        <h3>nx-search — default <a href="https://github.com/adobe/da-nx/blob/main/docs/search.md" target="_blank"
+        <h3>nx-search <a href="https://github.com/adobe/da-nx/blob/main/docs/search.md" target="_blank"
             rel="noopener">docs →</a></h3>
-        <p class="sg-note">Quiet search stays borderless; focusing the input shows only a thin line beneath it.</p>
-        <div class="sg-demo">
-          <nx-search id="demo-search" label="Search files" placeholder="Search files"></nx-search>
-        </div>
-        <pre><code>&lt;nx-search id="demo-search" label="Search files"
+        <section class="sg-variant">
+          <h4>Default</h4>
+          <p class="sg-note">Quiet search stays borderless; focusing the input shows only a thin line beneath it.</p>
+          <div class="sg-demo">
+            <nx-search id="demo-search" label="Search files" placeholder="Search files"></nx-search>
+          </div>
+          <pre><code>&lt;nx-search id="demo-search" label="Search files"
   placeholder="Search files"&gt;&lt;/nx-search&gt;
 
 const field = document.querySelector('#demo-search');
 field.addEventListener('input', (event) =&gt; filter(event.target.value));
 field.addEventListener('search-submit', (event) =&gt; search(event.detail.value));
 // Consumers own debounce and search execution.</code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-search — size m</h3>
-        <div class="sg-demo">
-          <nx-search size="m" label="Search files" placeholder="Search files"></nx-search>
-        </div>
-        <pre><code>&lt;nx-search size="m" label="Search files"
+        <section class="sg-variant">
+          <h4>Medium</h4>
+          <div class="sg-demo">
+            <nx-search size="m" label="Search files" placeholder="Search files"></nx-search>
+          </div>
+          <pre><code>&lt;nx-search size="m" label="Search files"
   placeholder="Search files"&gt;&lt;/nx-search&gt;</code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-search — field</h3>
-        <div class="sg-demo">
-          <nx-search variant="field" label="Search files" placeholder="Search files"></nx-search>
-        </div>
-        <pre><code>&lt;nx-search variant="field" label="Search files"
+        <section class="sg-variant">
+          <h4>Field</h4>
+          <div class="sg-demo">
+            <nx-search variant="field" label="Search files" placeholder="Search files"></nx-search>
+          </div>
+          <pre><code>&lt;nx-search variant="field" label="Search files"
   placeholder="Search files"&gt;&lt;/nx-search&gt;</code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-search — disabled</h3>
-        <div class="sg-demo">
-          <nx-search disabled label="Search files" placeholder="Search files"></nx-search>
-        </div>
-        <pre><code>&lt;nx-search disabled label="Search files"
+        <section class="sg-variant">
+          <h4>Disabled</h4>
+          <div class="sg-demo">
+            <nx-search disabled label="Search files" placeholder="Search files"></nx-search>
+          </div>
+          <pre><code>&lt;nx-search disabled label="Search files"
   placeholder="Search files"&gt;&lt;/nx-search&gt;</code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-search — in-field action</h3>
-        <p class="sg-note">The field border follows input and Clear focus; trailing actions have their own
-          keyboard-focus outline and respect <code>hidden</code>.</p>
-        <div class="sg-demo">
-          <nx-search variant="field" label="Search files" placeholder="Search files">
-            <button slot="actions" type="button" aria-label="Search options" title="Search options">
-              <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
-                <use href="/nx2/img/icons/s2-icon-properties-20-n.svg#icon"></use>
-              </svg>
-            </button>
-          </nx-search>
-        </div>
-        <pre><code>&lt;nx-search variant="field" label="Search files"&gt;
+        <section class="sg-variant">
+          <h4>In-field action</h4>
+          <p class="sg-note">The field border follows input and Clear focus; trailing actions have their own
+            keyboard-focus outline and respect <code>hidden</code>.</p>
+          <div class="sg-demo">
+            <nx-search variant="field" label="Search files" placeholder="Search files">
+              <button slot="actions" type="button" aria-label="Search options" title="Search options">
+                <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
+                  <use href="/nx2/img/icons/s2-icon-properties-20-n.svg#icon"></use>
+                </svg>
+              </button>
+            </nx-search>
+          </div>
+          <pre><code>&lt;nx-search variant="field" label="Search files"&gt;
   &lt;button slot="actions" type="button" aria-label="Search options"&gt;
     ...
   &lt;/button&gt;
@@ -403,15 +439,18 @@ field.addEventListener('search-submit', (event) =&gt; search(event.detail.value)
 
 // The field owns styling; the consumer supplies the icon and handles the action.
 // Keep independent category/filter controls alongside the field.</code></pre>
+        </section>
       </article>
 
       <article class="sg-example">
-        <h3>nx-picker — default <a href="https://github.com/adobe/da-nx/blob/main/docs/picker.md" target="_blank"
+        <h3>nx-picker <a href="https://github.com/adobe/da-nx/blob/main/docs/picker.md" target="_blank"
             rel="noopener">docs →</a></h3>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker" placement="below"></nx-picker>
-        </div>
-        <pre><code>&lt;nx-picker id="my-picker"&gt;&lt;/nx-picker&gt;
+        <section class="sg-variant">
+          <h4>Default</h4>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker" placement="below"></nx-picker>
+          </div>
+          <pre><code>&lt;nx-picker id="my-picker"&gt;&lt;/nx-picker&gt;
 
 const picker = document.querySelector('#my-picker');
 picker.items = [
@@ -420,14 +459,14 @@ picker.items = [
 ];
 picker.value = 'all';
 </code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-picker — size m</h3>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker-m" size="m" placement="below"></nx-picker>
-        </div>
-        <pre><code>&lt;nx-picker id="picker-m" size="m"&gt;&lt;/nx-picker&gt;
+        <section class="sg-variant">
+          <h4>Medium</h4>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker-m" size="m" placement="below"></nx-picker>
+          </div>
+          <pre><code>&lt;nx-picker id="picker-m" size="m"&gt;&lt;/nx-picker&gt;
 
 const picker = document.querySelector('#picker-m');
 picker.items = [
@@ -436,15 +475,15 @@ picker.items = [
 ];
 picker.value = 'all';
 </code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-picker — field</h3>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker-field-m" variant="field" size="m" placeholder="Please select"
-            placement="below"></nx-picker>
-        </div>
-        <pre><code>&lt;nx-picker id="field-picker" variant="field" size="m"
+        <section class="sg-variant">
+          <h4>Field</h4>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker-field-m" variant="field" size="m" placeholder="Please select"
+              placement="below"></nx-picker>
+          </div>
+          <pre><code>&lt;nx-picker id="field-picker" variant="field" size="m"
   placeholder="Please select"&gt;&lt;/nx-picker&gt;
 
 document.querySelector('#field-picker').items = [
@@ -452,30 +491,34 @@ document.querySelector('#field-picker').items = [
   { value: 'content', label: 'Content' },
 ];
 </code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-picker — descriptions and actions</h3>
-        <p class="sg-note">Descriptions consistently use small regular typography and subdued theme-aware color in both S and M rows; long text wraps. Use <code>check-position="start"</code> for leading checks and <code>--nx-picker-menu-width</code> for width, capped at the viewport minus 20px. Consumers can style <code>::part(label)</code> without changing the shared menu presentation.</p>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker-description-s" size="s" placeholder="Small status"></nx-picker>
-          <nx-picker id="demo-picker-description" size="m" check-position="start" placeholder="Medium status"
-            style="--nx-picker-check-color: var(--s2-blue-900)"></nx-picker>
-        </div>
-        <pre><code>picker.items = [
+        <section class="sg-variant">
+          <h4>Descriptions and actions</h4>
+          <p class="sg-note">Descriptions consistently use small regular typography and subdued theme-aware color in
+            both S and M rows; long text wraps. Use <code>check-position="start"</code> for leading checks and
+            <code>--nx-picker-menu-width</code> for width, capped at the viewport minus 20px. Consumers can style
+            <code>::part(label)</code> without changing the shared menu presentation.
+          </p>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker-description-s" size="s" placeholder="Small status"></nx-picker>
+            <nx-picker id="demo-picker-description" size="m" check-position="start" placeholder="Medium status"
+              style="--nx-picker-check-color: var(--s2-blue-900)"></nx-picker>
+          </div>
+          <pre><code>picker.items = [
   { value: 'draft', label: 'Draft', description: 'Not published' },
   { value: 'add', label: 'Add...', action: true },
 ];
 picker.style.setProperty('--nx-picker-check-color', 'var(--s2-blue-900)');</code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-picker — fixed label</h3>
-        <p>A fixed trigger label with the selected option marked in the dropdown.</p>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker-fixed-label" size="m" placement="below"></nx-picker>
-        </div>
-        <pre><code>&lt;nx-picker id="sort-picker" size="m"&gt;&lt;/nx-picker&gt;
+        <section class="sg-variant">
+          <h4>Fixed label</h4>
+          <p>A fixed trigger label with the selected option marked in the dropdown.</p>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker-fixed-label" size="m" placement="below"></nx-picker>
+          </div>
+          <pre><code>&lt;nx-picker id="sort-picker" size="m"&gt;&lt;/nx-picker&gt;
 
 const picker = document.querySelector('#sort-picker');
 picker.labelOverride = 'Sort';
@@ -484,28 +527,16 @@ picker.items = [
   { value: 'name:descending', label: 'Name (Z-A)' },
 ];
 picker.value = 'name:ascending';</code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-siteselector — navigation <a href="https://github.com/adobe/da-nx/blob/main/docs/siteselector.md" target="_blank" rel="noopener">docs
-            →</a></h3>
-        <div class="sg-demo sg-picker-container" id="demo-siteselectors"></div>
-        <pre><code>&lt;nx-siteselector id="site-selector" size="s" heading="Your recent sites"&gt;&lt;/nx-siteselector&gt;
-
-const selector = document.querySelector('#site-selector');
-selector.addEventListener('site-select', ({ detail }) =&gt; {
-  console.log(detail.value);
-});</code></pre>
-      </article>
-
-      <article class="sg-example">
-        <h3>nx-picker — multiple</h3>
-        <p>Toggle several items; the popover stays open. Action items close it.</p>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker-multiple" size="m" multiple placeholder="Select categories"
-            placement="below"></nx-picker>
-        </div>
-        <pre><code>&lt;nx-picker id="multi-picker" size="m" multiple&gt;&lt;/nx-picker&gt;
+        <section class="sg-variant">
+          <h4>Multiple selection</h4>
+          <p>Toggle several items; the popover stays open. Action items close it.</p>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker-multiple" size="m" multiple placeholder="Select categories"
+              placement="below"></nx-picker>
+          </div>
+          <pre><code>&lt;nx-picker id="multi-picker" size="m" multiple&gt;&lt;/nx-picker&gt;
 
 const picker = document.querySelector('#multi-picker');
 picker.items = [
@@ -518,14 +549,14 @@ picker.values = ['content'];
 picker.addEventListener('change', (e) => {
   if (e.detail.value === 'clear') picker.values = [];
 });</code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-picker — swatches</h3>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker-swatch" placement="below"></nx-picker>
-        </div>
-        <pre><code>&lt;nx-picker id="swatch-picker"&gt;&lt;/nx-picker&gt;
+        <section class="sg-variant">
+          <h4>Swatches</h4>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker-swatch" placement="below"></nx-picker>
+          </div>
+          <pre><code>&lt;nx-picker id="swatch-picker"&gt;&lt;/nx-picker&gt;
 
 const picker = document.querySelector('#swatch-picker');
 picker.items = [
@@ -534,14 +565,14 @@ picker.items = [
 ];
 picker.value = 'blue';
 </code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-picker — swatches, size m</h3>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker-swatch-m" size="m" placement="below"></nx-picker>
-        </div>
-        <pre><code>&lt;nx-picker id="swatch-picker-m" size="m"&gt;&lt;/nx-picker&gt;
+        <section class="sg-variant">
+          <h4>Swatches (medium)</h4>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker-swatch-m" size="m" placement="below"></nx-picker>
+          </div>
+          <pre><code>&lt;nx-picker id="swatch-picker-m" size="m"&gt;&lt;/nx-picker&gt;
 
 const picker = document.querySelector('#swatch-picker-m');
 picker.items = [
@@ -551,15 +582,15 @@ picker.items = [
 ];
 picker.value = 'blue';
 </code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-picker — swatches, field</h3>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker-swatch-field-m" variant="field" size="m" placeholder="Please select"
-            placement="below"></nx-picker>
-        </div>
-        <pre><code>&lt;nx-picker id="swatch-field" variant="field" size="m"
+        <section class="sg-variant">
+          <h4>Swatches (field)</h4>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker-swatch-field-m" variant="field" size="m" placeholder="Please select"
+              placement="below"></nx-picker>
+          </div>
+          <pre><code>&lt;nx-picker id="swatch-field" variant="field" size="m"
   placeholder="Please select"&gt;&lt;/nx-picker&gt;
 
 document.querySelector('#swatch-field').items = [
@@ -567,14 +598,14 @@ document.querySelector('#swatch-field').items = [
   { value: 'green', label: 'Green', swatch: '#2d9d78' },
 ];
 </code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-picker — trailing icons</h3>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker-icons-m" size="m" placement="below"></nx-picker>
-        </div>
-        <pre><code>&lt;nx-picker id="icon-picker" size="m"&gt;&lt;/nx-picker&gt;
+        <section class="sg-variant">
+          <h4>Trailing icons</h4>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker-icons-m" size="m" placement="below"></nx-picker>
+          </div>
+          <pre><code>&lt;nx-picker id="icon-picker" size="m"&gt;&lt;/nx-picker&gt;
 
 const picker = document.querySelector('#icon-picker');
 picker.items = [
@@ -583,15 +614,15 @@ picker.items = [
 ];
 picker.value = 'draft';
 </code></pre>
-      </article>
+        </section>
 
-      <article class="sg-example">
-        <h3>nx-picker — trailing icons, field</h3>
-        <div class="sg-demo sg-picker-container">
-          <nx-picker id="demo-picker-icons-field-m" variant="field" size="m" placeholder="Please select"
-            placement="below"></nx-picker>
-        </div>
-        <pre><code>&lt;nx-picker id="icon-field" variant="field" size="m"
+        <section class="sg-variant">
+          <h4>Trailing icons (field)</h4>
+          <div class="sg-demo sg-picker-container">
+            <nx-picker id="demo-picker-icons-field-m" variant="field" size="m" placeholder="Please select"
+              placement="below"></nx-picker>
+          </div>
+          <pre><code>&lt;nx-picker id="icon-field" variant="field" size="m"
   placeholder="Please select"&gt;&lt;/nx-picker&gt;
 
 document.querySelector('#icon-field').items = [
@@ -599,6 +630,20 @@ document.querySelector('#icon-field').items = [
   { value: 'approved', label: 'Approved', trailingIcon: './icons/selected.svg' },
 ];
 </code></pre>
+        </section>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-siteselector — navigation <a href="https://github.com/adobe/da-nx/blob/main/docs/siteselector.md"
+            target="_blank" rel="noopener">docs
+            →</a></h3>
+        <div class="sg-demo sg-picker-container" id="demo-siteselectors"></div>
+        <pre><code>&lt;nx-siteselector id="site-selector" size="s" heading="Your recent sites"&gt;&lt;/nx-siteselector&gt;
+
+const selector = document.querySelector('#site-selector');
+selector.addEventListener('site-select', ({ detail }) =&gt; {
+  console.log(detail.value);
+});</code></pre>
       </article>
 
       <article class="sg-example">
@@ -712,24 +757,29 @@ card.focus({ preventScroll: true });</code></pre>
         <h3>nx-action-card <a href="https://github.com/adobe/da-nx/blob/main/docs/action-card.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
-          <div class="demo-action-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s2-spacing-300); width: 100%;">
+          <div class="demo-action-cards"
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s2-spacing-300); width: 100%;">
             <nx-action-card id="demo-action-card" heading="Traverse"
-              description="Tinted svg icon, menu, action and a byline in the extra slot."
-              tint="#E5F0FE" action="#traverse" action-label="Open">
-              <svg slot="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="./icons/selected.svg#icon"></use></svg>
+              description="Tinted svg icon, menu, action and a byline in the extra slot." tint="#E5F0FE"
+              action="#traverse" action-label="Open">
+              <svg slot="icon" viewBox="0 0 20 20" aria-hidden="true">
+                <use href="./icons/selected.svg#icon"></use>
+              </svg>
               <span slot="extra">By Adobe</span>
             </nx-action-card>
-            <nx-action-card heading="Bulk Helper" description="Image without tint fills the tile; custom action label, opens in a new tab."
-              action="#bulk" action-label="Launch" action-target="_blank">
+            <nx-action-card heading="Bulk Helper"
+              description="Image without tint fills the tile; custom action label, opens in a new tab." action="#bulk"
+              action-label="Launch" action-target="_blank">
               <img slot="icon" src="./icons/selected.svg" alt="">
               <span slot="extra">By Admin</span>
             </nx-action-card>
             <nx-action-card id="demo-action-card-menu" heading="With menu"
-              description="Menu entries in the nx-menu shape: items, a section header and a divider."
-              tint="#FFECCF" action="#menu" action-label="Open">
+              description="Menu entries in the nx-menu shape: items, a section header and a divider." tint="#FFECCF"
+              action="#menu" action-label="Open">
               <span slot="extra">By Admin</span>
             </nx-action-card>
-            <nx-action-card heading="Minimal" description="Heading and description only: no tile, menu, action or extra content."></nx-action-card>
+            <nx-action-card heading="Minimal"
+              description="Heading and description only: no tile, menu, action or extra content."></nx-action-card>
           </div>
         </div>
         <pre><code>import '/nx2/blocks/shared/action-card/action-card.js';
@@ -787,13 +837,15 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
       <article class="sg-example">
         <h3>nx-pills <a href="https://github.com/adobe/da-nx/blob/main/docs/pills.md" target="_blank"
             rel="noopener">docs →</a></h3>
-        <div class="sg-demo">
-          <nx-pills id="demo-pills"></nx-pills>
-          <nx-pills id="demo-pills-readonly" label="Type"></nx-pills>
-          <nx-pills id="demo-pills-notice" label="Type"
-            style="--nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100);"></nx-pills>
-        </div>
-        <pre><code>&lt;nx-pills&gt;&lt;/nx-pills&gt;
+        <section class="sg-variant">
+          <h4>Default and read-only</h4>
+          <div class="sg-demo">
+            <nx-pills id="demo-pills"></nx-pills>
+            <nx-pills id="demo-pills-readonly" label="Type"></nx-pills>
+            <nx-pills id="demo-pills-notice" label="Type"
+              style="--nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100);"></nx-pills>
+          </div>
+          <pre><code>&lt;nx-pills&gt;&lt;/nx-pills&gt;
 
 pills.items = [{ id: '1', label: 'hero.png', type: 'image' }];
 pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));
@@ -805,21 +857,22 @@ tags.items = [{ id: 'app', label: 'App', removable: false }];
 
 &lt;!-- Recolor with custom properties --&gt;
 nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100); }</code></pre>
-      </article>
-      <article class="sg-example">
-        <h3>nx-pills — size m</h3>
-        <p class="sg-note">Larger text, icons, padding, spacing, and corners, with a wider label limit.
-          Fits two rows, including thumbnails, before scrolling.</p>
-        <div class="sg-demo">
-          <nx-pills id="demo-pills-medium" size="m"></nx-pills>
-        </div>
-        <pre><code>&lt;nx-pills size="m"&gt;&lt;/nx-pills&gt;
+        </section>
+        <section class="sg-variant">
+          <h4>Medium</h4>
+          <p class="sg-note">Larger text, icons, padding, spacing, and corners, with a wider label limit.
+            Fits two rows, including thumbnails, before scrolling.</p>
+          <div class="sg-demo">
+            <nx-pills id="demo-pills-medium" size="m"></nx-pills>
+          </div>
+          <pre><code>&lt;nx-pills size="m"&gt;&lt;/nx-pills&gt;
 
 pills.items = [
   { id: 'hero', label: 'hero.png' },
   { id: 'notes', label: 'notes.pdf' },
 ];
 pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</code></pre>
+        </section>
       </article>
     </section>
   </main>
@@ -835,6 +888,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
       import('/nx2/blocks/shared/toast/toast.js'),
       import('/nx2/blocks/shared/menu/menu.js'),
       import('/nx2/blocks/shared/dialog/dialog.js'),
+      import('/nx2/blocks/shared/tooltip/tooltip.js'),
       import('/nx2/blocks/shared/popover/popover.js'),
       import('/nx2/blocks/shared/picker/picker.js'),
       import('/nx2/blocks/siteselector/siteselector.js'),
