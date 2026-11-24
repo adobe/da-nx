@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { DA_ADMIN, HLX_ADMIN } from '../../../nx/utils/utils.js';
 import { setImsDetails } from '../../../nx/blocks/media-library/core/ims-adapter.js';
-import { isHlx6, getSourceOrigin } from '../../../nx/blocks/media-library/core/source.js';
+import { isHlx6, getSourceOrigin, saveSource } from '../../../nx/blocks/media-library/core/source.js';
 import { listFolder, checkIndex, loadSheet } from '../../../nx/blocks/media-library/indexing/admin-api.js';
 import {
   checkIndexLock,
@@ -35,6 +35,9 @@ function stubFetch(routes) {
     if (href.startsWith(`${HLX_ADMIN}/ping/`)) {
       const hlx6 = href.includes('/hlx6');
       return new Response('', { headers: hlx6 ? { 'x-api-upgrade-available': 'true' } : {} });
+    }
+    if (href.startsWith(`${HLX_ADMIN}/sidekick/`)) {
+      return json({ contentSourceType: 'sourcebus', contentSourceUrl: `${AEM}/` });
     }
     return new Response('', { status: 404 });
   };
@@ -79,27 +82,90 @@ describe('media library source access', () => {
       ? failures.shift()()
       : new Response('', { headers: { 'x-api-upgrade-available': 'true' } }));
 
-    it('retries a ping that fails with 429, 5xx or a network error', async () => {
+    it('retries a ping that fails with 429 or 503', async () => {
       const org = uniqueOrg('hlx6');
-      const calls = stubFetch([[`${HLX_ADMIN}/ping/${org}/site`, pingAfterFailures([
+      const ping = `${HLX_ADMIN}/ping/${org}/site`;
+      const calls = stubFetch([[ping, pingAfterFailures([
         () => new Response('', { status: 429 }),
-        () => { throw new TypeError('Failed to fetch'); },
+        () => new Response('', { status: 503 }),
       ])]]);
 
       expect(await isHlx6(org, 'site')).to.be.true;
-      expect(calls).to.have.length(3);
+      expect(calls.filter((c) => c.url === ping)).to.have.length(3);
     });
 
-    it('does not remember a ping that kept failing', async () => {
+    it('does not retry a 429 whose x-retry-after is too long', async () => {
+      const org = uniqueOrg('hlx6');
+      const ping = `${HLX_ADMIN}/ping/${org}/site`;
+      const calls = stubFetch([[ping, pingAfterFailures([
+        () => new Response('', { status: 429, headers: { 'x-retry-after': '30' } }),
+      ])]]);
+
+      const error = await isHlx6(org, 'site').catch((e) => e);
+
+      expect(error instanceof Error).to.equal(true);
+      expect(calls.filter((c) => c.url === ping)).to.have.length(1);
+    });
+
+    it('rejects when the ping keeps failing, sends no source request and checks again next time', async () => {
       const org = uniqueOrg('hlx6');
       const unavailable = () => new Response('', { status: 503 });
       const calls = stubFetch([[`${HLX_ADMIN}/ping/${org}/site`, pingAfterFailures([
         unavailable, unavailable, unavailable,
       ])]]);
 
-      expect(await isHlx6(org, 'site')).to.be.false;
+      const error = await saveSource({ path: `/${org}/site/.da/x.json`, json: '{}' }).catch((e) => e);
+
+      expect(error instanceof Error).to.equal(true);
+      expect(calls.filter((c) => !c.url.startsWith(`${HLX_ADMIN}/ping/`))).to.have.length(0);
       expect(await isHlx6(org, 'site')).to.be.true;
-      expect(calls).to.have.length(4);
+    });
+
+    it('rejects on a 403 ping without remembering it', async () => {
+      const org = uniqueOrg('legacy');
+      const calls = stubFetch([[`${HLX_ADMIN}/ping/${org}/site`, pingAfterFailures([
+        () => new Response('', { status: 403 }),
+        () => new Response(''),
+      ])]]);
+
+      const error = await isHlx6(org, 'site').catch((e) => e);
+
+      expect(error instanceof Error).to.equal(true);
+      expect(await isHlx6(org, 'site')).to.be.false;
+      expect(calls).to.have.length(2);
+    });
+
+    it('treats a 404 ping without the header as legacy DA', async () => {
+      const org = uniqueOrg('legacy');
+      stubFetch([[`${HLX_ADMIN}/ping/${org}/site`, () => new Response('', { status: 404 })]]);
+
+      expect(await isHlx6(org, 'site')).to.be.false;
+    });
+
+    it('treats a site whose primary content is on DA as legacy, even with a source bus overlay', async () => {
+      const org = uniqueOrg('hlx6');
+      stubFetch([[`${HLX_ADMIN}/sidekick/${org}/site/main/config.json`, () => json({
+        contentSourceType: 'markup',
+        contentSourceUrl: `https://content.da.live/${org}/site/`,
+      })]]);
+
+      expect(await isHlx6(org, 'site')).to.be.false;
+    });
+
+    it('treats a sourcebus content source without a URL as Helix 6', async () => {
+      const org = uniqueOrg('hlx6');
+      stubFetch([[`${HLX_ADMIN}/sidekick/${org}/site/main/config.json`, () => json({ contentSourceType: 'sourcebus' })]]);
+
+      expect(await isHlx6(org, 'site')).to.be.true;
+    });
+
+    it('rejects when the content source cannot be read', async () => {
+      const org = uniqueOrg('hlx6');
+      stubFetch([[`${HLX_ADMIN}/sidekick/${org}/site/main/config.json`, () => new Response('', { status: 500 })]]);
+
+      const error = await isHlx6(org, 'site').catch((e) => e);
+
+      expect(error instanceof Error).to.equal(true);
     });
 
     it('resolves the source origin from a site path', async () => {
@@ -228,6 +294,17 @@ describe('media library source access', () => {
       const result = await validateSitePath(`/${org}/site`);
 
       expect(result).to.deep.equal({ valid: true, org, repo: 'site' });
+    });
+
+    it('reports a failed site check as an error, without listing', async () => {
+      const org = uniqueOrg('hlx6');
+      const calls = stubFetch([[`${HLX_ADMIN}/ping/${org}/site`, () => new Response('', { status: 500 })]]);
+
+      const result = await validateSitePath(`/${org}/site`);
+
+      expect(result.valid).to.be.false;
+      expect(result.error).to.include('Try again');
+      expect(calls.filter((c) => !c.url.startsWith(`${HLX_ADMIN}/ping/`))).to.have.length(0);
     });
 
     it('validates a Helix 6 folder against its parent listing', async () => {
