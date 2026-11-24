@@ -1,3 +1,10 @@
+# [1.63.0](https://github.com/adobe/da-nx/compare/v1.62.1...v1.63.0) (2026-11-24)
+
+
+### Features
+
+* introduce shared tooltip ([#1034](https://github.com/adobe/da-nx/issues/1034)) ([80a135c](https://github.com/adobe/da-nx/commit/80a135c340923f080214e08304df6adcf7c44309))
+
 ## [1.62.1](https://github.com/adobe/da-nx/compare/v1.62.0...v1.62.1) (2026-11-23)
 
 
