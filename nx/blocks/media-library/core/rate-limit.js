@@ -1,4 +1,4 @@
-const defaultDelay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+export const defaultDelay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
 // No timer when idle: chained timers in a hidden tab are throttled to ~1/min.
 export function createRateLimiter(initialRate, { delay = defaultDelay, now = Date.now } = {}) {
@@ -23,7 +23,7 @@ export function createRateLimiter(initialRate, { delay = defaultDelay, now = Dat
   };
 }
 
-export function getRetryAfterMs(resp) {
+function getRetryAfterMs(resp) {
   const seconds = parseInt(resp.headers.get('x-retry-after') || resp.headers.get('retry-after'), 10);
   return seconds > 0 ? seconds * 1000 : 0;
 }

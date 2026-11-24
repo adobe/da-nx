@@ -2,7 +2,7 @@ import { daFetch } from './ims-adapter.js';
 import { DA_ADMIN, HLX_ADMIN } from '../../../utils/utils.js';
 import { AEM_API_ORIGIN } from './constants.js';
 import { getMessage } from './messages.js';
-import { getRetryAfterMs } from './rate-limit.js';
+import { defaultDelay as sleep } from './rate-limit.js';
 import {
   getSourceUrl,
   getListUrl,
@@ -10,21 +10,20 @@ import {
   toSaveOptions,
 } from './source-api.js';
 
-const MAX_RETRY_AFTER_MS = 2000;
+// The browser can't read admin's Retry-After (not CORS-exposed), so wait a fixed time.
+const ADMIN_RETRY_WAIT_MS = 1000;
 
-const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
-
-async function fetchAdmin(url, retryDelaysMs = [250, 500]) {
+async function fetchAdmin(url, retries = 2) {
   const resp = await daFetch(url);
-  if (![429, 503].includes(resp.status) || !retryDelaysMs.length) return resp;
-  const retryAfterMs = getRetryAfterMs(resp);
-  if (retryAfterMs > MAX_RETRY_AFTER_MS) return resp;
-  const [delayMs, ...rest] = retryDelaysMs;
-  await sleep(retryAfterMs || delayMs);
-  return fetchAdmin(url, rest);
+  const retryable = !resp.networkError && (resp.status === 429 || resp.status >= 500);
+  if (!retryable || !retries) return resp;
+  await sleep(ADMIN_RETRY_WAIT_MS);
+  return fetchAdmin(url, retries - 1);
 }
 
-const checkFailed = (resp) => new Error(getMessage('SOURCE_CHECK_FAILED', { status: resp.status }));
+const checkFailed = (resp) => new Error(resp.networkError
+  ? getMessage('VALIDATION_NETWORK_ERROR')
+  : getMessage('SOURCE_CHECK_FAILED', { status: resp.status }));
 
 // Ping like nx2 isHlx6, over the media library's daFetch so plugin-injected tokens work.
 // The ping header is also set for a source bus overlay alone, so check the primary source.
