@@ -120,6 +120,15 @@ describe('quick-edit portal source', () => {
       expect(sourceUrl).to.equal(`${DA_ADMIN}/source/${org}/${site}/index.html`);
     });
 
+    it('rejects when the upgrade check fails, so the portal can retry', async () => {
+      const savedFetch = window.fetch;
+      window.fetch = async () => { throw new TypeError('Failed to fetch'); };
+      const { org, site } = makeOrgSite();
+      const error = await loadDocSource({ org, site, pathname: '/page' }).then(() => null, (e) => e);
+      window.fetch = savedFetch;
+      expect(error).to.be.instanceof(Error);
+    });
+
     it('returns an error with the status when the document cannot be read', async () => {
       installFetch({ status: 403 });
       const { org, site } = makeOrgSite();
