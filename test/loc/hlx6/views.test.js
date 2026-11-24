@@ -3,7 +3,7 @@ import { fetchProject, copyProject, archiveProject } from '../../../nx/blocks/lo
 import createProjectData from '../../../nx/blocks/loc/views/dashboard/project-data.js';
 import { rolloutLang } from '../../../nx/blocks/loc/views/rollout/index.js';
 import {
-  getUrls, copySourceLangs, sendAllForTranslation,
+  getUrls, copySourceLangs, sendAllForTranslation, checkWaitingLanguages,
 } from '../../../nx/blocks/loc/views/translate/index.js';
 import { clearConfigCache, loadProject } from '../../../nx/blocks/loc/utils/utils.js';
 import { fetchBlockSchema, fetchKeywordsFile } from '../../../nx/blocks/loc/connectors/glaas/translationMetadata.js';
@@ -110,6 +110,41 @@ describe('loc views on Helix 6', () => {
       });
       expect(errors[0].criticalError.status).to.equal(403);
     });
+
+    it('loads again when a filter change cancels the first load', async () => {
+      const Dashboard = customElements.get('nx-loc-dashboard');
+      const applied = [];
+      let loads = 0;
+      const ctx = {
+        abortCurrentAndGetNewController: Dashboard.prototype.abortCurrentAndGetNewController,
+        ensureInitialized: Dashboard.prototype.ensureInitialized,
+        updateShowRangeToFirstPage: () => {},
+        updateProjectsToDisplay: async () => {},
+        setErrorMessage: (text) => { ctx.errorText = text; },
+        initializeProjectsAndUser() {
+          loads += 1;
+          this.abortCurrentAndGetNewController();
+          const { signal } = this._dataAbortController;
+          if (loads === 1) {
+            return new Promise((resolve, reject) => {
+              signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+            });
+          }
+          this._projectData = {
+            applyFilters: async (filters, filterSignal) => {
+              applied.push({ filters, aborted: filterSignal.aborted });
+            },
+          };
+          return Promise.resolve();
+        },
+      };
+      const firstLoad = Dashboard.prototype.ensureInitialized.call(ctx).catch((e) => e.name);
+      await Dashboard.prototype.handleFilterChange.call(ctx, { status: 'done' });
+      expect(await firstLoad).to.equal('AbortError');
+      expect(loads).to.equal(2);
+      expect(applied).to.deep.equal([{ filters: { status: 'done' }, aborted: false }]);
+      expect(ctx.errorText).to.be.undefined;
+    });
   });
 
   describe('when the site check fails', () => {
@@ -203,6 +238,7 @@ describe('loc views on Helix 6', () => {
         _urls: [],
         findConfigValue: Validate.prototype.findConfigValue,
         getOriginMatches: Validate.prototype.getOriginMatches,
+        checkUrl: async () => {},
       };
       clearConfigCache();
       await Validate.prototype.checkUrls.call(ctx);
@@ -210,14 +246,26 @@ describe('loc views on Helix 6', () => {
       expect(ctx._message).to.deep.equal({ type: 'error', text: message });
       expect(ctx._configSheet).to.be.undefined;
     });
+  });
+
+  describe('when a page read fails', () => {
+    let legacy;
+
+    beforeEach(() => {
+      legacy = makeSite();
+      clearConfigCache();
+    });
+
+    afterEach(() => clearConfigCache());
 
     it('does not send pages to the vendor without their content', async () => {
-      installFetch(({ url }) => (url.endsWith('/.da/translate.json')
-        ? json({ config: { data: [] } })
-        : new Response(DOC, { status: 200 })));
+      installFetch(({ url }) => {
+        if (url.endsWith('/.da/translate.json')) return json({ config: { data: [] } });
+        throw new TypeError('Failed to fetch');
+      });
       const { urls } = await getUrls(
-        unreachable.org,
-        unreachable.site,
+        legacy.org,
+        legacy.site,
         {},
         '/en',
         '/en',
@@ -225,13 +273,62 @@ describe('loc views on Helix 6', () => {
         true,
       );
       expect(urls[0].content).to.be.undefined;
-      expect(urls[0].error).to.include(message);
+      expect(urls[0].error).to.equal('Error fetching content from /en/page.html - Failed to fetch');
       let sent = false;
       const connector = { sendAllLanguages: async () => { sent = true; } };
       const conf = { langsWithUrls: [{ urls }], langs: [] };
       const result = await sendAllForTranslation(conf, connector);
       expect(result.errors).to.have.length(1);
       expect(sent).to.equal(false);
+    });
+
+    const waitingConf = () => ({
+      org: legacy.org,
+      site: legacy.site,
+      options: { 'source.language': { location: '/en' } },
+      urls: [{ suppliedPath: '/en/page' }],
+      langs: [
+        { code: 'fr', name: 'French', location: '/fr', translation: { status: 'complete', saved: 1 } },
+        {
+          code: 'fr-ca',
+          name: 'French (Canada)',
+          location: '/fr-ca',
+          waitingFor: { code: 'fr', location: '/fr' },
+          translation: { status: 'waiting' },
+        },
+      ],
+    });
+
+    const checkWaiting = async (conf) => {
+      let sent = false;
+      const connector = { sendAllLanguages: async () => { sent = true; } };
+      const error = await checkWaitingLanguages(conf, connector, conf.urls, '/en')
+        .then(() => undefined, (e) => e);
+      return { sent, message: error?.message };
+    };
+
+    it('keeps a dependent language waiting when its page read fails', async () => {
+      installFetch(({ url }) => {
+        if (url.endsWith('/.da/translate.json')) return json({ config: { data: [] } });
+        throw new TypeError('Failed to fetch');
+      });
+      const conf = waitingConf();
+      const { sent, message } = await checkWaiting(conf);
+      expect(sent).to.equal(false);
+      expect(message).to.equal('Could not send French (Canada): Error fetching content from /fr/page.html - Failed to fetch');
+      expect(conf.langs[1].waitingFor).to.deep.equal({ code: 'fr', location: '/fr' });
+      expect(conf.langs[1].translation.status).to.equal('waiting');
+    });
+
+    it('keeps a dependent language waiting when the config read fails', async () => {
+      installFetch(() => { throw new TypeError('Failed to fetch'); });
+      const conf = waitingConf();
+      const { sent, message } = await checkWaiting(conf);
+      expect(sent).to.equal(false);
+      expect(message).to.equal('Could not send French (Canada): Failed to fetch');
+      expect(calls.some((call) => call.url.endsWith('.html'))).to.equal(false);
+      expect(conf.langs[1].waitingFor).to.deep.equal({ code: 'fr', location: '/fr' });
+      expect(conf.langs[1].translation.status).to.equal('waiting');
     });
   });
 

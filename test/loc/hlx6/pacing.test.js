@@ -81,6 +81,24 @@ describe('loc source pacing', () => {
       expect(Math.min(...gaps)).to.be.at.least(125);
     });
 
+    it('gives the start slot of a request cancelled while queued to the next one', async () => {
+      const clock = timerClock();
+      const limit = createLimiter({ maxInFlight: 4, minIntervalMs: 125, ...clock });
+      const starts = [];
+      const controller = new AbortController();
+      const task = (name) => async () => { starts.push([name, clock.now()]); };
+      const done = Promise.allSettled([
+        limit(task('first')),
+        limit(task('cancelled'), { signal: controller.signal }),
+        limit(task('next')),
+      ]);
+      controller.abort();
+      const results = await clock.runUntil(done);
+      expect(results.map(({ status }) => status)).to.deep.equal(['fulfilled', 'rejected', 'fulfilled']);
+      expect(results[1].reason.name).to.equal('AbortError');
+      expect(starts).to.deep.equal([['first', 0], ['next', 125]]);
+    });
+
     it('holds new starts while paused', async () => {
       const clock = fakeClock();
       const limit = createLimiter({ maxInFlight: 4, minIntervalMs: 0, ...clock });

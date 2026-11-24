@@ -110,6 +110,23 @@ describe('loc source helpers', () => {
       expect(calls).to.deep.equal([]);
     });
 
+    it('does not send a request cancelled while it waits for its start', async () => {
+      installFetch();
+      const { org, site } = makeSite({ hlx6: true });
+      const controller = new AbortController();
+      const results = await Promise.allSettled([
+        getSource(`/${org}/${site}/first.html`),
+        getSource(`/${org}/${site}/cancelled.html`, { signal: controller.signal }),
+        getSource(`/${org}/${site}/next.html`),
+        delay(20).then(() => controller.abort()),
+      ]);
+      expect(results[1].reason?.name).to.equal('AbortError');
+      expect(calls.map((call) => call.url)).to.deep.equal([
+        `${AEM_API}/${org}/sites/${site}/source/first.html`,
+        `${AEM_API}/${org}/sites/${site}/source/next.html`,
+      ]);
+    });
+
     it('does not retry a request cancelled in flight', async () => {
       installFetch(({ signal }) => new Promise((resolve, reject) => {
         signal.addEventListener('abort', () => reject(signal.reason));
