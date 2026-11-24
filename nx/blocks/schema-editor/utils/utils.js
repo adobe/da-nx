@@ -29,9 +29,8 @@ const SCHEMAS_PATH = '/.da/forms/schemas';
 // Names the source bus stores unchanged (it collapses and trims hyphens).
 const STABLE_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-// Org-level schemas (`/{org}/.da/...`) only exist on admin.da.live. Calling it
-// directly skips the Helix 6 check source.* would run for site `.da`.
-const orgSource = {
+// admin.da.live: org-level schemas, legacy sites, and sites whose Helix 6 check fails.
+const daSource = {
   list: async (path) => {
     const resp = await daFetch({ url: `${DA_ADMIN}/list${path}` });
     const items = resp.ok ? await resp.json() : [];
@@ -46,7 +45,10 @@ const orgSource = {
   delete: (path) => daFetch({ url: `${DA_ADMIN}/source${path}`, opts: { method: 'DELETE' } }),
 };
 
-const storeFor = (path) => (fromPath(path).site === '.da' ? orgSource : source);
+async function storeFor(org, site) {
+  if (!site) return daSource;
+  return (await isHlx6(org, site).catch(() => false)) ? source : daSource;
+}
 
 // The source bus parses the body as HTML, so `&` and `<` in the JSON must stay text.
 const toSchemaHtml = (jsonStr) => {
@@ -61,8 +63,8 @@ const toSchemaHtml = (jsonStr) => {
 // The status is an explicit contract, so the editor never has to inspect a
 // schema's own fields (which could collide with a legitimate `invalid`/`error`
 // property) to tell a real schema from a malformed one.
-async function loadSchema(target) {
-  const { ok, data: html, error } = await asText(storeFor(target).get(target)).catch(() => ({}));
+async function loadSchema(store, target) {
+  const { ok, data: html, error } = await asText(store.get(target)).catch(() => ({}));
   if (!ok || error) return { status: 'load-failed' };
 
   const parser = new DOMParser();
@@ -78,27 +80,24 @@ async function loadSchema(target) {
   }
 }
 
-const listSchemas = (prefix) => {
-  const path = `${prefix}${SCHEMAS_PATH}`;
-  return storeFor(path).list(path).catch(() => ({ ok: false }));
-};
+const listSchemas = (store, prefix) => store.list(`${prefix}${SCHEMAS_PATH}`);
 
 // Throws when the site's schemas can't be loaded, so the editor never shows
 // or writes schemas from another store than the site's.
 export async function loadSchemas(org, site) {
   const orgPrefix = `/${org}`;
   const sitePrefix = site ? `${orgPrefix}/${site}` : orgPrefix;
-  const hlx6 = !!site && await isHlx6(org, site);
+  const store = await storeFor(org, site);
 
-  let list = await listSchemas(sitePrefix);
-  if (!list.ok && hlx6) {
+  let list = await listSchemas(store, sitePrefix);
+  if (!list.ok && store === source) {
     // Helix 6 has no org-level store, and a site without schemas has no folder.
     if (list.status !== 404) throw new Error(`Cannot list schemas from ${sitePrefix}${SCHEMAS_PATH}.`);
     list = { ok: true, items: [] };
   }
 
   // If a legacy site listing failed, fall back to the org schemas
-  if (!list.ok && site) list = await listSchemas(orgPrefix);
+  if (!list.ok && site) list = await listSchemas(daSource, orgPrefix);
 
   if (!list.ok) {
     // eslint-disable-next-line no-console
@@ -110,16 +109,14 @@ export async function loadSchemas(org, site) {
   // dropped so the editor only lists ones it can actually open.
   const results = await Promise.all(list.items
     .filter((entry) => entry.ext === 'html')
-    .map(async (entry) => [entry.name, await loadSchema(entry.path)]));
+    .map(async (entry) => [entry.name, await loadSchema(store, entry.path)]));
   return Object.fromEntries(
     results.filter(([, result]) => result.status !== 'load-failed'),
   );
 }
 
 // Helix 6 has no create-only save, so a create first checks that the name is free.
-async function checkNewName(prefix, id, target) {
-  const { org, site } = fromPath(prefix);
-  if (!site || !(await isHlx6(org, site))) return undefined;
+async function checkNewName(id, target) {
   if (!STABLE_NAME.test(id)) return 'Use lowercase letters and numbers, separated by single hyphens.';
   const { ok, status } = await source.getMetadata(target);
   if (ok) return 'A schema with this name already exists.';
@@ -130,9 +127,11 @@ async function checkNewName(prefix, id, target) {
 export async function saveSchema(prefix, id, jsonStr, { create } = {}) {
   const target = `${prefix}${SCHEMAS_PATH}/${id}.html`;
   try {
-    const nameError = create && await checkNewName(prefix, id, target);
+    const { org, site } = fromPath(prefix);
+    const store = await storeFor(org, site);
+    const nameError = create && store === source && await checkNewName(id, target);
     if (nameError) return { error: nameError };
-    const resp = await storeFor(target).save(target, { body: toSchemaHtml(jsonStr) });
+    const resp = await store.save(target, { body: toSchemaHtml(jsonStr) });
     if (!resp.ok) return { error: `Error saving. Status: ${resp.status}` };
     return { ok: true };
   } catch {
@@ -143,7 +142,9 @@ export async function saveSchema(prefix, id, jsonStr, { create } = {}) {
 export async function deleteSchema(prefix, id) {
   const target = `${prefix}${SCHEMAS_PATH}/${id}.html`;
   try {
-    const resp = await storeFor(target).delete(target);
+    const { org, site } = fromPath(prefix);
+    const store = await storeFor(org, site);
+    const resp = await store.delete(target);
     if (!resp.ok) return { error: `Error deleting. Status: ${resp.status}` };
     return { ok: true };
   } catch {
