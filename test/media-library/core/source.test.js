@@ -45,6 +45,17 @@ function stubFetch(routes) {
   return calls;
 }
 
+const withRetryWaits = async (run) => {
+  const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+  try {
+    const result = run();
+    await clock.tickAsync(2000);
+    return await result;
+  } finally {
+    clock.restore();
+  }
+};
+
 const helix6ListItem = (name, lastModified) => ({
   name,
   size: 10,
@@ -83,29 +94,16 @@ describe('media library source access', () => {
       ? failures.shift()()
       : new Response('', { headers: { 'x-api-upgrade-available': 'true' } }));
 
-    it('retries a ping that fails with 429 or 503', async () => {
-      const org = uniqueOrg('hlx6');
-      const ping = `${HLX_ADMIN}/ping/${org}/site`;
-      const calls = stubFetch([[ping, pingAfterFailures([
-        () => new Response('', { status: 429 }),
-        () => new Response('', { status: 503 }),
-      ])]]);
-
-      expect(await isHlx6(org, 'site')).to.be.true;
-      expect(calls.filter((c) => c.url === ping)).to.have.length(3);
-    });
-
-    it('does not retry a 429 whose x-retry-after is too long', async () => {
+    it('retries a ping that fails with 429 or 5xx after a fixed wait', async () => {
       const org = uniqueOrg('hlx6');
       const ping = `${HLX_ADMIN}/ping/${org}/site`;
       const calls = stubFetch([[ping, pingAfterFailures([
         () => new Response('', { status: 429, headers: { 'x-retry-after': '30' } }),
+        () => new Response('', { status: 502 }),
       ])]]);
 
-      const error = await isHlx6(org, 'site').catch((e) => e);
-
-      expect(error instanceof Error).to.equal(true);
-      expect(calls.filter((c) => c.url === ping)).to.have.length(1);
+      expect(await withRetryWaits(() => isHlx6(org, 'site'))).to.be.true;
+      expect(calls.filter((c) => c.url === ping)).to.have.length(3);
     });
 
     it('rejects when the ping keeps failing, sends no source request and checks again next time', async () => {
@@ -115,7 +113,8 @@ describe('media library source access', () => {
         unavailable, unavailable, unavailable,
       ])]]);
 
-      const error = await saveSource({ path: `/${org}/site/.da/x.json`, json: '{}' }).catch((e) => e);
+      const error = await withRetryWaits(() => saveSource({ path: `/${org}/site/.da/x.json`, json: '{}' })
+        .catch((e) => e));
 
       expect(error instanceof Error).to.equal(true);
       expect(calls.filter((c) => !c.url.startsWith(`${HLX_ADMIN}/ping/`))).to.have.length(0);
@@ -164,7 +163,7 @@ describe('media library source access', () => {
       const org = uniqueOrg('hlx6');
       stubFetch([[`${HLX_ADMIN}/sidekick/${org}/site/main/config.json`, () => new Response('', { status: 500 })]]);
 
-      const error = await isHlx6(org, 'site').catch((e) => e);
+      const error = await withRetryWaits(() => isHlx6(org, 'site').catch((e) => e));
 
       expect(error instanceof Error).to.equal(true);
     });
@@ -436,11 +435,23 @@ describe('media library source access', () => {
       const org = uniqueOrg('hlx6');
       const calls = stubFetch([[`${HLX_ADMIN}/ping/${org}/site`, () => new Response('', { status: 500 })]]);
 
-      const result = await validateSitePath(`/${org}/site`);
+      const result = await withRetryWaits(() => validateSitePath(`/${org}/site`));
 
       expect(result.valid).to.be.false;
-      expect(result.error).to.include('Try again');
+      expect(result.error).to.include('(HTTP 500). Try again');
       expect(calls.filter((c) => !c.url.startsWith(`${HLX_ADMIN}/ping/`))).to.have.length(0);
+    });
+
+    it('reports a network error on the site check as a network error, without retrying', async () => {
+      const org = uniqueOrg('hlx6');
+      const ping = `${HLX_ADMIN}/ping/${org}/site`;
+      const calls = stubFetch([[ping, () => { throw new TypeError('Failed to fetch'); }]]);
+
+      const result = await withRetryWaits(() => validateSitePath(`/${org}/site`));
+
+      expect(result.valid).to.be.false;
+      expect(result.error).to.equal('Network error. Check your connection and try again.');
+      expect(calls).to.have.length(1);
     });
 
     it('validates a Helix 6 folder against its parent listing', async () => {
