@@ -58,7 +58,8 @@ export async function copyProject(project, email) {
   // Replace the last path segment (timestamp) with the new timestamp
   const newPath = path.substring(0, path.lastIndexOf('/') + 1) + newTimestamp;
 
-  await daFetch({ url: `${DA_ADMIN}/source${newPath}.json`, opts: { body, method: 'POST' } });
+  const resp = await daFetch({ url: `${DA_ADMIN}/source${newPath}.json`, opts: { body, method: 'POST' } });
+  if (!resp.ok) throw new Error(`Copy failed (${resp.status})`);
 
   // Return just the path and timestamp for the new project
   return { path: newPath, lastModified: newTimestamp, newProject };
@@ -71,6 +72,7 @@ export async function archiveProject(project) {
   const newPath = path.replace(TRANSLATION_PATH_ACTIVE, TRANSLATION_PATH_ARCHIVE);
   formData.append('destination', `${newPath}.json`);
   const opts = { body: formData, method: 'POST' };
-  await daFetch({ url: `${DA_ADMIN}/move${path}.json`, opts });
+  const resp = await daFetch({ url: `${DA_ADMIN}/move${path}.json`, opts });
+  if (!resp.ok) throw new Error(`Archive failed (${resp.status})`);
   return newPath;
 }
