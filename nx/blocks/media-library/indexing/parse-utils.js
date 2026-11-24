@@ -97,9 +97,8 @@ function toPath(href) {
   } catch {
     // Not a valid URL, treat as relative path
     const path = u.split('?')[0].split('#')[0];
-    const name = path.split('/').pop();
     // Helix 6 pages reference media as ./media_<hash>; the media bus serves it from the root
-    return /^media_[a-f0-9]+\./i.test(name) ? `/${name}` : path;
+    return /^\.\/media_[a-f0-9]{40,}\.[a-z0-9]+$/i.test(path) ? path.slice(1) : path;
   }
 }
 
