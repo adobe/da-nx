@@ -107,8 +107,6 @@ jobs:
         timeout-minutes: 3
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          DA_CHG_COORDINATOR: ${{ secrets.DA_CHG_COORDINATOR }}
-          DA_CHG_APPROVED_BY: ${{ secrets.DA_CHG_APPROVED_BY }}
           DA_CHG_LDAP_MAP: ${{ secrets.DA_CHG_LDAP_MAP }}
       - name: Semantic Release
         run: npm run semantic-release

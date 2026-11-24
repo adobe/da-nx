@@ -2,8 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   latestApprovers,
-  parseApprovers,
-  parseMap,
+  parseConfig,
   resolvePeople,
   toEnvLines,
 } from './chg-people.mjs';
@@ -37,31 +36,35 @@ describe('latestApprovers', () => {
   });
 });
 
-describe('parseMap', () => {
-  it('lower-cases GitHub logins', () => {
-    assert.deepEqual(parseMap('{"MHaack":"ldap1"}'), { mhaack: 'ldap1' });
+describe('parseConfig', () => {
+  const empty = { map: {}, defaults: { coordinator: undefined, approvedBy: [] } };
+
+  it('splits the defaults from the login mapping and lower-cases logins', () => {
+    const raw = JSON.stringify({
+      _coordinator: 'ldap-d',
+      _approvers: ['ldap-a1', 'ldap-a2'],
+      MHaack: 'ldap-mh',
+    });
+    assert.deepEqual(parseConfig(raw), {
+      map: { mhaack: 'ldap-mh' },
+      defaults: { coordinator: 'ldap-d', approvedBy: ['ldap-a1', 'ldap-a2'] },
+    });
   });
 
-  it('returns an empty map for missing or invalid input', () => {
-    assert.deepEqual(parseMap(''), {});
-    assert.deepEqual(parseMap(undefined), {});
-    assert.deepEqual(parseMap('not json'), {});
-    assert.deepEqual(parseMap('["a"]'), {});
-  });
-});
-
-describe('parseApprovers', () => {
-  it('accepts a JSON array', () => {
-    assert.deepEqual(parseApprovers('["a","b"]'), ['a', 'b']);
+  it('accepts the default approvers as a comma-separated string or a single id', () => {
+    assert.deepEqual(parseConfig('{"_approvers":"a, b"}').defaults.approvedBy, ['a', 'b']);
+    assert.deepEqual(parseConfig('{"_approvers":"a"}').defaults.approvedBy, ['a']);
   });
 
-  it('accepts a comma-separated list', () => {
-    assert.deepEqual(parseApprovers('a, b'), ['a', 'b']);
+  it('never treats unknown _-keys as logins', () => {
+    assert.deepEqual(parseConfig('{"_other":"x","bob":"ldap-b"}').map, { bob: 'ldap-b' });
   });
 
-  it('returns an empty list for missing input', () => {
-    assert.deepEqual(parseApprovers(''), []);
-    assert.deepEqual(parseApprovers(undefined), []);
+  it('returns an empty config for missing or invalid input', () => {
+    assert.deepEqual(parseConfig(''), empty);
+    assert.deepEqual(parseConfig(undefined), empty);
+    assert.deepEqual(parseConfig('not json'), empty);
+    assert.deepEqual(parseConfig('["a"]'), empty);
   });
 });
 

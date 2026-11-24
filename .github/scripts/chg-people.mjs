@@ -2,11 +2,17 @@
  * Resolves the change coordinator and approvers for the iPaaS change request
  * (@adobe/semantic-release-ipaas-chg) from the PRs in the upcoming release.
  *
- * - coordinator: the mapped author of the newest PR, else DA_CHG_COORDINATOR
- * - approvers:   the mapped approving reviewers of all PRs, else DA_CHG_APPROVED_BY
+ * - coordinator: the mapped author of the newest PR, else the default coordinator
+ * - approvers:   the mapped approving reviewers of all PRs, else the default approvers
  *
- * GitHub logins are mapped to Adobe LDAP ids via the DA_CHG_LDAP_MAP secret
- * ({"githubLogin":"ldap"}). Unmapped people (e.g. external contributors) are skipped.
+ * Everything comes from one secret, DA_CHG_LDAP_MAP:
+ *   {
+ *     "_coordinator": "ldap",             // default coordinator
+ *     "_approvers": ["ldap1", "ldap2"],    // default approvers
+ *     "githubLogin": "ldap", ...           // GitHub login -> Adobe LDAP id
+ *   }
+ * Keys starting with "_" can never be GitHub logins (letters, digits, hyphens only).
+ * Unmapped people (e.g. external contributors) are skipped.
  * Results are written as IPAAS_COORDINATOR / IPAAS_APPROVED_BY to $GITHUB_ENV, which
  * overrides the values from the shared Helix secret. Every LDAP id is masked, because
  * the Actions logs of this public repo are public.
@@ -31,27 +37,34 @@ export function latestApprovers(reviews) {
   return [...latest].filter(([, state]) => state === 'APPROVED').map(([login]) => login);
 }
 
-export function parseMap(raw) {
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    return Object.fromEntries(
-      Object.entries(parsed).map(([login, ldap]) => [login.toLowerCase(), ldap]),
-    );
-  } catch {
-    return {};
-  }
+function toList(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === 'string') return value.split(',').map((s) => s.trim()).filter(Boolean);
+  return [];
 }
 
-export function parseApprovers(raw) {
-  if (!raw) return [];
+export function parseConfig(raw) {
+  let parsed;
   try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    parsed = JSON.parse(raw);
   } catch {
-    // not JSON, treat as comma-separated list
+    parsed = undefined;
   }
-  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) parsed = {};
+
+  const { _coordinator: coordinator, _approvers: approvers } = parsed;
+  const map = Object.fromEntries(
+    Object.entries(parsed)
+      .filter(([key]) => !key.startsWith('_'))
+      .map(([login, ldap]) => [login.toLowerCase(), ldap]),
+  );
+  return {
+    map,
+    defaults: {
+      coordinator: typeof coordinator === 'string' && coordinator.trim() ? coordinator.trim() : undefined,
+      approvedBy: toList(approvers),
+    },
+  };
 }
 
 export function resolvePeople({ prs, map, defaults }) {
@@ -129,15 +142,10 @@ async function releasePRs(repo, base) {
 
 async function main() {
   const {
-    GITHUB_ENV, GITHUB_REPOSITORY, GITHUB_REF_NAME = 'main',
-    DA_CHG_COORDINATOR, DA_CHG_APPROVED_BY, DA_CHG_LDAP_MAP,
+    GITHUB_ENV, GITHUB_REPOSITORY, GITHUB_REF_NAME = 'main', DA_CHG_LDAP_MAP,
   } = process.env;
 
-  const map = parseMap(DA_CHG_LDAP_MAP);
-  const defaults = {
-    coordinator: DA_CHG_COORDINATOR?.trim(),
-    approvedBy: parseApprovers(DA_CHG_APPROVED_BY),
-  };
+  const { map, defaults } = parseConfig(DA_CHG_LDAP_MAP);
 
   let prs = [];
   try {
@@ -156,7 +164,7 @@ async function main() {
   console.log(`coordinator: ${people.coordinator ? 'set' : 'not set, using shared secret'}`);
   console.log(`approvers: ${people.approvedBy ? people.approvedBy.length : 'not set, using shared secret'}`);
   if (!people.coordinator || !people.approvedBy) {
-    console.log('::warning::Change request coordinator/approvers fall back to the shared Helix secret. Set the DA_CHG_COORDINATOR / DA_CHG_APPROVED_BY repo secrets.');
+    console.log('::warning::Change request coordinator/approvers fall back to the shared Helix secret. Set "_coordinator" / "_approvers" in the DA_CHG_LDAP_MAP repo secret.');
   }
 }
 
