@@ -1,7 +1,6 @@
 import { daFetch } from './ims-adapter.js';
 import { DA_ADMIN, HLX_ADMIN } from '../../../utils/utils.js';
 import { AEM_API_ORIGIN } from './constants.js';
-import { getMessage } from './messages.js';
 import { defaultDelay as sleep } from './rate-limit.js';
 import {
   getSourceUrl,
@@ -15,25 +14,20 @@ const ADMIN_RETRY_WAIT_MS = 1000;
 
 async function fetchAdmin(url, retries = 2) {
   const resp = await daFetch(url);
-  const retryable = !resp.networkError && (resp.status === 429 || resp.status >= 500);
-  if (!retryable || !retries) return resp;
+  if (!(resp.status === 429 || resp.status >= 500) || !retries) return resp;
   await sleep(ADMIN_RETRY_WAIT_MS);
   return fetchAdmin(url, retries - 1);
 }
 
-const checkFailed = (resp) => new Error(resp.networkError
-  ? getMessage('VALIDATION_NETWORK_ERROR')
-  : getMessage('SOURCE_CHECK_FAILED', { status: resp.status }));
-
 // Ping like nx2 isHlx6, over the media library's daFetch so plugin-injected tokens work.
 // The ping header is also set for a source bus overlay alone, so check the primary source.
+// Any failed check means DA, which main always uses.
 async function probe(org, site) {
   const ping = await fetchAdmin(`${HLX_ADMIN}/ping/${org}/${site}`);
-  if (!ping.ok && ping.status !== 404) throw checkFailed(ping);
   if (!ping.headers.has('x-api-upgrade-available')) return false;
   const config = await fetchAdmin(`${HLX_ADMIN}/sidekick/${org}/${site}/main/config.json`);
-  if (!config.ok) throw checkFailed(config);
-  const { contentSourceType, contentSourceUrl } = await config.json();
+  if (!config.ok) return false;
+  const { contentSourceType, contentSourceUrl } = await config.json().catch(() => ({}));
   return contentSourceType === 'sourcebus' || !!contentSourceUrl?.startsWith(`${AEM_API_ORIGIN}/`);
 }
 
@@ -43,10 +37,7 @@ export const isHlx6 = (() => {
   return (org, site) => {
     if (!org || !site) return Promise.resolve(false);
     const key = `/${org}/${site}`;
-    cache[key] ??= probe(org, site).catch((error) => {
-      delete cache[key];
-      throw error;
-    });
+    cache[key] ??= probe(org, site);
     return cache[key];
   };
 })();

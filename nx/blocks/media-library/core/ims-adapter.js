@@ -88,7 +88,6 @@ export const daFetch = async (url, opts = {}, pacing = {}) => {
     response = await (isAemApi ? aemApiFetch(url, opts, pacing) : fetch(url, opts));
   } catch (err) {
     response = new Response(null, { status: 500, statusText: err.message });
-    response.networkError = true;
   }
 
   // Smart 401 handling: auto-redirect for anonymous users, show error for authenticated users
