@@ -3,8 +3,14 @@ const VERSION_SAVE_EXTS = new Set(['json', 'html']);
 const MARKED_VERSION_LABEL = 'Sync point set';
 const NOT_ENABLED = 'Smart overwrite is not enabled for this site';
 const CANONICALIZE_LOSS = 'canonicalize-loss';
-const CANONICALIZE_LOSS_MESSAGE = 'Copying would lose content that the editor cannot keep. '
-  + 'Open the source and the destination in the editor, save them, then copy again.';
+const LOSS = 'Copying would lose content that the editor cannot keep.';
+
+function lossMessage(url, side) {
+  const page = { source: url.source, target: url.destination }[side];
+  if (page) return `${LOSS} Open ${page} in the editor, save it, then copy again.`;
+  if (side === 'source') return 'The source content has content that the editor cannot keep.';
+  return `${LOSS} Open the source and the destination in the editor, save them, then copy again.`;
+}
 const SMART_OUTCOMES = { unchanged: 'unchanged', 'needs-review': 'review' };
 
 function saveDaSource({
@@ -79,7 +85,7 @@ export function createCopy({
 
   const fail = (url, error) => {
     url.status = 'error';
-    const message = error.code === CANONICALIZE_LOSS ? CANONICALIZE_LOSS_MESSAGE : error.message;
+    const message = error.code === CANONICALIZE_LOSS ? lossMessage(url, error.side) : error.message;
     url.error = `${url.destination}: ${message}`;
     return {
       ok: false,

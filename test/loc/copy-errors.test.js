@@ -168,6 +168,36 @@ describe('engine reports', () => {
     expect(url.error).to.include('Open the source and the destination in the editor, save them, then copy again');
   });
 
+  const lossOn = (side) => {
+    sinon.stub(engine, 'applyCopy').rejects(Object.assign(new Error('Canonicalizing would change the page content'), { code: 'canonicalize-loss', side }));
+  };
+
+  it('names the destination when canonicalizing it would lose content', async () => {
+    lossOn('target');
+    const { copy } = setup();
+    const url = { source: SOURCE, destination: DESTINATION };
+    const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+    expect(result.error).to.include(`Open ${DESTINATION} in the editor, save it, then copy again`);
+    expect(url.error).to.not.include(SOURCE);
+  });
+
+  it('names the source when canonicalizing it would lose content', async () => {
+    lossOn('source');
+    const { copy } = setup();
+    const url = { source: SOURCE, destination: DESTINATION };
+    const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+    expect(result.error).to.include(`Open ${SOURCE} in the editor, save it, then copy again`);
+  });
+
+  it('says the supplied source content can\'t be kept when there is no source page to open', async () => {
+    lossOn('source');
+    const { copy } = setup();
+    const url = { destination: DESTINATION, sourceContent: html('Translated') };
+    const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+    expect(result.error).to.include('The source content has content that the editor cannot keep');
+    expect(result.code).to.equal('canonicalize-loss');
+  });
+
   [true, false].forEach((contentChanged) => {
     it(`${contentChanged ? 'saves' : 'saves no'} version when content changed is ${contentChanged}`, async () => {
       sinon.stub(engine, 'applyCopy').resolves({

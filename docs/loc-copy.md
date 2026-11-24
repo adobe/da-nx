@@ -47,7 +47,7 @@ The SDK does not wrap these helpers; it is reserved for host actions the DA REST
 - Reads, writes, versions, and translation config all go to `daOrigin`. Helix 6 sites are not supported yet.
 - Translation config is read from the target site's `.da/translate.json`, falling back to the org's on 404. A 404 or 403 on the org config means no config. No config means no equivalent hostnames. Config is cached per `fetch`, `daOrigin`, and org/site; failed loads are not cached.
 - Other config failures stop the merge and report the config path and status.
-- If converting a page to the editor form would lose content, nothing is written. The result has `code: 'canonicalize-loss'` and an `error` that tells the author to open both pages in the editor, save them, and copy again.
+- If converting a page to the editor form would lose content, nothing is written. The result has `code: 'canonicalize-loss'` and an `error` that names the page to open in the editor, save, and copy again (the source or the destination, from the error's `side`). When the source is supplied content with no page to open, the error says the source content can't be kept.
 - Concurrent version saves for the same path are deduplicated.
 
 ## Return value

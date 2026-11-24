@@ -300,8 +300,8 @@ form and saves the result in it. So a page nobody edited never shows false local
 
 If the conversion would lose content (it changes the visible text, a metadata value, or the number of images,
 pictures, videos or links), the copy fails and nothing is written. Examples are a second `<main>`, or content an API wrote in a form the
-editor can't hold. The error tells the author to open the source and the destination in the editor, save them, and
-copy again. Saving in the editor converts the page, so the next copy works.
+editor can't hold. The error names the page that would lose content (upstream or the destination) and tells the author to
+open it in the editor, save it, and copy again. Saving in the editor converts the page, so the next copy works.
 
 ## Set sync point
 
