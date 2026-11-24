@@ -156,11 +156,7 @@ class NxMarketplace extends LitElement {
   }
 
   render() {
-    return html`${this._renderContent()}${this._renderNote()}`;
-  }
-
-  _renderContent() {
-    if (this._error) return html`<p class="error">${this._error}</p>`;
+    if (this._error) return html`<p class="error">${this._error}</p>${this._renderNote()}`;
 
     if (this._items === undefined) {
       return html`
@@ -185,11 +181,12 @@ class NxMarketplace extends LitElement {
               </li>
             `)}
           </ul>
+          ${this._renderNote()}
         </div>
       `;
     }
 
-    if (!this._items.length) return html`<p class="empty">No extensions available.</p>`;
+    if (!this._items.length) return html`<p class="empty">No extensions available.</p>${this._renderNote()}`;
 
     const visible = getVisibleItems({
       items: this._items,
@@ -207,6 +204,7 @@ class NxMarketplace extends LitElement {
         ${visible.length
     ? html`<ul class="items ${this._view}" role="list">${visible.map((item) => this._renderItem(item))}</ul>`
     : html`<p class="no-results">No capabilities match your search.</p>`}
+        ${this._renderNote()}
       </div>
     `;
   }

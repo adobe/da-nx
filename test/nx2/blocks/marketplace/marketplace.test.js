@@ -74,7 +74,7 @@ describe('nx-marketplace', () => {
       expect(note.getAttribute('role')).to.equal('note');
       expect([...note.children].map((n) => n.localName)).to.deep.equal(['p', 'p']);
       expect(note.querySelector('a').href).to.equal('https://example.com/docs');
-      expect(el.shadowRoot.lastElementChild).to.equal(note);
+      expect(el.shadowRoot.querySelector('.body').lastElementChild).to.equal(note);
       expect(getComputedStyle(note.querySelector('p')).marginTop).to.equal('0px');
     });
 

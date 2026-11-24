@@ -38,6 +38,11 @@
   .body.has-rail {
     grid-template-columns: 224px minmax(0, 1fr);
   }
+
+  /* The note sits under the list, in the list's column. */
+  .body.has-rail .info-note {
+    grid-column: 2;
+  }
 }
 
 .rail {
