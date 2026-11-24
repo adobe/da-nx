@@ -342,6 +342,25 @@ describe('media library source access', () => {
       expect(result).to.deep.equal({ valid: true, org, repo: 'site' });
     });
 
+    it('accepts an empty Helix 6 site root', async () => {
+      const org = uniqueOrg('hlx6');
+      stubFetch([[`${AEM}/${org}/sites/site/source/`, () => json([])]]);
+
+      const result = await validateSitePath(`/${org}/site`);
+
+      expect(result).to.deep.equal({ valid: true, org, repo: 'site' });
+    });
+
+    it('still reports an empty legacy DA site root as not found', async () => {
+      const org = uniqueOrg('legacy');
+      stubFetch([[`${DA_ADMIN}/list/${org}/site/`, () => json([])]]);
+
+      const result = await validateSitePath(`/${org}/site`);
+
+      expect(result.valid).to.equal(false);
+      expect(result.error).to.include('Site not found');
+    });
+
     it('reports a failed site check as an error, without listing', async () => {
       const org = uniqueOrg('hlx6');
       const calls = stubFetch([[`${HLX_ADMIN}/ping/${org}/site`, () => new Response('', { status: 500 })]]);
