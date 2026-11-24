@@ -675,11 +675,12 @@ describe('smartOverwriteCopy', () => {
     expect(flat(saved)).to.include('Localized text');
   });
 
-  it('never loses a second main element in the destination', async () => {
+  it('refuses to lose a second main element in the destination and names the page to fix', async () => {
     destHtml = '<body><main><div><p>A</p></div></main><main><p>Localized</p></main></body>';
     const url = await rollout(smartOverwriteCopy, '<p>A2</p>');
-    if (url.status === 'success') expect(flat(saved)).to.include('Localized');
-    else expect(saved).to.be.undefined;
+    expect(url.status).to.equal('error');
+    expect(saved).to.be.undefined;
+    expect(url.error).to.include(`Open ${DEST} in the editor, save it, then copy again`);
   });
 
   it('keeps metadata values as authored', async () => {
