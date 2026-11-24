@@ -86,7 +86,9 @@ export async function loadSchemas(org, site) {
 export async function saveSchema(prefix, id, jsonStr) {
   const path = `${prefix}${FORMS_BASE_PATH}/${id}.html`;
 
-  const content = HTML_SHELL.replace('{{JSON}}', jsonStr);
+  // The JSON goes into HTML, so `&` and `<` must stay text.
+  const code = jsonStr.replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+  const content = HTML_SHELL.replace('{{JSON}}', () => code);
 
   const body = new FormData();
   const data = new Blob([content], { type: 'text/html' });
