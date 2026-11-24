@@ -27,13 +27,6 @@ export function createLimiter({
     } else {
       await new Promise((resolve) => { waiting.push(resolve); });
     }
-    const start = Math.max(now(), nextStart, pausedUntil);
-    nextStart = start + minIntervalMs;
-    if (start > now()) await wait(start - now());
-    while (pausedUntil > now()) {
-      // eslint-disable-next-line no-await-in-loop
-      await wait(pausedUntil - now());
-    }
   };
 
   const release = () => {
@@ -48,6 +41,13 @@ export function createLimiter({
   const limit = async (task) => {
     await acquire();
     try {
+      let delay = Math.max(nextStart, pausedUntil) - now();
+      while (delay > 0) {
+        // eslint-disable-next-line no-await-in-loop
+        await wait(delay);
+        delay = Math.max(nextStart, pausedUntil) - now();
+      }
+      nextStart = now() + minIntervalMs;
       return await task();
     } finally {
       release();
@@ -74,6 +74,7 @@ export async function withRetry(task, { limiter, delays = HLX6_RETRY_DELAYS_MS, 
   try {
     result = await limiter(task);
   } catch (e) {
+    if (e?.name === 'AbortError') throw e;
     error = e;
   }
   if (!error && !isRetryable(result)) return result;
@@ -99,7 +100,8 @@ async function run({ org, site }, task, { retry = true } = {}) {
   return retry ? withRetry(paced, { limiter: limiters[key] }) : limiters[key](paced);
 }
 
-export function getSource(path, { noCache, signal } = {}) {
+export async function getSource(path, { noCache, signal } = {}) {
+  signal?.throwIfAborted();
   const args = fromPath(path);
   return run(args, (hlx6) => {
     const opts = {};
@@ -115,7 +117,8 @@ export function saveSource(path, body) {
   return run(args, () => source.save({ ...args, body }));
 }
 
-export function listSource(path, { signal } = {}) {
+export async function listSource(path, { signal } = {}) {
+  signal?.throwIfAborted();
   const args = fromPath(path);
   return run(args, () => source.list({ ...args, opts: signal ? { signal } : undefined }));
 }
