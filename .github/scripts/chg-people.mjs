@@ -168,6 +168,6 @@ async function main() {
   }
 }
 
-if (fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
   await main();
 }
