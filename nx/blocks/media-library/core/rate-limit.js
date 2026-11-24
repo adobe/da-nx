@@ -7,10 +7,11 @@ export function createRateLimiter(initialRate, { delay = defaultDelay, now = Dat
 
   return {
     async acquire() {
-      const t = now();
-      const start = Math.max(t, nextStart);
-      nextStart = start + intervalMs;
-      if (start > t) await delay(start - t);
+      // Check again after each timer: timers can fire late, and a backoff can move nextStart.
+      for (let waitMs = nextStart - now(); waitMs > 0; waitMs = nextStart - now()) {
+        await delay(waitMs);
+      }
+      nextStart = now() + intervalMs;
     },
     handleResponse(res) {
       const rate = parseFloat(res.headers.get('x-ratelimit-rate'));
