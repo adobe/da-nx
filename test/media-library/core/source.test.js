@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { DA_ADMIN, HLX_ADMIN } from '../../../nx/utils/utils.js';
 import { setImsDetails } from '../../../nx/blocks/media-library/core/ims-adapter.js';
 import { isHlx6, getSourceOrigin, saveSource } from '../../../nx/blocks/media-library/core/source.js';
@@ -309,6 +310,76 @@ describe('media library source access', () => {
 
       expect(stoppedBeforeRelease).to.equal(false);
       expect(calls.filter((c) => c.url === lockUrl)).to.have.length(1);
+    });
+    const buildWithHeartbeatInFlight = async (workerReply) => {
+      const org = uniqueOrg('hlx6');
+      const lockUrl = `${AEM}/${org}/sites/site/source/.da/media-insights/index-lock.json`;
+      const events = [];
+      let writes = 0;
+      let releaseHeartbeat;
+      stubFetch([
+        [/\/worker\/worker\.js\?t=/, () => new Response('')],
+        [lockUrl, (url, opts) => {
+          if (opts.method === 'DELETE') {
+            events.push('delete');
+            return new Response(null, { status: 204 });
+          }
+          if (opts.method !== 'POST') return new Response('', { status: 404 });
+          writes += 1;
+          if (writes === 1) return new Response('', { status: 201 });
+          return new Promise((resolve) => {
+            releaseHeartbeat = () => {
+              events.push('heartbeat');
+              resolve(new Response('', { status: 201 }));
+            };
+          });
+        }],
+      ]);
+      let worker;
+      const { Worker: OriginalWorker, adobeIMS } = window;
+      window.Worker = class {
+        constructor() { worker = this; }
+
+        postMessage() {}
+
+        terminate() {}
+      };
+      window.adobeIMS = { getAccessToken: () => ({ token: 'ims-token' }) };
+      const clock = sinon.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      const waitFor = async (check) => {
+        while (!check()) await new Promise((resolve) => { setTimeout(resolve, 5); });
+      };
+      try {
+        const { default: buildMediaIndex } = await import('../../../nx/blocks/media-library/indexing/build.js');
+        const build = buildMediaIndex(`/${org}/site`, org, 'site', 'main').catch((e) => e);
+        await waitFor(() => worker?.onmessage);
+        clock.tick(60_000);
+        await waitFor(() => releaseHeartbeat);
+        worker.onmessage({ data: workerReply });
+        await new Promise((resolve) => { setTimeout(resolve, 400); });
+        releaseHeartbeat();
+        return { result: await build, events };
+      } finally {
+        clock.restore();
+        window.Worker = OriginalWorker;
+        window.adobeIMS = adobeIMS;
+      }
+    };
+
+    it('lets a running heartbeat finish before a finished build deletes the lock', async function test() {
+      this.timeout(5000);
+      const { result, events } = await buildWithHeartbeatInFlight({ type: 'success', data: [] });
+
+      expect(result.hasChanges).to.equal(true);
+      expect(events).to.deep.equal(['heartbeat', 'delete']);
+    });
+
+    it('lets a running heartbeat finish before a failed build deletes the lock', async function test() {
+      this.timeout(5000);
+      const { result, events } = await buildWithHeartbeatInFlight({ type: 'error', error: { message: 'worker failed' } });
+
+      expect(result.message).to.equal('worker failed');
+      expect(events).to.deep.equal(['heartbeat', 'delete']);
     });
   });
 
