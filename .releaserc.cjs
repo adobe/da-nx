@@ -14,8 +14,9 @@ module.exports = {
       message: 'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
     }],
     // Opens a no-impact change request in Adobe change management (iPaaS) for every release.
-    // Credentials, coordinator, approvers and instances come from the shared Helix AWS secret
-    // (see the release jobs in .github/workflows/main.yaml).
+    // Credentials and instances come from the shared Helix AWS secret. Coordinator and approvers
+    // are resolved from the release PRs by .github/scripts/chg-people.mjs (see the release job
+    // in .github/workflows/main.yaml), falling back to the DA_CHG_* repo secrets.
     ['@adobe/semantic-release-ipaas-chg', { serviceId: 620732 /* DA */ }],
     '@semantic-release/github',
   ],
