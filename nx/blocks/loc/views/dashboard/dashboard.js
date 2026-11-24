@@ -130,7 +130,7 @@ class NxLocDashboard extends LitElement {
     this._isLoading = true;
     this.shadowRoot.adoptedStyleSheets = [buttons, style];
     // not awaiting to not block UI
-    this.ensureInitialized();
+    this.ensureInitialized().catch(() => {});
   }
 
   disconnectedCallback() {
@@ -143,7 +143,13 @@ class NxLocDashboard extends LitElement {
 
   async ensureInitialized() {
     if (!this._initPromise) {
-      this._initPromise = this.initializeProjectsAndUser();
+      this._error = undefined;
+      this._initPromise = this.initializeProjectsAndUser().catch((error) => {
+        this._initPromise = undefined;
+        this._isLoading = false;
+        if (error.name !== 'AbortError') this._error = { message: error.message };
+        throw error;
+      });
     }
     await this._initPromise;
   }
@@ -152,7 +158,10 @@ class NxLocDashboard extends LitElement {
     this.abortCurrentAndGetNewController();
 
     try {
-      await this.ensureInitialized();
+      await this.ensureInitialized().catch((error) => {
+        if (error.name !== 'AbortError') throw error;
+        return this.ensureInitialized();
+      });
       this._isLoading = true;
       await this._projectData.applyFilters(filters, this._dataAbortController.signal);
       this.updateShowRangeToFirstPage();
