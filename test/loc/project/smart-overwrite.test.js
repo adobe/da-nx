@@ -585,6 +585,16 @@ describe('smartOverwriteCopy', () => {
     expect(ungroup(saved)).to.include('<p>A</p><p>B</p><p da-diff-added="">B local</p><p>C</p>');
   });
 
+  it('keeps the page and counts it skipped when both inserted at one spot with a section break', async () => {
+    const base = await hashesOf('<p>A</p><p>B</p>');
+    destHtml = toPage('<p>A</p><p>N</p><p>B</p>', baseRow(`/org/site/apac/page.html|${base.join(',')}`));
+    const url = await rollout(smartOverwriteCopy, '<p>A</p><p>Y</p></div><div><p>Z</p><p>B</p>');
+    expect(url.status).to.equal('success');
+    expect(url.skipped).to.equal(1);
+    expect(url.outcome).to.be.undefined;
+    expect(mainOf(flat(saved))).to.equal('<div><p>A</p><p>N</p><p>B</p></div>');
+  });
+
   it('applies an upstream addition to a section the page removed, once', async () => {
     const sections = (...list) => list.map((items) => items.split(' ').map((t) => `<p>${t}</p>`).join('')).join('</div><div>');
     const base = await hashesOf(sections('A', 'B', 'C'));
@@ -592,6 +602,7 @@ describe('smartOverwriteCopy', () => {
     const source = sections('A', 'B N', 'C');
     const url = await rollout(smartOverwriteCopy, source);
     expect(url.outcome).to.be.undefined;
+    expect(url.skipped).to.equal(1);
     expect(mainOf(ungroup(saved))).to.equal(`<div>${sections('Al N', 'C')}</div>`);
     destHtml = saved;
     saved = undefined;

@@ -2,6 +2,9 @@ const DEFAULT_TIMEOUT = 20000;
 const VERSION_SAVE_EXTS = new Set(['json', 'html']);
 const MARKED_VERSION_LABEL = 'Sync point set';
 const NOT_ENABLED = 'Smart overwrite is not enabled for this site';
+const CANONICALIZE_LOSS = 'canonicalize-loss';
+const CANONICALIZE_LOSS_MESSAGE = 'Copying would lose content that the editor cannot keep. '
+  + 'Open the source and the destination in the editor, save them, then copy again.';
 const SMART_OUTCOMES = { unchanged: 'unchanged', 'needs-review': 'review' };
 
 function saveDaSource({
@@ -76,11 +79,12 @@ export function createCopy({
 
   const fail = (url, error) => {
     url.status = 'error';
-    url.error = `${url.destination}: ${error.message}`;
+    const message = error.code === CANONICALIZE_LOSS ? CANONICALIZE_LOSS_MESSAGE : error.message;
+    url.error = `${url.destination}: ${message}`;
     return {
       ok: false,
       status: error.status || 500,
-      error: error.message,
+      error: message,
       ...(typeof error.code === 'string' ? { code: error.code } : {}),
     };
   };
@@ -192,7 +196,7 @@ export function createCopy({
       setSaveStatus(url, response);
       return response;
     }
-    if (report.outcome !== 'unchanged') await saveVersion(url.destination, `${title} - Rolled Out`);
+    if (report.contentChanged) await saveVersion(url.destination, `${title} - Rolled Out`);
     url.status = 'success';
     return response;
   };

@@ -307,7 +307,7 @@ describe('nx-loc-rollout smart overwrite', () => {
     expect(lang.locales[0]).to.not.have.property('review');
     lang.locales[0].reordered = ['/org/optin/en-nl/other.html'];
     const container = renderLocales(el, lang);
-    expect(container.querySelector('.skipped-count').textContent).to.equal('1 skipped (localized)');
+    expect(container.querySelector('.skipped-count').textContent).to.equal('1 not applied (kept local)');
     const notes = [...container.querySelectorAll('.review-note')].map((note) => note.textContent);
     expect(notes).to.deep.equal([
       'Upstream removed a block these pages edited (local version kept):',
@@ -436,6 +436,6 @@ describe('nx-loc-rollout smart overwrite skipped pages', () => {
     el._urls = el.project.urls;
     const container = document.createElement('div');
     render(el.renderLocales(lang.rollout, lang.locales), container);
-    expect(container.querySelector('.skipped-count').textContent).to.include('1 skipped (localized)');
+    expect(container.querySelector('.skipped-count').textContent).to.include('1 not applied (kept local)');
   });
 });

@@ -23,7 +23,7 @@ function setup({
   const writes = () => fetch.args
     .filter(([href, opts]) => opts?.method === 'POST' && !href.includes('/versionsource'))
     .map(([href]) => href);
-  return { copy, writes };
+  return { copy, writes, fetch };
 }
 
 const throwingImages = () => { throw new Error('Diff failed'); };
@@ -140,6 +140,45 @@ describe('copies without a recordBaseline flag', () => {
       }
       expect(error).to.be.instanceOf(TypeError);
       expect(writes()).to.deep.equal([]);
+    });
+  });
+});
+
+describe('engine reports', () => {
+  let engine;
+
+  before(async () => {
+    ({ engine } = await import('../../nx/public/loc/da-merge.js'));
+  });
+
+  afterEach(() => sinon.restore());
+
+  const versions = (fetchArgs) => fetchArgs.filter(([href]) => href.includes('/versionsource'));
+
+  it('explains a copy that would lose content in the editor form, and writes nothing', async () => {
+    sinon.stub(engine, 'applyCopy').rejects(Object.assign(new Error('Canonicalizing changes the page'), { code: 'canonicalize-loss' }));
+    const { copy, writes } = setup();
+    const url = { source: SOURCE, destination: DESTINATION };
+    const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+    expect(writes()).to.deep.equal([]);
+    expect(result.code).to.equal('canonicalize-loss');
+    expect(result.error).to.include('Open the source and the destination in the editor');
+    expect(url.status).to.equal('error');
+    expect(url.error).to.include(DESTINATION);
+    expect(url.error).to.include('Open the source and the destination in the editor, save them, then copy again');
+  });
+
+  [true, false].forEach((contentChanged) => {
+    it(`${contentChanged ? 'saves' : 'saves no'} version when content changed is ${contentChanged}`, async () => {
+      sinon.stub(engine, 'applyCopy').resolves({
+        html: html('Merged'), baseline: null, report: { outcome: 'written', contentChanged },
+      });
+      const { copy, writes, fetch } = setup();
+      const url = { source: SOURCE, destination: DESTINATION };
+      await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+      expect(writes()).to.deep.equal([`${ORIGIN}/source${DESTINATION}`]);
+      expect(url.status).to.equal('success');
+      expect(versions(fetch.args)).to.have.length(contentChanged ? 1 : 0);
     });
   });
 });

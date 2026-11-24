@@ -111,11 +111,12 @@ may be wrong (notation: baseline → upstream / destination):
 | 4 | Upstream moved and edited a block the page edited (`A X B C` → `A B C X2` / `A Xl B C`) | `A Xl B C X2`, `Xl` marked Local | needs review |
 | 5 | Upstream removed one of two identical copies, the page edited one (`A B B C` → `A B C` / `A B Bl C`) | `A B Bl C`, `Bl` marked Local | needs review |
 | 6 | Upstream's change also covers blocks the page didn't touch (`A B C` → `A2 Y B C` / `L B C`) | upstream's `A2 Y` (Upstream) before `L` (Local), then `B C` | needs review |
-| 7 | Upstream added content to a section the page removed (or anything else of rows 4–6 that holds a section break) | the destination's version, no markers; an addition at the end of the removed section is applied to the section before it | not reported |
-| 8 | Both inserted at the same spot, one of them with a section break | the destination's version, no markers | not reported |
+| 7 | Upstream added content to a section the page removed (or anything else of rows 4–6 that holds a section break) | the destination's version, no markers; an addition at the end of the removed section is applied to the section before it | skipped |
+| 8 | Both inserted at the same spot, one of them with a section break | the destination's version, no markers | skipped |
 
-- Rows 1–3 count as "skipped (localized)". Rows 4–6 mark the page, so it is listed under "needs review". Rows 7–8
-  leave no markers and are not reported.
+- Rows 1–3 and 7–8 count as skipped. Rows 7–8 leave no markers, so the author compares the page with upstream by
+  hand; marking them needs stored markup for section breaks, which is not built yet. Rows 4–6 mark the page, so it is
+  listed under "needs review".
 - Rows 3, 4 and 5 look the same inside the conflict (upstream deleted, the page changed). A deleted block that
   repeats in the baseline is row 5; otherwise, if upstream also added a new block anywhere on the page (a possible
   move), it is row 4; otherwise row 3. An unrelated upstream addition elsewhere therefore turns a row 3 case into
@@ -138,8 +139,8 @@ may be wrong (notation: baseline → upstream / destination):
   page's own content is unchanged; the author deletes the Upstream group to keep the page as it was.
 - Row 7 also covers upstream deleting a section the page edited (`| A | B C` → `| A` / `| A | Bl C`): the page keeps
   its section, but nothing is marked and the page isn't listed under "needs review" or "upstream removed an edited
-  block". The content is correct, but nothing tells the author about the change.
-- Like skipped changes, marked and unreported changes are not offered again: the next baseline already contains
+  block", but it counts as skipped. The content is correct; the author has to find the section on the page.
+- Like skipped changes, marked changes are not offered again: the next baseline already contains
   them. Markers still open on the page stay as they are (see "Unresolved review").
 
 Blocks rejected in a merge review (the page's `rejectedhashes`) are treated as if upstream never had them: before
@@ -202,12 +203,12 @@ Guarantees (covered by seeded randomized tests in da-merge's `test/smart-merge.t
 - Applying moves (rule 4) changes only the order: the result holds the same blocks, markers and counts as putting
   every move back.
 
-Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N skipped (localized)". A skipped
+Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N not applied (kept local)". A skipped
 change is not offered again: the next baseline already contains it. Conflicts with markers still open on the
 page also count as skipped (see "Unresolved review").
 
 Known limitation: a section break dropped as empty (rule 5) stays in the baseline. Upstream content added to that
-section later is not reported (row 7): added at the end of the section it is applied to the section
+section later counts as skipped (row 7): added at the end of the section it is applied to the section
 before it; added anywhere else in it, it is not applied. Leaving the break out of the baseline
 instead would let it come back on later rollouts and move localized blocks into it (see the "keeps local content in
 its section" test).
@@ -235,10 +236,11 @@ correct; the listing is a false positive.
 
 Each smart rollout also reports, per page:
 - **unchanged**: nothing new to apply since the sync point (upstream unchanged, or only rejected changes), so
-  nothing was written except the `rolloutorder` row when upstream's reorder changed (Loc app: "N unchanged" per
-  locale; plugin: "unchanged").
-- **needs review**: the saved page has `da-diff-*` markers to accept or reject in the editor (e.g. a first rollout
-  without a sync point, or an uncertain case: rows 4–6 above).
+  nothing was written except the `rolloutorder` row when upstream's reorder changed, and the page has no open
+  markers. A write of only the `rolloutorder` row saves no version (Loc app: "N unchanged" per locale; plugin:
+  "unchanged").
+- **needs review**: after the rollout, the page has `da-diff-*` markers to accept or reject in the editor, also when
+  nothing was written (e.g. a first rollout without a sync point, or an uncertain case: rows 4–6 above).
   The Loc app lists these pages under each locale, each linking to the page in the DA editor; in the plugin, "needs
   review" links to the page. The list is saved with the project and replaced by the next rollout.
 - **upstream removed an edited block** (row 3): the page kept its edited block. The Loc app lists these pages under
@@ -258,8 +260,8 @@ Merge and overwrite rollouts, and the legacy project rollout view, report none o
   - Without a baseline, the rollout is a merge review again, honoring earlier accept/reject decisions.
   - A list is one block, so open markers in a list item also hold back upstream changes to the rest of that list
     (they count as skipped).
-  - When upstream didn't change since the baseline, nothing is written and the page is reported as unchanged,
-    although it still has open markers.
+  - When upstream didn't change since the baseline, nothing is written, and the page is still listed under "needs
+    review".
   - Markers include the `da-diff-added` attribute and the older `<da-diff-added>` element inside list items (the
     editor form turns it into the attribute on the `<li>`).
 
@@ -295,9 +297,10 @@ form and saves the result in it. So a page nobody edited never shows false local
 - Hashes stored before this change (`rolloutbase`, `acceptedhashes`, `rejectedhashes`) are matched to the editor
   form, so existing sync points and review decisions keep working.
 
-Known limitation: content the editor can't hold is lost in that conversion, for example a second `<main>`. A
-`rolloutbase` value wrapped in a paragraph is also lost, so that page's next smart rollout is a merge review. Escaped
-markup in a metadata value (`&lt;img&gt;`) is saved as real markup.
+If the conversion would lose content (it changes the visible text, or the number of images, pictures, videos or
+links), the copy fails and nothing is written. Examples are a second `<main>`, or content an API wrote in a form the
+editor can't hold. The error tells the author to open the source and the destination in the editor, save them, and
+copy again. Saving in the editor converts the page, so the next copy works.
 
 ## Set sync point
 

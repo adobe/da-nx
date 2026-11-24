@@ -31,7 +31,7 @@ const renderPageList = (note, paths) => (paths?.length ? html`
   <ul class="review-list">${renderPageItems(paths)}</ul>` : nothing);
 
 const localeLabels = (locale, syncCounts) => [
-  locale.skipped && `${locale.skipped} skipped (localized)`,
+  locale.skipped && `${locale.skipped} not applied (kept local)`,
   locale.unchanged && `${locale.unchanged} unchanged`,
   locale.review?.length && `${locale.review.length} ${locale.review.length === 1 ? 'needs' : 'need'} review`,
   syncCounts && syncSummary(syncCounts),
