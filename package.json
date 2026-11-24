@@ -52,6 +52,7 @@
   "homepage": "https://github.com/adobe/da-nx#readme",
   "devDependencies": {
     "@adobe/eslint-config-helix": "^3.0.17",
+    "@adobe/semantic-release-ipaas-chg": "^1.2.12",
     "@adobe/spectrum-tokens": "^14.2.2",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
