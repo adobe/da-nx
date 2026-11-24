@@ -35,14 +35,22 @@ function getLivePreviewUrl(owner, repo) {
   return `${protocol}://main--${repo}--${owner}.${domain}`;
 }
 
-// prose2aem sets <source srcset> to the resolved img.src; ./media_ must resolve against the page.
+// prose2aem resolves ./media_ refs against the portal (sources, linked images); keep them relative.
 export function keepMediaBusImagesRelative(html) {
-  if (!html.includes('src="./media_')) return html;
+  const base = new URL('./', document.baseURI).href;
+  if (!html.includes('src="./media_') && !html.includes(`${base}media_`)) return html;
   const doc = new DOMParser().parseFromString(html, 'text/html');
   doc.querySelectorAll('picture').forEach((picture) => {
     const src = picture.querySelector('img')?.getAttribute('src');
     if (!src?.startsWith('./media_')) return;
     picture.querySelectorAll('source').forEach((source) => source.setAttribute('srcset', src));
+  });
+  doc.querySelectorAll('a[data-edit-as="image"]').forEach((link) => {
+    const href = link.getAttribute('href');
+    if (!href?.startsWith(`${base}media_`)) return;
+    const ref = `./${href.slice(base.length)}`;
+    if (link.textContent === href) link.textContent = ref;
+    link.setAttribute('href', ref);
   });
   return doc.documentElement.outerHTML;
 }

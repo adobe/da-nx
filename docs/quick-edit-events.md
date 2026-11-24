@@ -250,9 +250,9 @@ exactly one image.
 Both hosts upload through nx2 `source.uploadMedia` and reply with the url the upload
 returned: a `content.da.live` url on DA sites, a media bus url on hlx6 sites (usually
 relative, `./media_…`), which the iframe resolves against the page. In `SET_BODY` the
-standalone portal keeps `./media_` refs relative in both `<img>` and `<source srcset>`, so
-the page resolves them against its own url like delivered html (da-live's `prose2aem`
-would otherwise point the sources at the portal's origin).
+standalone portal keeps `./media_` refs relative in `<img>`, `<source srcset>` and linked
+images (`<a data-edit-as="image">`), so the page resolves them against its own url like
+delivered html (da-live's `prose2aem` would otherwise point them at the portal's origin).
 
 Both hosts use `nx2/public/utils/quick-edit-images.js` for document versions,
 image-position resolution, and replacement after upload. It accepts the host's
