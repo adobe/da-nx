@@ -270,12 +270,29 @@ describe('schema editor utils', () => {
       const { org, site } = uniqueOrgSite();
       installRoutes({ hlx6: true, routes: {} });
 
-      const results = await Promise.all(['my--schema', '-my-schema', 'my-schema-', 'index'].map(
+      const results = await Promise.all(['my--schema', '-my-schema', 'my-schema-'].map(
         (id) => saveSchema(`/${org}/${site}`, id, '{}', { create: true }),
       ));
 
       results.forEach((result) => expect(result.error).to.match(/^Use lowercase letters and numbers/));
       expect(calls.filter((c) => c.url.startsWith(AEM_API))).to.be.empty;
+    });
+
+    it('creates a schema named index', async () => {
+      const { org, site } = uniqueOrgSite();
+      const url = `${AEM_API}/${org}/sites/${site}/source/.da/forms/schemas/index.html`;
+      installRoutes({
+        hlx6: true,
+        routes: {
+          [`HEAD ${url}`]: status(404),
+          [`POST ${url}`]: status(201, { location: '/.da/forms/schemas/index.html' }),
+        },
+      });
+
+      const result = await saveSchema(`/${org}/${site}`, 'index', '{}', { create: true });
+
+      expect(result.error).to.be.undefined;
+      expect(calls.filter((c) => c.url === url).map((c) => c.method)).to.deep.equal(['HEAD', 'POST']);
     });
 
     it('returns the schema name the source bus stored', async () => {
