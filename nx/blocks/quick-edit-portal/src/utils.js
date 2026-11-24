@@ -1,6 +1,7 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
-import { aem } from '../../../../nx2/utils/api.js';
+import { isHlx6, loadIms as loadApiIms } from '../../../../nx2/utils/api.js';
+import { AEM_API, HLX_ADMIN } from '../../../../nx2/utils/utils.js';
 import { isRenderedBlock } from './rerender-scope.js';
 
 const DA_LIVE_PREVIEW_ENVS = {
@@ -254,17 +255,26 @@ export async function signIn() {
   }
 }
 
+// Not aem.preview: daFetch also sends the token in x-content-source-authorization (da-nx#866).
+async function requestPreview({ owner, repo, path }) {
+  const page = path.endsWith('/') ? `${path}index` : path;
+  const url = await isHlx6(owner, repo)
+    ? `${AEM_API}/${owner}/sites/${repo}/preview${page}`
+    : `${HLX_ADMIN}/preview/${owner}/${repo}/main${page}`;
+  const { accessToken } = await loadApiIms();
+  const resp = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${accessToken.token}` } });
+  return resp.ok ? undefined : (resp.statusText || `${resp.status}`);
+}
+
 export async function handlePreview(ctx) {
-  const path = ctx.path.endsWith('/') ? `${ctx.path}index` : `${ctx.path}`;
-  const resp = await aem.preview({ org: ctx.owner, site: ctx.repo, path });
-  if (!resp.ok) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to preview:', resp.statusText);
-    const error = `Failed to preview: ${resp.statusText}`;
-    ctx.port.postMessage({
-      type: MESSAGE_TYPES.PREVIEW, payload: { ok: false, error },
-    });
-  } else {
+  const error = await requestPreview(ctx).catch((e) => e.message);
+  if (error === undefined) {
     ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW, payload: { ok: true } });
+    return;
   }
+  // eslint-disable-next-line no-console
+  console.error('Failed to preview:', error);
+  ctx.port.postMessage({
+    type: MESSAGE_TYPES.PREVIEW, payload: { ok: false, error: `Failed to preview: ${error}` },
+  });
 }
