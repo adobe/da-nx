@@ -97,6 +97,38 @@ describe('loc source helpers', () => {
       ]);
     });
 
+    it('does not send a request that was already cancelled', async () => {
+      installFetch();
+      const { org, site } = makeSite({ hlx6: true });
+      const controller = new AbortController();
+      controller.abort();
+      const results = await Promise.allSettled([
+        getSource(`/${org}/${site}/.da/translation/active/1.json`, { signal: controller.signal }),
+        listSource(`/${org}/${site}/.da/translation/active`, { signal: controller.signal }),
+      ]);
+      expect(results.map(({ reason }) => reason?.name)).to.deep.equal(['AbortError', 'AbortError']);
+      expect(calls).to.deep.equal([]);
+    });
+
+    it('does not retry a request cancelled in flight', async () => {
+      installFetch(({ signal }) => new Promise((resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason));
+      }));
+      const { org, site } = makeSite({ hlx6: true });
+      const controller = new AbortController();
+      const read = getSource(`/${org}/${site}/.da/translation/active/1.json`, { signal: controller.signal });
+      await delay(20);
+      controller.abort();
+      let error;
+      try {
+        await read;
+      } catch (e) {
+        error = e;
+      }
+      expect(error.name).to.equal('AbortError');
+      expect(calls).to.have.length(1);
+    });
+
     it('keeps at most 4 requests in flight per site', async () => {
       let active = 0;
       let peak = 0;

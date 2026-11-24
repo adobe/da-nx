@@ -9,6 +9,32 @@ function fakeClock() {
   };
 }
 
+function timerClock() {
+  let time = 0;
+  const timers = [];
+  const settle = () => new Promise((resolve) => { setTimeout(resolve, 0); });
+  return {
+    now: () => time,
+    wait: (ms) => new Promise((resolve) => { timers.push({ at: time + ms, resolve }); }),
+    async runUntil(done) {
+      let finished = false;
+      const finish = () => { finished = true; };
+      done.then(finish, finish);
+      while (!finished) {
+        // eslint-disable-next-line no-await-in-loop
+        await settle();
+        if (timers.length) {
+          timers.sort((a, b) => a.at - b.at);
+          const next = timers.shift();
+          time = Math.max(time, next.at);
+          next.resolve();
+        }
+      }
+      return done;
+    },
+  };
+}
+
 const tick = () => new Promise((resolve) => { setTimeout(resolve, 5); });
 
 describe('loc source pacing', () => {
@@ -30,15 +56,29 @@ describe('loc source pacing', () => {
     });
 
     it('spaces task starts by minIntervalMs', async () => {
-      const waits = [];
-      const limit = createLimiter({
-        maxInFlight: 4,
-        minIntervalMs: 125,
-        now: () => 0,
-        wait: async (ms) => { waits.push(ms); },
-      });
-      await Promise.all(Array.from({ length: 4 }, () => limit(async () => {})));
-      expect(waits).to.deep.equal([125, 250, 375]);
+      const clock = timerClock();
+      const limit = createLimiter({ maxInFlight: 4, minIntervalMs: 125, ...clock });
+      const starts = [];
+      const done = Promise.all(Array.from({ length: 4 }, () => limit(async () => {
+        starts.push(clock.now());
+      })));
+      await clock.runUntil(done);
+      expect(starts).to.deep.equal([0, 125, 250, 375]);
+    });
+
+    it('keeps spacing starts when a pause ends', async () => {
+      const clock = timerClock();
+      const limit = createLimiter({ maxInFlight: 4, minIntervalMs: 125, ...clock });
+      const starts = [];
+      const done = Promise.all(Array.from({ length: 13 }, () => limit(async () => {
+        starts.push(clock.now());
+        if (starts.length === 1) limit.pause(5000);
+      })));
+      await clock.runUntil(done);
+      expect(starts).to.have.length(13);
+      expect(starts.slice(1).every((start) => start >= 5000)).to.equal(true);
+      const gaps = starts.slice(1).map((start, i) => start - starts[i]);
+      expect(Math.min(...gaps)).to.be.at.least(125);
     });
 
     it('holds new starts while paused', async () => {
@@ -126,6 +166,26 @@ describe('loc source pacing', () => {
       const resp = await withRetry(throttled, { limiter, delays });
       expect(resp.status).to.equal(429);
       expect(count).to.equal(delays.length + 1);
+    });
+
+    it('does not retry or pause after a cancelled request', async () => {
+      const clock = fakeClock();
+      const limiter = createLimiter({ maxInFlight: 4, minIntervalMs: 0, ...clock });
+      let count = 0;
+      let error;
+      try {
+        await withRetry(async () => {
+          count += 1;
+          throw new DOMException('The operation was aborted.', 'AbortError');
+        }, { limiter, delays });
+      } catch (e) {
+        error = e;
+      }
+      expect(error.name).to.equal('AbortError');
+      expect(count).to.equal(1);
+      let start;
+      await limiter(async () => { start = clock.now(); });
+      expect(start).to.equal(0);
     });
 
     it('does not retry other failures', async () => {
