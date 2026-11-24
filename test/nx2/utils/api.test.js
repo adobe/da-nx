@@ -549,6 +549,17 @@ describe('api.js', () => {
       expect(calls.some((c) => c.url.includes('/media'))).to.equal(false);
     });
 
+    it('source.uploadMedia legacy keeps the blob type for extensions the type map lacks', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ source: { contentUrl: 'https://stage-content.da.live/o/s/img.webp' } }),
+      });
+      const { org: o, site: s } = makeOrgSite();
+      const data = new Blob(['binary'], { type: 'image/webp' });
+      await source.uploadMedia({ org: o, site: s, path: '/img.webp', body: data });
+      expect(lastCall().body.get('data').type).to.equal('image/webp');
+    });
+
     it('source.uploadMedia hlx6 POSTs to the media route with content-type header and raw body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       restoreFetch();
@@ -572,6 +583,16 @@ describe('api.js', () => {
       });
       await source.uploadMedia({ org: o, site: s, path: '/file.xyz', body: new Blob(['x']) });
       expect(lastCall().headers['content-type']).to.equal('application/octet-stream');
+    });
+
+    it('source.uploadMedia hlx6 sends the blob type for extensions the type map lacks', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1.webp`, meta: {} }),
+      });
+      await source.uploadMedia({ org: o, site: s, path: '/img.webp', body: new Blob(['x'], { type: 'image/webp' }) });
+      expect(lastCall().headers['content-type']).to.equal('image/webp');
     });
 
     it('source.uploadMedia hlx6 normalizes contentUrl by stripping the site aem.page prefix', async () => {

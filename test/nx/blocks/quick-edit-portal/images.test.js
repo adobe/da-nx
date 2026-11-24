@@ -177,6 +177,15 @@ describe('standalone quick-edit image replacement', () => {
     expect(posted.at(-1).payload.newSrc).to.equal(contentUrl);
   });
 
+  it('keeps the webp type of the uploaded file on legacy sites', async () => {
+    await handleImageReplace({
+      ...request(), imageData: 'data:image/webp;base64,UklGRg==', fileName: 'pic.webp',
+    }, ctx);
+
+    expect(uploads[0].url).to.equal(`${DA_ADMIN}/source/org/site/.page/pic.webp`);
+    expect(uploads[0].opts.body.get('data').type).to.equal('image/webp');
+  });
+
   it('uploads to the media bus on hlx6 sites and uses the returned media url', async () => {
     const org = `qe-img-${Math.floor(Math.random() * 1e6)}`;
     const site = 'hlx6-site';
