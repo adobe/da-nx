@@ -89,14 +89,17 @@ describe('loc views on Helix 6', () => {
     });
 
     it('lists projects newest first from the source bus', async () => {
-      installFetch(() => json([
+      installFetch(({ url }) => (url.endsWith('/') ? json([
         { name: '100.json', 'content-type': 'application/json', 'last-modified': '2026-10-01T00:00:00.000Z' },
         { name: '200.json', 'content-type': 'application/json', 'last-modified': '2026-10-02T00:00:00.000Z' },
-      ]));
+      ]) : json({ org, site, title: 'Proj', langs: [] })));
       const data = await createProjectData({
         org, site, currentUser: 'me', initialType: 'active', handleError: () => {},
       });
       expect(data.getTotalCount()).to.equal(2);
+      calls.length = 0;
+      await data.getDetailsForProjects(0, 1);
+      expect(calls.map((call) => call.url)).to.deep.equal([`${base}/.da/translation/active/200.json`]);
     });
 
     it('still reports authorization errors', async () => {

@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { setImsDetails } from '../../nx/utils/daFetch.js';
+import { DA_ADMIN } from '../../nx2/utils/utils.js';
 import { getDetails, saveStatus } from '../../nx/blocks/loc/project/index.js';
 
 // saveStatus must coalesce concurrent writes to the project JSON:
@@ -55,7 +56,7 @@ describe('saveStatus', () => {
 
     const calls = globalThis.fetch.args.filter(([url]) => url.includes('.json'));
     expect(calls.length).to.equal(1);
-    expect(calls[0][0]).to.include('/source');
+    expect(calls[0][0]).to.equal(`${DA_ADMIN}/source${PROJ_PATH}.json`);
     expect(calls[0][1].method).to.equal('POST');
   });
 
