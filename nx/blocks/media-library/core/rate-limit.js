@@ -56,7 +56,8 @@ export function createPacedFetch({
     else active -= 1;
   };
 
-  return async (url, opts) => {
+  // retry: false for writes: a network error or 503 doesn't say whether the write happened.
+  return async (url, opts, { retry = true } = {}) => {
     await acquireSlot();
     try {
       for (let attempt = 0; ; attempt += 1) {
@@ -68,7 +69,8 @@ export function createPacedFetch({
         } catch (e) {
           error = e;
         }
-        const retryable = !!error || resp.status === 429 || resp.status === 503;
+        const retryable = resp?.status === 429
+          || (retry && (!!error || resp.status === 503));
         if (!retryable || attempt >= retryDelaysMs.length) {
           if (error) throw error;
           return resp;

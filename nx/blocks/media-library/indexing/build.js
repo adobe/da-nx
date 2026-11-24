@@ -15,7 +15,7 @@ import {
   isFreshIndexLock,
   getIndexLockOwnerId,
   createIndexLock,
-  refreshIndexLock,
+  startIndexLockHeartbeat,
   removeIndexLock,
 } from './locks.js';
 import { checkReindexEligibility } from './index-status.js';
@@ -272,9 +272,7 @@ export default async function buildMediaIndex(
     ownerId,
     mode: forceFull ? 'full' : 'incremental',
   };
-  const heartbeatTimer = setInterval(() => {
-    refreshIndexLock(sitePath, heartbeatLockData).catch(() => {});
-  }, IndexConfig.LOCK_HEARTBEAT_INTERVAL_MS);
+  const stopHeartbeat = startIndexLockHeartbeat({ sitePath, lockData: heartbeatLockData });
 
   try {
     const reindexCheck = await checkReindexEligibility(sitePath, org, repo);
@@ -292,6 +290,7 @@ export default async function buildMediaIndex(
       onProgressiveData,
     );
 
+    await stopHeartbeat();
     let lockRemoveFailed = false;
     try {
       await removeIndexLock(sitePath);
@@ -313,11 +312,10 @@ export default async function buildMediaIndex(
       lockRemoveFailed,
     };
   } catch (error) {
+    await stopHeartbeat();
     try {
       await removeIndexLock(sitePath);
     } catch { /* swallow */ }
     throw error;
-  } finally {
-    clearInterval(heartbeatTimer);
   }
 }

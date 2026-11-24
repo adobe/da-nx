@@ -57,19 +57,21 @@ export async function getSourceOrigin(path) {
   return (await isHlx6(org, site)) ? AEM_API_ORIGIN : DA_ADMIN;
 }
 
-export async function fetchSource(path, opts) {
+export async function fetchSource(path, opts, pacing) {
   const sourceOrigin = await getSourceOrigin(path);
-  return daFetch(getSourceUrl({ sourceOrigin, path }), opts);
+  return daFetch(getSourceUrl({ sourceOrigin, path }), opts, pacing);
 }
 
-export async function saveSource({ path, json, method = 'PUT' }) {
+export async function saveSource({
+  path, json, method = 'PUT', retry = true,
+}) {
   const sourceOrigin = await getSourceOrigin(path);
   const opts = toSaveOptions({ sourceOrigin, json, method });
-  return daFetch(getSourceUrl({ sourceOrigin, path }), opts);
+  return daFetch(getSourceUrl({ sourceOrigin, path }), opts, { retry });
 }
 
 export async function deleteSource(path) {
-  return fetchSource(path, { method: 'DELETE' });
+  return fetchSource(path, { method: 'DELETE' }, { retry: false });
 }
 
 export async function listSource(path) {

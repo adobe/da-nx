@@ -90,7 +90,7 @@ export async function createIndexLock(sitePath) {
     locked: true,
   }];
   const json = await createSheet(lockData);
-  const resp = await saveSource({ path, json, method: 'PUT' });
+  const resp = await saveSource({ path, json, retry: false });
   if (!resp.ok) {
     logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
     const isDenied = resp.status === 401
@@ -112,7 +112,7 @@ export async function refreshIndexLock(sitePath, lockData = {}) {
     ownerId: lockData.ownerId || getIndexLockOwnerId(),
     mode: lockData.mode || '',
   }]);
-  const resp = await saveSource({ path, json, method: 'PUT' });
+  const resp = await saveSource({ path, json, retry: false });
   if (!resp.ok) {
     logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
     const isDenied = resp.status === 401
@@ -132,4 +132,20 @@ export async function removeIndexLock(sitePath) {
     throw new MediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, getMessage('LOCK_REMOVE_FAILED'), { status: resp.status, path });
   }
   return resp;
+}
+
+// Returns a stop function that resolves once a running heartbeat has finished.
+export function startIndexLockHeartbeat({
+  sitePath, lockData, intervalMs = IndexConfig.LOCK_HEARTBEAT_INTERVAL_MS,
+}) {
+  let heartbeat;
+  const timer = setInterval(() => {
+    heartbeat ??= refreshIndexLock(sitePath, lockData)
+      .catch(() => {})
+      .finally(() => { heartbeat = undefined; });
+  }, intervalMs);
+  return () => {
+    clearInterval(timer);
+    return heartbeat;
+  };
 }

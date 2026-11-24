@@ -69,7 +69,7 @@ export async function initIms() {
  * @param {Object} opts - Fetch options
  * @returns {Promise<Response>} Fetch response
  */
-export const daFetch = async (url, opts = {}) => {
+export const daFetch = async (url, opts = {}, pacing = {}) => {
   opts.headers ||= {};
 
   const isAemApi = url.startsWith(AEM_API_ORIGIN);
@@ -85,7 +85,7 @@ export const daFetch = async (url, opts = {}) => {
 
   let response;
   try {
-    response = await (isAemApi ? aemApiFetch(url, opts) : fetch(url, opts));
+    response = await (isAemApi ? aemApiFetch(url, opts, pacing) : fetch(url, opts));
   } catch (err) {
     response = new Response(null, { status: 500, statusText: err.message });
   }
