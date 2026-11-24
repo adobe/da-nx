@@ -239,6 +239,7 @@ describe('loc views on Helix 6', () => {
         findConfigValue: Validate.prototype.findConfigValue,
         getOriginMatches: Validate.prototype.getOriginMatches,
         checkUrl: async () => {},
+        updateSourceMessage: async () => {},
       };
       clearConfigCache();
       await Validate.prototype.checkUrls.call(ctx);
