@@ -670,20 +670,18 @@ export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false 
   return resp;
 };
 
-// Upgrade header -> true, 2xx/404 without it -> false, anything else rejects uncached.
+// Header -> true, other answers -> false (429/5xx retried first), a failed fetch rejects uncached.
 export const isHlx6 = (() => {
   const cache = {};
 
   const ping = async (path, retries = PING_RETRIES) => {
     const resp = await daFetch({ url: `${HLX_ADMIN}/ping${path}` });
-    if (resp.headers?.get('x-api-upgrade-available')) return true;
-    if (resp.ok || resp.status === 404) return false;
+    if (resp.headers.get('x-api-upgrade-available') !== null) return true;
     if (retries > 0 && (resp.status === 429 || resp.status >= 500)) {
       await new Promise((resolve) => { setTimeout(resolve, PING_RETRY_WAIT); });
       return ping(path, retries - 1);
     }
-    // A TypeError, like a failed fetch, so callers that handle network errors handle this too.
-    throw new TypeError(`Could not check the site's API version (${resp.status ?? 'no response'})`);
+    return false;
   };
 
   const fetchUpgradeStatus = async (path) => {
