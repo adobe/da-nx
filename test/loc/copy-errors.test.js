@@ -26,16 +26,7 @@ function setup({
   return { copy, writes };
 }
 
-const diffFailures = {
-  mergeCopy: {
-    url: { normalizeImages: () => { throw new Error('Diff failed'); } },
-    destination: () => new Response(html('Regional')),
-  },
-  rolloutCopy: {
-    url: {},
-    destination: () => new Response('<body><div><p>Regional</p></div></body>'),
-  },
-};
+const throwingImages = () => { throw new Error('Diff failed'); };
 
 ['mergeCopy', 'rolloutCopy'].forEach((method) => {
   describe(`${method} with an existing or failing destination`, () => {
@@ -44,7 +35,7 @@ const diffFailures = {
     it('overwrites a missing destination', async () => {
       const { copy, writes } = setup({ destination: () => new Response('', { status: 404 }) });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([`${ORIGIN}/source${DESTINATION}`]);
       expect(url.status).to.equal('success');
     });
@@ -52,7 +43,7 @@ const diffFailures = {
     it('overwrites an empty destination', async () => {
       const { copy, writes } = setup({ destination: () => new Response('') });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([`${ORIGIN}/source${DESTINATION}`]);
       expect(url.status).to.equal('success');
     });
@@ -61,7 +52,7 @@ const diffFailures = {
       it(`writes nothing and reports the path when the destination read answers ${status}`, async () => {
         const { copy, writes } = setup({ destination: () => new Response('', { status }) });
         const url = { source: SOURCE, destination: DESTINATION };
-        await copy[method](url, 'Rollout');
+        await copy[method](url, 'Rollout', { recordBaseline: false });
         expect(writes()).to.deep.equal([]);
         expect(url.status).to.equal('error');
         expect(url.error).to.include(DESTINATION);
@@ -74,7 +65,7 @@ const diffFailures = {
         destination: () => { throw new TypeError('Failed to fetch'); },
       });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([]);
       expect(url.status).to.equal('error');
       expect(url.error).to.include(DESTINATION);
@@ -82,10 +73,9 @@ const diffFailures = {
     });
 
     it('writes nothing and reports the path when the diff throws', async () => {
-      const failure = diffFailures[method];
-      const { copy, writes } = setup({ destination: failure.destination });
-      const url = { ...failure.url, source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      const { copy, writes } = setup();
+      const url = { normalizeImages: throwingImages, source: SOURCE, destination: DESTINATION };
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([]);
       expect(url.status).to.equal('error');
       expect(url.error).to.include(DESTINATION);
@@ -94,7 +84,7 @@ const diffFailures = {
     it('writes nothing and reports both paths when the source read answers 500', async () => {
       const { copy, writes } = setup({ source: () => new Response('', { status: 500 }) });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([]);
       expect(url.status).to.equal('error');
       expect(url.error).to.include(DESTINATION);
@@ -105,7 +95,7 @@ const diffFailures = {
     it('writes nothing and reports the path when the source is missing', async () => {
       const { copy, writes } = setup({ source: () => new Response('', { status: 404 }) });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([]);
       expect(url.status).to.equal('error');
       expect(url.error).to.include(DESTINATION);
@@ -114,7 +104,7 @@ const diffFailures = {
     it('reports the path when the merged save fails', async () => {
       const { copy } = setup({ save: () => new Response('', { status: 500 }) });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(url.status).to.equal('error');
       expect(url.error).to.include(DESTINATION);
       expect(url.error).to.include('(500)');
@@ -128,9 +118,28 @@ describe('overwriteCopy with a failing save', () => {
   it('reports the path', async () => {
     const { copy } = setup({ save: () => new Response('', { status: 403 }) });
     const url = { destination: DESTINATION, sourceContent: html('Upstream') };
-    await copy.overwriteCopy(url, 'Copy');
+    await copy.overwriteCopy(url, 'Copy', { recordBaseline: false });
     expect(url.status).to.equal('error');
     expect(url.error).to.include(DESTINATION);
     expect(url.error).to.include('(403)');
+  });
+});
+
+describe('copies without a recordBaseline flag', () => {
+  afterEach(() => sinon.restore());
+
+  ['mergeCopy', 'overwriteCopy'].forEach((method) => {
+    it(`${method} throws and writes nothing`, async () => {
+      const { copy, writes } = setup();
+      const url = { source: SOURCE, destination: DESTINATION };
+      let error;
+      try {
+        await copy[method](url, 'Copy');
+      } catch (e) {
+        error = e;
+      }
+      expect(error).to.be.instanceOf(TypeError);
+      expect(writes()).to.deep.equal([]);
+    });
   });
 });

@@ -61,7 +61,7 @@ class NxLocSync extends LitElement {
     const overwrite = behavior === 'overwrite' || ext === 'json';
 
     const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
-    const resp = await copyFn({ source, destination }, this.title);
+    const resp = await copyFn({ source, destination }, this.title, { recordBaseline: false });
 
     url.synced = resp.ok ? 'synced' : 'error';
 

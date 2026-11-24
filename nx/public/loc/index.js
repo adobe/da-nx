@@ -2,7 +2,7 @@ import { createCopy } from './copy.js';
 
 export {
   getDiffHash, HASH_LENGTH, ACCEPTED_KEY, REJECTED_KEY,
-} from './hashes.js';
+} from './da-merge.js';
 
 const copies = new WeakMap();
 
@@ -28,5 +28,5 @@ async function copy({
 }
 
 // The SDK can't tell the source is the rollout parent, so merges drop the stale sync point.
-export const mergeCopy = (options) => copy(options, 'mergeCopy', { dropBaseline: true });
-export const overwriteCopy = (options) => copy(options, 'overwriteCopy');
+export const mergeCopy = (options) => copy(options, 'mergeCopy', { recordBaseline: false });
+export const overwriteCopy = (options) => copy(options, 'overwriteCopy', { recordBaseline: false });

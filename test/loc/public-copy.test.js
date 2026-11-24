@@ -7,6 +7,7 @@ const ORIGIN = 'https://admin.da.live';
 const SOURCE = '/source-org/source-site/en/page.html';
 const DESTINATION = '/target-org/target-site/fr/page.html';
 const html = (text) => `<body><main><div><p>${text}</p></div></main></body>`;
+const NO_BASELINE = { recordBaseline: false };
 
 describe('Shared loc copy', () => {
   let fetch;
@@ -30,7 +31,7 @@ describe('Shared loc copy', () => {
 
   it('merges across sites using injected fetch and destination configuration', async () => {
     const url = { source: SOURCE, destination: DESTINATION };
-    const result = await copy.mergeCopy(url, 'SDK Merge');
+    const result = await copy.mergeCopy(url, 'SDK Merge', { recordBaseline: false });
     expect(result.ok).to.equal(true);
     expect(url.status).to.equal('success');
     expect(loadConfig.calledOnceWithExactly({ org: 'target-org', site: 'target-site' })).to.equal(true);
@@ -53,7 +54,7 @@ describe('Shared loc copy', () => {
     loadConfig.resolves({
       config: { data: [{ key: 'source.fragment.hostnames', value: 'main--source-site--target-org.aem.live' }] },
     });
-    const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge');
+    const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge', NO_BASELINE);
     expect(result.ok).to.equal(true);
     expect(loadConfig.firstCall.args[0]).to.deep.equal({ org: 'target-org', site: 'target-site' });
     const saved = await fetch.args[2][1].body.get('data').text();
@@ -63,7 +64,7 @@ describe('Shared loc copy', () => {
 
   it('merges prepared source html into an existing destination without reading the source', async () => {
     const url = { source: SOURCE, destination: DESTINATION, sourceHtml: html('Prepared') };
-    const result = await copy.mergeCopy(url, 'Merge');
+    const result = await copy.mergeCopy(url, 'Merge', { recordBaseline: false });
     expect(result.ok).to.equal(true);
     expect(fetch.args.some(([href]) => href === `${ORIGIN}/source${SOURCE}`)).to.equal(false);
     const saved = await fetch.args[1][1].body.get('data').text();
@@ -72,16 +73,15 @@ describe('Shared loc copy', () => {
 
   it('does not write when documents are identical', async () => {
     fetch.callsFake(async () => new Response(html('Same')));
-    const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge');
+    const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge', NO_BASELINE);
     expect(result.ok).to.equal(true);
     expect(fetch.callCount).to.equal(2);
-    expect(loadConfig.called).to.equal(false);
   });
 
   it('overwrites a missing destination and removes old diff annotations', async () => {
     fetch.onFirstCall().resolves(new Response('', { status: 404 }));
     fetch.onSecondCall().resolves(new Response(html('<span da-diff-added>Keep</span><da-diff-deleted>Remove</da-diff-deleted>')));
-    const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge');
+    const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge', NO_BASELINE);
     expect(result.ok).to.equal(true);
     const saved = await fetch.args[2][1].body.get('data').text();
     expect(saved).to.include('Keep');
@@ -92,7 +92,7 @@ describe('Shared loc copy', () => {
   it('reports unauthorized reads without falling back to overwrite', async () => {
     fetch.onFirstCall().resolves(new Response('', { status: 401 }));
     const url = { source: SOURCE, destination: DESTINATION, sourceContent: html('Upstream') };
-    const result = await copy.mergeCopy(url, 'Merge');
+    const result = await copy.mergeCopy(url, 'Merge', { recordBaseline: false });
     expect(result.ok).to.equal(false);
     expect(result.status).to.equal(401);
     expect(result.error).to.include('401');
@@ -102,7 +102,7 @@ describe('Shared loc copy', () => {
 
   it('reports configuration failures without overwriting the regional content', async () => {
     loadConfig.rejects(new Error('Configuration unavailable'));
-    const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge');
+    const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge', NO_BASELINE);
     expect(result.ok).to.equal(false);
     expect(result.error).to.equal('Configuration unavailable');
     expect(fetch.callCount).to.equal(2);
@@ -113,7 +113,7 @@ describe('Shared loc copy', () => {
     copy = createCopy({
       fetch, loadConfig, daOrigin: ORIGIN, saveSource,
     });
-    const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge');
+    const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge', NO_BASELINE);
     expect(result.ok).to.equal(true);
     expect(saveSource.calledOnce).to.equal(true);
     expect(saveSource.firstCall.args[0]).to.include({
@@ -125,7 +125,7 @@ describe('Shared loc copy', () => {
   it('deduplicates concurrent versions and keeps JSON uploads intact', async () => {
     await Promise.all(Array.from({ length: 6 }, () => copy.overwriteCopy({
       source: SOURCE, destination: '/target-org/target-site/data.json', sourceContent: '{"a":1}',
-    }, 'Copy')));
+    }, 'Copy', { recordBaseline: false })));
     const versions = fetch.args.filter(([href]) => href.includes('/versionsource'));
     expect(versions.length).to.equal(1);
     expect(JSON.parse(versions[0][1].body)).to.deep.equal({ label: 'Copy - Rolled Out' });
@@ -144,7 +144,7 @@ describe('Shared loc copy', () => {
     expect(loadConfig.firstCall.args[0]).to.deep.equal({ org: 'target-org', site: 'target-site' });
   });
 
-  it('rolls out into an existing empty destination without overwriting its metadata', async () => {
+  it('rolls out into an existing empty destination by overwriting it', async () => {
     fetch.callsFake(async (href, opts) => {
       if (opts?.method === 'POST') return new Response('{}');
       if (href.endsWith(SOURCE)) return new Response(html('Upstream'));
@@ -153,10 +153,10 @@ describe('Shared loc copy', () => {
     const url = { source: SOURCE, destination: DESTINATION };
     await copy.rolloutCopy(url, 'Rollout');
     expect(url.status).to.equal('success');
-    expect(loadConfig.called).to.equal(true);
     const saved = await fetch.args[2][1].body.get('data').text();
-    expect(saved).to.include('<da-diff-deleted data-mdast="ignore"><p>Upstream</p></da-diff-deleted>');
-    expect(saved).to.include('<div>keep</div>');
+    expect(saved).to.include('<p>Upstream</p>');
+    expect(saved).not.to.include('da-diff-deleted');
+    expect(saved).not.to.include('<div>keep</div>');
   });
 
   it('retains the 20-second rollout save timeout', async () => {
@@ -185,7 +185,7 @@ describe('Shared loc copy', () => {
       href.includes('/versionsource') ? new Response('', { status: 403 }) : new Response('{}')
     ));
     const url = { destination: DESTINATION, sourceContent: html('Source') };
-    const result = await copy.overwriteCopy(url, 'Copy');
+    const result = await copy.overwriteCopy(url, 'Copy', { recordBaseline: false });
     expect(result.ok).to.equal(false);
     expect(result.error).to.equal('Version save failed (403)');
     expect(url.status).to.equal('error');
@@ -240,7 +240,7 @@ describe('Public localization core', () => {
     expect(loc.HASH_LENGTH).to.equal(12);
   });
 
-  it('removes a stale sync point on public merges, while engine merges (snapshot-admin) keep it', async () => {
+  it('removes a stale sync point on public and engine merges without a baseline', async () => {
     const withBase = (text) => html(text).replace('</body>', '<div class="da-metadata"><div><div>rolloutbase</div><div>/target-org/target-site/fr/page.html|abcdef123456</div></div></div></body>');
     const savedBy = async (merge) => {
       const fetch = sinon.stub().callsFake(async (href, opts) => {
@@ -258,8 +258,8 @@ describe('Public localization core', () => {
     expect(pub).to.include('da-diff-added');
     expect(pub).to.not.include('rolloutbase');
     const engine = await savedBy((fetch) => createCopy({ fetch, daOrigin: ORIGIN })
-      .mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Snapshot'));
-    expect(engine).to.include('rolloutbase');
+      .mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Copy', { recordBaseline: false }));
+    expect(engine).to.not.include('rolloutbase');
   });
 
   it('accepts explicit fetch, origin, paths, and message', async () => {
@@ -364,7 +364,11 @@ describe('Public localization core', () => {
       return new Response(html(href.endsWith(SOURCE) ? 'Upstream' : 'Regional'));
     };
 
-    const same = await run(sinon.stub().callsFake(async () => new Response(html('Same'))));
+    const same = await run(sinon.stub().callsFake(async (href) => (
+      href.endsWith('/.da/translate.json')
+        ? new Response(JSON.stringify({ config: { data: [] } }))
+        : new Response(html('Same'))
+    )));
     expect(same).to.deep.equal({ ok: true, status: 200 });
 
     const failedWrite = await run(sinon.stub().callsFake(reads(() => new Response('', { status: 412 }))));

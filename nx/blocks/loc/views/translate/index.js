@@ -149,7 +149,7 @@ async function saveLang({
   const saveFn = async (url) => {
     const overwrite = behavior === 'overwrite' || url.hasExt || url.ext !== 'html';
     const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
-    await copyFn(url, title);
+    await copyFn(url, title, { recordBaseline: false });
     const remaining = urlsToSave.filter((urlToSave) => !urlToSave.sourceContent).length;
     sendMessage({ text: `${remaining} items left to save for ${lang.name}.` });
   };
@@ -268,7 +268,11 @@ export async function copySourceLangs(
     const overwrite = behavior === 'overwrite' || url.hasExt;
 
     const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
-    const resp = await copyFn({ sourceContent: url.content, destination }, title);
+    const resp = await copyFn(
+      { sourceContent: url.content, destination },
+      title,
+      { recordBaseline: false },
+    );
     url.status = resp.status;
   };
 

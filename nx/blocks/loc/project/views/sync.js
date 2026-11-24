@@ -38,7 +38,7 @@ class NxLocSync extends LitElement {
     };
 
     if (this.conflictBehavior === 'overwrite') {
-      await copy.overwriteCopy(copyUrl, this.title);
+      await copy.overwriteCopy(copyUrl, this.title, { recordBaseline: false });
     } else {
       await copy.rolloutCopy(copyUrl, this.title);
     }
