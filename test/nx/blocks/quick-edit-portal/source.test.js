@@ -39,28 +39,44 @@ describe('quick-edit portal source', () => {
   });
 
   describe('getInitSite', () => {
-    const owner = 'scdemos';
-    const repo = 'demo-hlx6';
-
-    it('reads org and site from the mountpoint url', () => {
-      expect(getInitSite({ mountpoint: `${AEM_API}/scdemos/sites/demo-hlx6/source`, owner: 'x', repo: 'y' }))
-        .to.deep.equal({ org: owner, site: repo });
-      expect(getInitSite({ mountpoint: { url: 'https://content.da.live/scdemos/demo/' } }))
-        .to.deep.equal({ org: owner, site: 'demo' });
+    it('reads org and site from the mountpoint url without an upgrade check', async () => {
+      installFetch({ pingHlx6: true });
+      expect(await getInitSite({ mountpoint: `${AEM_API}/scdemos/sites/demo-hlx6/source`, owner: 'x', repo: 'y' }))
+        .to.deep.equal({ org: 'scdemos', site: 'demo-hlx6' });
+      expect(await getInitSite({ mountpoint: { url: 'https://content.da.live/scdemos/demo/' } }))
+        .to.deep.equal({ org: 'scdemos', site: 'demo' });
+      expect(calls.length).to.equal(0);
     });
 
-    it('uses owner and repo for a source bus without a url', () => {
-      expect(getInitSite({ mountpoint: { type: 'sourcebus' }, owner, repo }))
-        .to.deep.equal({ org: owner, site: repo });
-      expect(getInitSite({ contentSourceType: 'sourcebus', owner, repo }))
-        .to.deep.equal({ org: owner, site: repo });
-      expect(getInitSite({ apiUpgrade: true, owner, repo }))
+    it('uses owner and repo without a url when the site is on helix 6', async () => {
+      installFetch({ pingHlx6: true });
+      const { org: owner, site: repo } = makeOrgSite();
+      expect(await getInitSite({ owner, repo, mountpoints: [] }))
         .to.deep.equal({ org: owner, site: repo });
     });
 
-    it('finds no site without a mountpoint or a source bus', () => {
-      expect(getInitSite({ owner, repo })).to.deep.equal({});
-      expect(getInitSite(undefined)).to.deep.equal({});
+    it('finds no site without a url on a legacy site, even with apiUpgrade', async () => {
+      installFetch();
+      const { org: owner, site: repo } = makeOrgSite();
+      const config = { owner, repo, apiUpgrade: true, mountpoints: [] };
+      expect(await getInitSite(config)).to.deep.equal({});
+    });
+
+    it('finds no site when the upgrade check fails', async () => {
+      restoreFetch();
+      const savedFetch = window.fetch;
+      window.fetch = async () => { throw new TypeError('Failed to fetch'); };
+      const { org: owner, site: repo } = makeOrgSite();
+      const site = await getInitSite({ owner, repo, apiUpgrade: true });
+      window.fetch = savedFetch;
+      expect(site).to.deep.equal({});
+    });
+
+    it('finds no site without a mountpoint url or owner and repo', async () => {
+      installFetch({ pingHlx6: true });
+      expect(await getInitSite({ owner: 'scdemos' })).to.deep.equal({});
+      expect(await getInitSite(undefined)).to.deep.equal({});
+      expect(calls.length).to.equal(0);
     });
   });
 
