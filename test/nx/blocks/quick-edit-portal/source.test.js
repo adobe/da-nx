@@ -3,7 +3,7 @@ import { AEM_API, DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import {
   calls, installFetch, restoreFetch, lastCall,
 } from '../../../nx2/mocks/fetch.js';
-import { getOrgSite, loadDocSource } from '../../../../nx/blocks/quick-edit-portal/src/source.js';
+import { getInitSite, getOrgSite, loadDocSource } from '../../../../nx/blocks/quick-edit-portal/src/source.js';
 
 const STORAGE_KEY = 'hlx6-upgrade';
 
@@ -45,6 +45,32 @@ describe('quick-edit portal source', () => {
 
     it('returns no site for a mountpoint without one', () => {
       expect(getOrgSite('https://content.da.live/scdemos/').site).to.equal(undefined);
+    });
+  });
+
+  describe('getInitSite', () => {
+    const owner = 'scdemos';
+    const repo = 'demo-hlx6';
+
+    it('reads org and site from the mountpoint url', () => {
+      expect(getInitSite({ mountpoint: `${AEM_API}/scdemos/sites/demo-hlx6/source`, owner: 'x', repo: 'y' }))
+        .to.deep.equal({ org: owner, site: repo });
+      expect(getInitSite({ mountpoint: { url: 'https://content.da.live/scdemos/demo/' } }))
+        .to.deep.equal({ org: owner, site: 'demo' });
+    });
+
+    it('uses owner and repo for a source bus without a url', () => {
+      expect(getInitSite({ mountpoint: { type: 'sourcebus' }, owner, repo }))
+        .to.deep.equal({ org: owner, site: repo });
+      expect(getInitSite({ contentSourceType: 'sourcebus', owner, repo }))
+        .to.deep.equal({ org: owner, site: repo });
+      expect(getInitSite({ apiUpgrade: true, owner, repo }))
+        .to.deep.equal({ org: owner, site: repo });
+    });
+
+    it('finds no site without a mountpoint or a source bus', () => {
+      expect(getInitSite({ owner, repo })).to.deep.equal({});
+      expect(getInitSite(undefined)).to.deep.equal({});
     });
   });
 
