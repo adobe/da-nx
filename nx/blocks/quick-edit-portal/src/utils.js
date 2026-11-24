@@ -277,13 +277,8 @@ async function requestPreview({ owner, repo, path }) {
 
 export async function handlePreview(ctx) {
   const error = await requestPreview(ctx).catch((e) => e.message);
-  if (error === undefined) {
-    ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW, payload: { ok: true } });
-    return;
-  }
+  const payload = error === undefined ? { ok: true } : { ok: false, error: `Failed to preview: ${error}` };
   // eslint-disable-next-line no-console
-  console.error('Failed to preview:', error);
-  ctx.port.postMessage({
-    type: MESSAGE_TYPES.PREVIEW, payload: { ok: false, error: `Failed to preview: ${error}` },
-  });
+  if (!payload.ok) console.error(payload.error);
+  ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW, payload });
 }
