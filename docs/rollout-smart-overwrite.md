@@ -258,8 +258,9 @@ Merge and overwrite rollouts, and the legacy project rollout view, report none o
     conflicts get new groups. An upstream change that touches an open group keeps the page as it is there and
     counts as skipped. Pending upstream changes keep showing until the author resolves them.
   - Without a baseline, the rollout is a merge review again, honoring earlier accept/reject decisions.
-  - A list is one block, so open markers in a list item also hold back upstream changes to the rest of that list
-    (they count as skipped).
+  - In a list with open markers, the items are merged one by one around them, so upstream changes to other items
+    still apply.
+  - An open group whose upstream side now matches the page's own side is cleared.
   - When upstream didn't change since the baseline, nothing is written, and the page is still listed under "needs
     review".
   - Markers include the `da-diff-added` attribute and the older `<da-diff-added>` element inside list items (the
@@ -297,8 +298,8 @@ form and saves the result in it. So a page nobody edited never shows false local
 - Hashes stored before this change (`rolloutbase`, `acceptedhashes`, `rejectedhashes`) are matched to the editor
   form, so existing sync points and review decisions keep working.
 
-If the conversion would lose content (it changes the visible text, or the number of images, pictures, videos or
-links), the copy fails and nothing is written. Examples are a second `<main>`, or content an API wrote in a form the
+If the conversion would lose content (it changes the visible text, a metadata value, or the number of images,
+pictures, videos or links), the copy fails and nothing is written. Examples are a second `<main>`, or content an API wrote in a form the
 editor can't hold. The error tells the author to open the source and the destination in the editor, save them, and
 copy again. Saving in the editor converts the page, so the next copy works.
 
@@ -316,7 +317,7 @@ upstream edits made after that moment and keep every existing local difference.
   Each region shows the result.
 - Pages that already have a baseline, missing or empty pages, sheets and pages with an unresolved review are skipped.
   The page itself is saved as it is, with only the `rolloutbase` row added (upstream is converted to the editor
-  form to compute it). Known limitation: pages saved as a full HTML document with `<head>` content fail.
+  form to compute it). Full HTML documents stay whole, `<head>` included.
   Each page that is set gets a version labelled "Sync point set". Placeholders are filled for each locale, as in a
   rollout.
 - **Run it right after the import, before anyone edits the upstream pages.** Upstream edits made before setting it are

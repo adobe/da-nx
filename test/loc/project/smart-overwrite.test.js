@@ -568,12 +568,12 @@ describe('smartOverwriteCopy', () => {
     saved = undefined;
     const url = await rollout(smartOverwriteCopy, p('A2 Y B C D2 Z E F'));
     expect(url.outcome).to.equal('review');
-    expect(ungroup(saved)).to.not.include('<p>A2</p>');
-    expect(ungroup(saved)).to.not.include('<p>Y</p>');
-    expect(ungroup(saved)).to.include('<p da-diff-added="">L</p>');
-    expect(ungroup(saved)).to.include('<p da-diff-added="">L2</p>');
-    expect(ungroup(saved)).to.include('<da-diff-deleted data-mdast="ignore"><p>D2</p></da-diff-deleted>');
-    expect(ungroup(saved)).to.include('<da-diff-deleted data-mdast="ignore"><p>Z</p></da-diff-deleted>');
+    expect(saved).to.be.undefined;
+    expect(ungroup(destHtml)).to.not.include('<p>A2</p>');
+    expect(ungroup(destHtml)).to.not.include('<p>Y</p>');
+    expect(ungroup(destHtml)).to.include('<p>L</p>');
+    expect(ungroup(destHtml)).to.include('<p da-diff-added="">L2</p>');
+    expect(flat(destHtml)).to.include('<da-diff-deleted data-mdast="ignore"><p>D2</p><p>Z</p></da-diff-deleted>');
   });
 
   it('marks the local copy for review when upstream removed one of two identical blocks', async () => {
@@ -623,7 +623,10 @@ describe('smartOverwriteCopy', () => {
   it('still shows the review when nothing changed upstream but the review is unresolved', async () => {
     const base = await hashesOf('<p>A</p><p>B global</p>');
     destHtml = toPage('<p>A</p><p da-diff-added="">B local</p><da-diff-deleted><p>B global</p></da-diff-deleted>', baseRow(`/org/site/apac/page.html|${base.join(',')}`));
-    await expectFirstMerge(await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>'), '<p>A</p><p>B global</p>');
+    const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
+    expect(url.outcome).to.equal('review');
+    expect(saved).to.be.undefined;
+    expect(versionSaves).to.equal(0);
   });
 
   it('reviews a source without a main element against the local page', async () => {
@@ -922,13 +925,14 @@ describe('smartOverwriteCopy', () => {
         expect(ungroup(saved)).to.include('<p da-diff-added="">L</p>');
       });
 
-      it('record no sync point on a new snapshot page', async () => {
+      it('carry the live page sync point into a new snapshot page without recording one', async () => {
         optIn();
         destPath = SNAPSHOT;
         destStatus = 404;
         await toSnapshot(toPage('<p>A</p>', baseRow('/org/site/page.html|0123456789ab')));
         expect(ungroup(saved)).to.include('<main><div><p>A</p></div></main>');
-        expect(ungroup(saved)).to.not.include('rolloutbase');
+        expect(ungroup(saved)).to.include('<div>rolloutbase</div><div>/org/site/page.html|0123456789ab</div>');
+        expect(ungroup(saved)).to.not.include(SNAPSHOT.toLowerCase());
       });
     });
 
@@ -1038,7 +1042,7 @@ describe('smartOverwriteCopy', () => {
       destHtml = saved;
       const second = await rollout(smartOverwriteCopy, '<ul><li>A2</li><li>B</li></ul>');
       expect(second.outcome).to.equal('review');
-      expect(second.skipped).to.equal(1);
+      expect(second.skipped).to.equal(0);
       expect(ungroup(saved)).to.include('A2');
       const doc = new DOMParser().parseFromString(saved, 'text/html');
       expect(doc.querySelectorAll('da-diff-added da-diff-added, [da-diff-added] da-diff-added')).to.have.length(0);
