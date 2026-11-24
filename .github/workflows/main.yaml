@@ -99,10 +99,7 @@ jobs:
           secret-ids: |
             ,/helix/github-action-secrets
       - name: Resolve change request coordinator and approvers
-        # Maps the release PRs' author/approvers to LDAP ids, falling back to the defaults.
-        # Writes IPAAS_COORDINATOR / IPAAS_APPROVED_BY to $GITHUB_ENV, overriding the shared secret.
         run: node .github/scripts/chg-people.mjs
-        # Never block a release: on failure the shared secret's values stay in effect.
         continue-on-error: true
         timeout-minutes: 3
         env:
