@@ -1,6 +1,8 @@
 import { expect } from '@esm-bundle/chai';
 import { AEM_API, HLX_ADMIN } from '../../../../nx2/utils/utils.js';
-import { installFetch, restoreFetch, lastCall } from '../../../nx2/mocks/fetch.js';
+import {
+  calls, installFetch, restoreFetch, lastCall,
+} from '../../../nx2/mocks/fetch.js';
 import { handlePreview, keepMediaBusImagesRelative } from '../../../../nx/blocks/quick-edit-portal/src/utils.js';
 import { MESSAGE_TYPES } from '../../../../nx/utils/message-types.js';
 
@@ -50,6 +52,38 @@ describe('quick-edit portal preview', () => {
     await handlePreview(ctx);
 
     expect(lastCall().url).to.equal(`${AEM_API}/${ctx.owner}/sites/${ctx.repo}/preview/drafts/index`);
+  });
+
+  it('sends the IMS token only in Authorization', async () => {
+    installFetch();
+    const legacy = makeCtx();
+    await handlePreview(legacy);
+    const hlx6 = makeCtx({ hlx6: true });
+    await handlePreview(hlx6);
+
+    const previews = calls.filter(({ url }) => url.includes('/preview/'));
+    expect(previews).to.have.length(2);
+    previews.forEach(({ headers }) => {
+      expect(headers.Authorization).to.equal('Bearer test-token');
+      expect(headers['x-content-source-authorization']).to.equal(undefined);
+    });
+  });
+
+  it('reports a preview request that fails before a response', async () => {
+    restoreFetch();
+    const savedFetch = window.fetch;
+    window.fetch = async () => { throw new TypeError('Failed to fetch'); };
+    const ctx = makeCtx();
+    try {
+      await handlePreview(ctx);
+    } finally {
+      window.fetch = savedFetch;
+    }
+
+    const { type, payload } = ctx.posted.at(-1);
+    expect(type).to.equal(MESSAGE_TYPES.PREVIEW);
+    expect(payload.ok).to.equal(false);
+    expect(payload.error).to.contain('Failed to preview');
   });
 
   it('reports a failed preview', async () => {
