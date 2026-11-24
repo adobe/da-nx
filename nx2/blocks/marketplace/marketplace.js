@@ -24,6 +24,7 @@ const VIEW_ITEMS = [
 
 class NxMarketplace extends LitElement {
   static properties = {
+    note: { attribute: false },
     _items: { state: true },
     _error: { state: true },
     _filters: { state: true },
@@ -149,7 +150,16 @@ class NxMarketplace extends LitElement {
     `;
   }
 
+  _renderNote() {
+    if (!this.note?.length) return nothing;
+    return html`<div class="info-note" role="note">${this.note}</div>`;
+  }
+
   render() {
+    return html`${this._renderContent()}${this._renderNote()}`;
+  }
+
+  _renderContent() {
     if (this._error) return html`<p class="error">${this._error}</p>`;
 
     if (this._items === undefined) {
@@ -204,7 +214,23 @@ class NxMarketplace extends LitElement {
 
 customElements.define('nx-marketplace', NxMarketplace);
 
+const BLOCK_TAGS = ':scope > :is(p, ul, ol, h1, h2, h3, h4, h5, h6, div)';
+
+// Authored block content becomes the info note: block-level children as they are,
+// bare text (and inline markup) wrapped in a paragraph.
+function getNoteNodes(el) {
+  return [...el.querySelectorAll(':scope > div > div')].flatMap((cell) => {
+    if (cell.querySelector(BLOCK_TAGS)) return [...cell.children];
+    if (!cell.textContent.trim()) return [];
+    const p = document.createElement('p');
+    p.append(...cell.childNodes);
+    return [p];
+  });
+}
+
 export default function init(el) {
+  const marketplace = document.createElement('nx-marketplace');
+  marketplace.note = getNoteNodes(el);
   el.style.display = 'contents';
-  el.replaceChildren(document.createElement('nx-marketplace'));
+  el.replaceChildren(marketplace);
 }

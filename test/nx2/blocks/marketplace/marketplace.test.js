@@ -52,6 +52,45 @@ describe('nx-marketplace', () => {
     expect(div.firstElementChild.localName).to.equal('nx-marketplace');
   });
 
+  describe('info note from authored content', () => {
+    const row = (cell) => `<div><div>${cell}</div></div>`;
+    const mount = async (cell) => {
+      restoreFetch = installFetch(() => jsonResponse({
+        data: [{ Title: 'A', Description: 'd', 'Doc Url': 'https://example.com/a' }],
+      }));
+      div = document.createElement('div');
+      div.innerHTML = row(cell);
+      document.body.append(div);
+      init(div);
+      const el = div.firstElementChild;
+      await waitForLoad(el);
+      return el;
+    };
+
+    it('renders authored paragraphs as a note after the list, keeping links', async () => {
+      const el = await mount('<p>Note: some apps need setup. <a href="https://example.com/docs">Docs</a></p><p>Second</p>');
+
+      const note = el.shadowRoot.querySelector('.info-note');
+      expect(note.getAttribute('role')).to.equal('note');
+      expect([...note.children].map((n) => n.localName)).to.deep.equal(['p', 'p']);
+      expect(note.querySelector('a').href).to.equal('https://example.com/docs');
+      expect(el.shadowRoot.lastElementChild).to.equal(note);
+      expect(getComputedStyle(note.querySelector('p')).marginTop).to.equal('0px');
+    });
+
+    it('wraps a bare text cell in a paragraph', async () => {
+      const el = await mount('Note: <strong>ask</strong> your admin.');
+      const [p] = el.shadowRoot.querySelector('.info-note').children;
+      expect(p.localName).to.equal('p');
+      expect(p.innerHTML).to.equal('Note: <strong>ask</strong> your admin.');
+    });
+
+    it('renders no note for an empty block', async () => {
+      const el = await mount('');
+      expect(el.shadowRoot.querySelector('.info-note')).to.equal(null);
+    });
+  });
+
   it('shows loading state before data resolves', async () => {
     restoreFetch = installFetch(() => new Promise(() => {}));
     div = document.createElement('div');
