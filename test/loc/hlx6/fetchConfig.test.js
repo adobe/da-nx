@@ -58,4 +58,18 @@ describe('fetchConfig', () => {
     ]);
     expect(options.config.data[0].value).to.equal('org');
   });
+
+  it('falls back to the org config when the site check fails, as main does', async () => {
+    const { org, site } = makeSite({ pingFails: true });
+    installFetch(({ url }) => (url === `${DA_ADMIN}/source/${org}/.da/translate.json`
+      ? json({ config: { data: [{ key: 'from', value: 'org' }] } })
+      : new Response('', { status: 404 })));
+    const fetchConfig = await loadFetchConfig();
+    const options = await fetchConfig(org, site);
+    expect(calls.map(({ url }) => url)).to.deep.equal([
+      `${DA_ADMIN}/source/${org}/${site}/.da/translate.json`,
+      `${DA_ADMIN}/source/${org}/.da/translate.json`,
+    ]);
+    expect(options.config.data[0].value).to.equal('org');
+  });
 });

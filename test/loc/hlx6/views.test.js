@@ -7,7 +7,7 @@ import { fetchBlockSchema, fetchKeywordsFile } from '../../../nx/blocks/loc/conn
 import '../../../nx/blocks/loc/views/validate/validate.js';
 import '../../../nx/blocks/loc/views/dashboard/dashboard.js';
 import {
-  AEM_API, calls, installFetch, makeSite, restoreFetch, waitFor,
+  AEM_API, DA_ADMIN, calls, installFetch, makeSite, restoreFetch, waitFor,
 } from './mock-fetch.js';
 
 const DOC = '<body><header></header><main><div><p>Hello</p></div></main><footer></footer></body>';
@@ -91,6 +91,24 @@ describe('loc views on Helix 6', () => {
         org, site, currentUser: 'me', initialType: 'active', handleError: (e) => errors.push(e),
       });
       expect(errors[0].criticalError.status).to.equal(403);
+    });
+  });
+
+  describe('dashboard when the site check fails', () => {
+    it('reports a missing project folder as an error, as main does', async () => {
+      const unreachable = makeSite({ pingFails: true });
+      installFetch(() => new Response('', { status: 404 }));
+      const errors = [];
+      const data = await createProjectData({
+        org: unreachable.org,
+        site: unreachable.site,
+        currentUser: 'me',
+        initialType: 'active',
+        handleError: (e) => errors.push(e),
+      });
+      expect(calls[0].url).to.equal(`${DA_ADMIN}/list/${unreachable.org}/${unreachable.site}/.da/translation/active`);
+      expect(errors.map((e) => e.criticalError.status)).to.deep.equal([404]);
+      expect(data.getTotalCount()).to.equal(0);
     });
   });
 
