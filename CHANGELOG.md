@@ -1,3 +1,10 @@
+# [1.66.0](https://github.com/adobe/da-nx/compare/v1.65.0...v1.66.0) (2026-11-25)
+
+
+### Features
+
+* **marketplace:** new marketplace design and featured teaser block ([#953](https://github.com/adobe/da-nx/issues/953)) ([2515769](https://github.com/adobe/da-nx/commit/2515769db1dfda56f4300c84e393c3e67f12f59a))
+
 # [1.65.0](https://github.com/adobe/da-nx/compare/v1.64.0...v1.65.0) (2026-11-24)
 
 
