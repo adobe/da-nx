@@ -1,6 +1,8 @@
 import { AGENT_EVENT as EVENT, TOOL_SCOPE } from '../constants.js';
+import { traceChat } from '../../shared/chat/turn-activity.js';
 
 function processEvent(event, streaming, callbacks) {
+  traceChat('stream.js.processEvent: routing parsed stream event', { type: event.type });
   const { onDelta, onText, onTool } = callbacks;
   if (event.type === EVENT.ERROR) {
     throw new Error(event.errorText ?? event.error?.message ?? 'Agent error');
@@ -55,6 +57,7 @@ function processEvent(event, streaming, callbacks) {
 }
 
 export async function readStream(body, callbacks) {
+  traceChat('stream.js.readStream: reading HTTP response stream');
   const decoder = new TextDecoder();
   let buffer = '';
   let streaming = '';
@@ -83,4 +86,5 @@ export async function readStream(body, callbacks) {
   }
 
   if (streaming) callbacks.onText(streaming);
+  traceChat('stream.js.readStream: finished reading response stream');
 }

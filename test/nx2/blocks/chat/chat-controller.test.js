@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import ChatController, { migrateHistory } from '../../../../nx2/blocks/chat/chat-controller.js';
 import { TOOL_STATE } from '../../../../nx2/blocks/chat/constants.js';
+import ChatBackend from '../../../../nx2/blocks/chat/chat-backend.js';
 
 const TURN = 'turn-current';
 const OTHER_TURN = 'turn-previous';
@@ -96,6 +97,132 @@ describe('chat-controller turn completion', () => {
     finish();
     await pending;
     expect(completed.map(({ status }) => status)).to.deep.equal(['aborted', 'completed']);
+  });
+});
+
+describe('chat-controller turn activity', () => {
+  function setup() {
+    const started = [];
+    const progress = [];
+    const controller = new ChatController({
+      onUpdate() {},
+      onTurnStarted: (detail) => started.push(detail),
+      onTurnProgress: (detail) => progress.push(detail),
+    });
+    controller._messages = [];
+    controller._connected = true;
+    controller.setContext({ org: 'org', site: 'site', path: 'page' });
+    return { controller, started, progress };
+  }
+
+  const toolEvent = (controller, type, toolCallId, extra = {}) => controller._onToolEvent({
+    type, toolCallId, ...extra,
+  });
+
+  it('traces adapter, HTTP stream, tool summary and completion in execution order', async () => {
+    const originalHref = window.location.href;
+    const originalLog = console.log;
+    const originalFetch = window.fetch;
+    const logs = [];
+    const secret = 'private-prompt-and-tool-content';
+    const url = new URL(originalHref);
+    url.searchParams.set('chat-trace', 'true');
+    window.history.replaceState(window.history.state, '', url.href);
+    console.log = (...args) => logs.push(args);
+    window.fetch = async () => new Response([
+      { type: 'tool-input-available', toolCallId: 'trace', toolName: 'content_update', input: { path: '/a', content: secret } },
+      { type: 'tool-output-available', toolCallId: 'trace', output: { content: secret } },
+      { type: 'finish' },
+    ].map((event) => `data: ${JSON.stringify(event)}\n`).join(''));
+    try {
+      const backend = new ChatBackend({ onUpdate() {}, onToolDone() {} });
+      const controller = backend._controller;
+      controller._messages = [];
+      controller._connected = true;
+      controller._getRoom = async () => 'trace-test-room';
+      controller.setContext({ org: 'org', site: 'site', path: '/page' });
+      await backend.sendMessage(secret);
+      const labels = logs.map(([label]) => label);
+      const index = (step) => labels.findIndex((label) => label.includes(step));
+      const steps = [
+        'chat-backend.js.sendMessage',
+        'chat-controller.js.sendMessage: calling onTurnStarted',
+        'chat-controller.js._stream: sending HTTP POST',
+        'stream.js.readStream: reading',
+        'stream.js.processEvent: routing',
+        'chat-controller.js._onToolEvent',
+        'chat-controller.js._done: calling onTurnCompleted',
+      ].map(index);
+      expect(steps.every((position) => position >= 0)).to.equal(true);
+      expect(steps).to.deep.equal([...steps].sort((a, b) => a - b));
+      expect(JSON.stringify(logs)).not.to.include(secret);
+    } finally {
+      window.fetch = originalFetch;
+      console.log = originalLog;
+      window.history.replaceState(window.history.state, '', originalHref);
+    }
+  });
+
+  it('announces the turn before the request is sent', async () => {
+    const { controller, started } = setup();
+    controller._stream = async () => {
+      expect(started).to.deep.equal([{
+        org: 'org',
+        site: 'site',
+        path: 'page',
+        sessionId: controller._sessionId,
+        turnId: controller._currentTurnId,
+      }]);
+    };
+    await controller.sendMessage('update pages');
+    expect(started).to.have.lengthOf(1);
+  });
+
+  it('reports each page and its status as tool calls run', async () => {
+    const { controller, progress } = setup();
+    controller._stream = async () => {
+      toolEvent(controller, 'tool-input-available', 'list', { toolName: 'content_list', input: { path: '/' } });
+      toolEvent(controller, 'tool-input-available', 'a', { toolName: 'content_update', input: { path: '/a' } });
+      toolEvent(controller, 'tool-input-available', 'b', { toolName: 'content_update', input: { path: '/b' } });
+      toolEvent(controller, 'tool-output-available', 'a', { output: {} });
+      toolEvent(controller, 'tool-output-error', 'b', { errorText: 'nope' });
+    };
+    await controller.sendMessage('update pages');
+    expect(progress.map(({ pages }) => pages)).to.deep.equal([
+      [],
+      [{ path: '/a', status: 'working' }],
+      [{ path: '/a', status: 'working' }, { path: '/b', status: 'working' }],
+      [{ path: '/a', status: 'done' }, { path: '/b', status: 'working' }],
+      [{ path: '/a', status: 'done' }, { path: '/b', status: 'failed' }],
+    ]);
+    expect(progress[0].turnId).to.equal(controller._currentTurnId);
+  });
+
+  it('reports pages awaiting approval, then the approved result', async () => {
+    const { controller, progress } = setup();
+    controller._stream = async () => {
+      toolEvent(controller, 'tool-input-available', 'a', { toolName: 'content_create', input: { path: '/a' } });
+      toolEvent(controller, 'tool-approval-request', 'a');
+    };
+    await controller.sendMessage('create a page');
+    expect(progress.at(-1).pages).to.deep.equal([{ path: '/a', status: 'needs-approval' }]);
+    controller._stream = async () => {
+      toolEvent(controller, 'tool-output-available', 'a', { output: {} });
+    };
+    await controller.approveToolCall('a', true);
+    expect(progress.at(-1).pages).to.deep.equal([{ path: '/a', status: 'done' }]);
+  });
+
+  it('ignores earlier turns and restored history', async () => {
+    const { controller, progress } = setup();
+    controller._messages = [toolMsg({
+      toolCallId: 'old', toolName: 'content_update', input: { path: '/old' }, state: TOOL_STATE.OUTPUT_AVAILABLE,
+    }, OTHER_TURN)];
+    controller._update();
+    expect(progress).to.have.lengthOf(0);
+    controller._stream = async () => {};
+    await controller.sendMessage('hello');
+    expect(progress.map(({ pages }) => pages)).to.deep.equal([[]]);
   });
 });
 

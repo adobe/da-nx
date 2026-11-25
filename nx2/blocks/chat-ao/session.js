@@ -1,6 +1,7 @@
 import CoworkerChatController from './coworker-chat-controller.js';
 import CmaChatController from './cma-chat-controller.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
+import { traceChat } from '../shared/chat/turn-activity.js';
 
 const sessions = new Map();
 const inputs = new Map();
@@ -12,6 +13,7 @@ export function getSessionScope({ org, site, harness }) {
 export function getAoSession({
   context, owner, isolated = false, harness = 'coworker',
 }) {
+  traceChat('session.js.getAoSession: looking for reusable session', { harness, isolated });
   const { org, site } = context;
   const scope = getSessionScope({ org, site, harness });
   // Only non-isolated sessions count as reuse candidates; an isolated sibling
@@ -22,7 +24,11 @@ export function getAoSession({
   const available = !isolated && matching.find((session) => (
     ![...sessions.get(session).keys()].some((view) => view.localName === owner.localName)
   ));
-  if (available) return available;
+  if (available) {
+    traceChat('session.js.getAoSession: reusing session');
+    return available;
+  }
+  traceChat('session.js.getAoSession: creating session');
 
   const subscribers = new Map();
   let state = { messages: [], loadingEpisode: true };
@@ -31,19 +37,33 @@ export function getAoSession({
   let startupFailed = false;
   let destroyed = false;
   let sending = false;
-  const notify = () => subscribers.forEach(({ onUpdate }) => onUpdate(state));
+  const notify = () => {
+    traceChat('session.js.notify: sending state to subscribed views', { subscriberCount: subscribers.size });
+    subscribers.forEach(({ onUpdate }) => onUpdate(state));
+  };
   const publish = (next) => {
+    traceChat('session.js.publish: received controller state', { destroyed });
     if (destroyed) return;
     state = next;
     if (!state.thinking) sending = false;
     notify();
   };
+  const relay = (name) => (detail) => {
+    traceChat('session.js.relay: forwarding lifecycle callback to subscribed views', {
+      callback: name,
+      subscriberCount: subscribers.size,
+      sessionId: detail?.sessionId,
+      turnId: detail?.turnId,
+    });
+    subscribers.forEach((callbacks) => callbacks[name]?.(detail));
+  };
   const Controller = harness === 'cma' ? CmaChatController : CoworkerChatController;
+  traceChat('session.js.getAoSession: constructing harness controller', { controller: Controller.name });
   const controller = new Controller({
     onUpdate: publish,
-    onTurnCompleted: (detail) => {
-      subscribers.forEach(({ onTurnCompleted }) => onTurnCompleted?.(detail));
-    },
+    onTurnStarted: relay('onTurnStarted'),
+    onTurnProgress: relay('onTurnProgress'),
+    onTurnCompleted: relay('onTurnCompleted'),
     isolated: isolated || matching.length > 0,
   });
   const onVisibilityChange = () => {
@@ -92,9 +112,11 @@ export function getAoSession({
       return session.ready;
     },
     subscribe(view, callbacks) {
+      traceChat('session.js.subscribe: registering view callbacks', { view: view.localName });
       subscribers.set(view, callbacks);
       notify();
       return () => {
+        traceChat('session.js.unsubscribe: removing view callbacks', { view: view.localName });
         subscribers.delete(view);
         if (subscribers.size || destroyed) return;
         destroyed = true;
@@ -112,10 +134,15 @@ export function getAoSession({
         && !['denied', 'error'].includes(state.access?.status);
     },
     send({ context: currentContext, args }) {
-      if (!session.canSend()) return false;
+      traceChat('session.js.send: checking shared-session readiness');
+      if (!session.canSend()) {
+        traceChat('session.js.send: skipped; session not ready or busy');
+        return false;
+      }
       controller.setContext(currentContext);
       sending = true;
       try {
+        traceChat('session.js.send: calling harness controller.sendMessage');
         Promise.resolve(controller.sendMessage(...args))
           .catch((error) => publish({
             ...state, thinking: false, messages: [...(state.messages ?? []), { role: 'assistant', content: `Error: ${error.message}` }],

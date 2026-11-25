@@ -1,5 +1,6 @@
 import ChatController from './chat-controller.js';
 import { TOOL_INPUT, TOOL_STATE } from './constants.js';
+import { traceChat } from '../shared/chat/turn-activity.js';
 
 // da-agent's own tool-input schema field names (see constants.js's TOOL_INPUT) — used
 // only here, to compute the approval-popover summary for da-agent's controller, since
@@ -22,15 +23,21 @@ function daAgentApprovalSummary(input) {
  * expects — approval is derived from da-agent's own toolCards vocabulary.
  */
 export default class ChatBackend {
-  constructor({ onToolDone, onTurnCompleted, onUpdate }) {
+  constructor({
+    onToolDone, onTurnStarted, onTurnProgress, onTurnCompleted, onUpdate,
+  }) {
+    traceChat('chat-backend.js.constructor: forwarding callbacks to ChatController');
     this._controller = new ChatController({
       onToolDone,
+      onTurnStarted,
+      onTurnProgress,
       onTurnCompleted,
       onUpdate: (payload) => onUpdate(this._normalize(payload)),
     });
   }
 
   _normalize(payload) {
+    traceChat('chat-backend.js._normalize: adapting controller state for component');
     const { toolCards, ...rest } = payload;
     const approval = this._daAgentPendingApproval(toolCards);
     const pendingInteraction = approval ? { type: 'approval', ...approval } : null;
@@ -48,22 +55,29 @@ export default class ChatBackend {
   }
 
   setContext(context) {
+    traceChat('chat-backend.js.setContext: forwarding context');
     this._controller.setContext(context);
   }
 
   connect(...args) {
+    traceChat('chat-backend.js.connect: forwarding availability check');
     return this._controller.connect(...args);
   }
 
   loadInitialMessages() {
+    traceChat('chat-backend.js.loadInitialMessages: forwarding history restoration');
     return this._controller.loadInitialMessages();
   }
 
   sendMessage(...args) {
+    traceChat('chat-backend.js.sendMessage: forwarding submission');
     return this._controller.sendMessage(...args);
   }
 
-  approveToolCall = (...args) => this._controller.approveToolCall(...args);
+  approveToolCall = (...args) => {
+    traceChat('chat-backend.js.approveToolCall: forwarding approval decision');
+    return this._controller.approveToolCall(...args);
+  };
 
   clear() {
     return this._controller.clear();
@@ -74,6 +88,7 @@ export default class ChatBackend {
   }
 
   stop() {
+    traceChat('chat-backend.js.stop: forwarding interruption');
     this._controller.stop();
   }
 

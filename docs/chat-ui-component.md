@@ -27,7 +27,8 @@ Notifications cover a whole turn, not each text chunk, tool call, or approval
 pause. Legacy chat completes after chained tool rounds and approvals finish;
 stopping it reports `aborted`. AO/Coworker/CMA completes on the server's terminal
 event, including its acknowledgement of an interruption. Legacy request failures
-report `error`; AO does not infer completion from local errors or cleanup.
+report `error`; AO reports `error` when sending fails or the session errors while
+one of its turns is active, and otherwise does not infer completion from cleanup.
 Notifications may repeat: consumers should treat them as invalidation signals,
 not exactly-once lifecycle events. No client-side turn tracking or deduplication
 is performed.
@@ -40,6 +41,71 @@ Consumers can refresh app data without depending on collaboration updates.
 This is an invalidation signal, not confirmation of preview, publication, or
 durable editor persistence. Extension subscriptions are documented in
 [SDK messaging](sdk-messaging.md#chat-turn-subscriptions).
+
+## Turn activity notifications
+
+Both chat elements also emit, bubbling and composed:
+
+| Event | `CHAT_EVENT` key | Detail |
+|---|---|---|
+| `nx-chat-turn-started` | `TURN_STARTED` | `{ org, site, path, sessionId, turnId }` |
+| `nx-chat-turn-progress` | `TURN_PROGRESS` | `{ org, site, path, sessionId, turnId, pages }` |
+
+`TURN_STARTED` fires when the user sends a prompt, before the request goes out.
+AO assigns turn IDs on the server, so its `turnId` is `undefined` here.
+
+`TURN_PROGRESS` fires during a turn whenever its page summary changes. `pages` is
+`[{ path, status }]`, one entry per page the turn's tool calls name in their
+`path`, `sourcePath`, or `destinationPath` input, in first-seen order. Folder
+listings (tools named `list` or `*_list`) are not counted. `status` is the most
+pressing across the page's calls: `needs-approval`, `working`, `failed`,
+`rejected`, then `done`. Each event carries the full list, so consumers replace
+rather than merge. It is derived from the agent's existing tool-call stream;
+history restoration and earlier turns do not produce it. Pair it with
+`TURN_COMPLETED` to know when the turn ends. No chat text, tool results, or
+credentials are included.
+
+### Following execution in the browser console
+
+Add `chat-trace=true` to the consuming application's query string, before its
+`#` fragment, then reload with the browser's developer-tools Console open. For
+example, change `/canvas?nx=local&nxver=2#/org/site/page` to
+`/canvas?nx=local&nxver=2&chat-trace=true#/org/site/page`. Filter the Console by
+`chat-trace`. Remove the parameter or set it to `false` to disable tracing.
+
+Logs use `[chat-trace #N] file.js.function: action` followed by a JSON snapshot
+of selected metadata. Numbers reflect execution order within that loaded module
+instance, not predetermined workflow steps; they continue across turns and reset
+on reload. Separate frames or separately loaded copies can have separate counters.
+No prompts, attachment contents, tool results, authentication frames, or
+credentials are logged. Page paths, tool names, and session/turn identifiers can
+appear: redact them before sharing logs.
+
+There are two routes, not one sequence that calls every file:
+
+- Standard chat: `chat.js._submit` → `chat-backend.js.sendMessage` →
+  `chat-controller.js.sendMessage`. HTTP response events are routed by
+  `stream.js.readStream`/`processEvent` into the controller's text/tool callbacks.
+  Each controller `_update` calls the component's `onUpdate` first, then
+  `_reportTurnProgress`.
+- Alternative chat: `chat-ao.js._submit` → `session.js.send` →
+  `base-chat-controller.js.sendMessage`. WebSocket events go through
+  `_handleServerEvent` to the corresponding text/tool handler. Each controller
+  `_update` publishes state through the session to subscribed views before
+  `_reportTurnProgress`.
+
+Both controllers call `turn-activity.js.summarizePages` and `toolPaths` to
+derive page progress. Standard lifecycle callbacks go directly to `chat.js.relay`;
+alternative lifecycle callbacks go through `session.js.relay` to each subscribed
+`chat-ao.js.relay`. Component relays dispatch browser events. `utils/chat.js`
+supplies their names; it is not a runtime forwarding stage. Documentation and
+tests also are not runtime stages.
+
+Setup, readiness skips, unchanged summaries, approvals, errors, interruption,
+and cleanup are traced too. UI state updates and summary checks repeat while
+text streams; these are not additional turns. An animation-frame log appears
+later than the synchronous `onUpdate` callback because painting is scheduled.
+The trace does not install an event consumer or add a progress display.
 
 ## Properties in
 

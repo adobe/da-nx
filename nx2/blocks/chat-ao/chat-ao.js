@@ -34,6 +34,7 @@ import '../shared/chat/new-chat/new-chat.js';
 import './question-card/question-card.js';
 import './input.js';
 import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
+import { traceChat } from '../shared/chat/turn-activity.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
@@ -153,6 +154,7 @@ export default class NxChatAo extends LitElement {
   }
 
   _applyContext(value) {
+    traceChat('chat-ao.js._applyContext: applying page context', { view: value?.view });
     this._context = value;
     this._flushPendingAutoSend();
     this._initController();
@@ -160,6 +162,7 @@ export default class NxChatAo extends LitElement {
   }
 
   _applyHarnessConfig({ key = null, harness = 'coworker' } = {}) {
+    traceChat('chat-ao.js._applyHarnessConfig: selecting harness', { harness });
     this._harnessConfigKey = key;
     this._harness = harness;
     this._flagsReady = true;
@@ -192,6 +195,9 @@ export default class NxChatAo extends LitElement {
     pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
     access,
   }) {
+    traceChat('chat-ao.js._onControllerUpdate: applying shared-session state', {
+      messageCount: messages?.length ?? 0, thinking: !!thinking, streaming: !!streamingText,
+    });
     this.messages = streamingText
       ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
       : messages;
@@ -215,10 +221,15 @@ export default class NxChatAo extends LitElement {
   // correct harness subclass up front. Idempotent; re-joins only on scope or
   // isolation change. See docs/chat-ao-controller-decoupling.md.
   _initController() {
-    if (!this.isConnected) return;
+    traceChat('chat-ao.js._initController: checking component and harness readiness');
+    if (!this.isConnected) {
+      traceChat('chat-ao.js._initController: waiting for component to attach');
+      return;
+    }
     const { org, site } = this._context ?? {};
     const configKey = `${org}/${site}`;
     if (!this._flagsReady || !org || !site || this._harnessConfigKey !== configKey) {
+      traceChat('chat-ao.js._initController: waiting for site and harness configuration');
       if (this._session) {
         this._releaseSession();
         this._releaseSession = undefined;
@@ -229,7 +240,10 @@ export default class NxChatAo extends LitElement {
       return;
     }
     const scope = getSessionScope({ org, site, harness: this._harness });
-    if (this._session?.scope === scope && this._session.isolated === this.isolated) return;
+    if (this._session?.scope === scope && this._session.isolated === this.isolated) {
+      traceChat('chat-ao.js._initController: keeping current session');
+      return;
+    }
     this._releaseSession?.();
     this._session = getAoSession({
       context: this._context,
@@ -242,13 +256,21 @@ export default class NxChatAo extends LitElement {
       this._promptRequest = undefined;
     }
     this._controller = this._session.controller;
+    const relay = (type) => (detail) => {
+      traceChat('chat-ao.js.relay: dispatching browser event', {
+        event: type,
+        sessionId: detail?.sessionId,
+        turnId: detail?.turnId,
+        status: detail?.status,
+        pages: detail?.pages,
+      });
+      this.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail }));
+    };
     this._releaseSession = this._session.subscribe(this, {
       onUpdate: (state) => this._onControllerUpdate(state),
-      onTurnCompleted: (detail) => {
-        this.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
-          bubbles: true, composed: true, detail,
-        }));
-      },
+      onTurnStarted: relay(CHAT_EVENT.TURN_STARTED),
+      onTurnProgress: relay(CHAT_EVENT.TURN_PROGRESS),
+      onTurnCompleted: relay(CHAT_EVENT.TURN_COMPLETED),
     });
     this._flushPendingAutoSend();
   }
@@ -299,6 +321,7 @@ export default class NxChatAo extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    traceChat('chat-ao.js.connectedCallback: component attached to document');
     fetchResolvedManifestId();
     this._loadCoworkerNav();
     this.shadowRoot.adoptedStyleSheets = [
@@ -320,6 +343,7 @@ export default class NxChatAo extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    traceChat('chat-ao.js.disconnectedCallback: releasing session subscription');
     this._promptRequest = undefined;
     this._releaseSession?.();
     this._releaseSession = undefined;
@@ -368,6 +392,11 @@ export default class NxChatAo extends LitElement {
   _warmSession = () => this._controller?.warmSession();
 
   _submit = ({ text, context, attachments }) => {
+    traceChat('chat-ao.js._submit: forwarding input submission', {
+      sharedSession: !!this._session,
+      contextCount: context?.length ?? 0,
+      attachmentCount: attachments?.length ?? 0,
+    });
     const args = [text, context, attachments];
     if (this._session) return this._session.send({ context: this._context, args });
     return !!this._controller && this._controller.sendMessage(...args) !== false;
