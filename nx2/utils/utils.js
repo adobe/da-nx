@@ -188,7 +188,8 @@ export { default as loadScript } from '../../nx/utils/script.js';
 
 export const PRODUCT_NAME = 'Experience Workspace';
 
-// Sets the document title as `<name> | Experience Workspace`, or just the product name.
+// Sets a dynamic title as `<name> | Experience Workspace`, or just the product name.
+// Content-authored page titles should be maintained in the content instead.
 export function setPageTitle(name) {
   document.title = name ? `${name} | ${PRODUCT_NAME}` : PRODUCT_NAME;
 }

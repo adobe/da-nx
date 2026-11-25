@@ -37,23 +37,30 @@ async function waitFor(check) {
 describe('nx-marketplace', () => {
   let div;
   let restoreFetch;
+  let title;
+
+  beforeEach(() => {
+    title = document.title;
+  });
 
   afterEach(() => {
     div?.remove();
     restoreFetch?.();
+    document.title = title;
   });
 
-  it('init mounts nx-marketplace', () => {
+  it('init mounts nx-marketplace and preserves the content-authored page title', () => {
     restoreFetch = installFetch(() => jsonResponse({ data: [] }));
     div = document.createElement('div');
     div.innerHTML = '<p>prior content</p>';
     document.body.append(div);
+    document.title = 'Content-authored marketplace title';
 
     init(div);
 
     expect(div.children.length).to.equal(1);
     expect(div.firstElementChild.localName).to.equal('nx-marketplace');
-    expect(document.title).to.equal('Marketplace | Experience Workspace');
+    expect(document.title).to.equal('Content-authored marketplace title');
   });
 
   it('shows loading state before data resolves', async () => {

@@ -108,8 +108,8 @@ describe('setPageTitle', () => {
   afterEach(() => { document.title = title; });
 
   it('appends the product name to the page name', () => {
-    setPageTitle('Marketplace');
-    expect(document.title).to.equal('Marketplace | Experience Workspace');
+    setPageTitle('Translate project');
+    expect(document.title).to.equal('Translate project | Experience Workspace');
   });
 
   it('uses only the product name without a page name', () => {

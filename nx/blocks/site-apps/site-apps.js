@@ -1,6 +1,4 @@
-import {
-  hashChange, loadStyle, setPageTitle, withSiteHash,
-} from '../../../nx2/utils/utils.js';
+import { hashChange, loadStyle, withSiteHash } from '../../../nx2/utils/utils.js';
 import { config } from '../../../nx2/utils/api.js';
 import { getConfig, loc } from '../../../nx2/scripts/nx.js';
 import '../../../nx2/blocks/shared/action-card/action-card.js';
@@ -80,7 +78,6 @@ function removeSection(el) {
 }
 
 export default async function init(el) {
-  setPageTitle('Tools');
   if (!window.location.hash) {
     removeSection(el);
     return;

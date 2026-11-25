@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 
-import { loadStyle, setPageTitle } from '../../utils/utils.js';
+import { loadStyle } from '../../utils/utils.js';
 import { loadHrefSvg } from '../../utils/svg.js';
 import {
   fetchMarketplace,
@@ -139,7 +139,6 @@ class NxMarketplace extends LitElement {
 customElements.define('nx-marketplace', NxMarketplace);
 
 export default function init(el) {
-  setPageTitle('Marketplace');
   el.style.display = 'contents';
   const marketplace = document.createElement('nx-marketplace');
   marketplace.categories = getCategories(el);
