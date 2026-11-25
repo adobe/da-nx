@@ -26,8 +26,7 @@ import {
 import { getConfig } from '../../scripts/nx.js';
 import { CHAT_EVENT, skillsAppHref } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
-import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
-import { renderSelectionPills } from '../shared/chat/selection-pills.js';
+import { renderMessages, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderChatStatus, chatStatusStyle } from '../shared/chat/status/status.js';
 import { showToast } from '../shared/toast/toast.js';
 import '../shared/picker/picker.js';
@@ -482,18 +481,12 @@ export default class NxChatAo extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
           : nothing}
-            ${this.messages?.map((msg) => (msg.role === 'assistant' ? html`
-              <div class="message message-assistant">
-                ${renderAssistantMessageBody(msg, {
+            ${renderMessages({
+            messages: this.messages,
+            thinking: this.thinking || !!this.pendingQuestion
+              || !!this.pendingPlanApproval || !!this.pendingPermission,
             onExpandToolCall: (toolCallId) => this._controller.hydrateToolCall(toolCallId),
           })}
-              </div>
-            ` : html`
-              <div class="message message-user">
-                ${renderSelectionPills(msg)}
-                <div class="message-content">${msg.content}</div>
-              </div>
-            `))}
             ${this.pendingQuestion ? html`
               <div class="message message-assistant">
                 <nx-question-card
