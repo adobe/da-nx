@@ -20,15 +20,10 @@ async function fetchAdmin(url, retries = 2) {
 }
 
 // Ping like nx2 isHlx6, over the media library's daFetch so plugin-injected tokens work.
-// The ping header is also set for a source bus overlay alone, so check the primary source.
-// Any failed check means DA, which main always uses.
+// A failed ping means DA, which main always uses.
 async function probe(org, site) {
   const ping = await fetchAdmin(`${HLX_ADMIN}/ping/${org}/${site}`);
-  if (!ping.headers.has('x-api-upgrade-available')) return false;
-  const config = await fetchAdmin(`${HLX_ADMIN}/sidekick/${org}/${site}/main/config.json`);
-  if (!config.ok) return false;
-  const { contentSourceType, contentSourceUrl } = await config.json().catch(() => ({}));
-  return contentSourceType === 'sourcebus' || !!contentSourceUrl?.startsWith(`${AEM_API_ORIGIN}/`);
+  return ping.headers.has('x-api-upgrade-available');
 }
 
 export const isHlx6 = (() => {

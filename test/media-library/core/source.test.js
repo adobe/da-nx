@@ -39,9 +39,6 @@ function stubFetch(routes) {
       const hlx6 = href.includes('/hlx6');
       return new Response('', { headers: hlx6 ? { 'x-api-upgrade-available': 'true' } : {} });
     }
-    if (href.startsWith(`${HLX_ADMIN}/sidekick/`)) {
-      return json({ contentSourceType: 'sourcebus', contentSourceUrl: `${AEM}/` });
-    }
     return new Response('', { status: 404 });
   };
   return calls;
