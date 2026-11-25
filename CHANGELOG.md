@@ -1,3 +1,24 @@
+# [1.65.0](https://github.com/adobe/da-nx/compare/v1.64.0...v1.65.0) (2026-11-24)
+
+
+### Features
+
+* introduce coworker access check ([#1038](https://github.com/adobe/da-nx/issues/1038)) ([bb8e8f4](https://github.com/adobe/da-nx/commit/bb8e8f4c1ae1cba30a184b73e9df31b2b9cf61f7))
+
+# [1.64.0](https://github.com/adobe/da-nx/compare/v1.63.0...v1.64.0) (2026-11-24)
+
+
+### Features
+
+* introduce trailing item support for menu ([#1045](https://github.com/adobe/da-nx/issues/1045)) ([58a83f3](https://github.com/adobe/da-nx/commit/58a83f30914e97d05706d5a0a09918339cf39a9e))
+
+# [1.63.0](https://github.com/adobe/da-nx/compare/v1.62.1...v1.63.0) (2026-11-24)
+
+
+### Features
+
+* introduce shared tooltip ([#1034](https://github.com/adobe/da-nx/issues/1034)) ([80a135c](https://github.com/adobe/da-nx/commit/80a135c340923f080214e08304df6adcf7c44309))
+
 ## [1.62.1](https://github.com/adobe/da-nx/compare/v1.62.0...v1.62.1) (2026-11-23)
 
 

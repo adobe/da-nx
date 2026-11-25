@@ -59,7 +59,19 @@ body {
   color: var(--s2-blue-900);
 }
 
-.sg-example > p {
+.sg-variant + .sg-variant {
+  border-top: 1px solid var(--s2-gray-300);
+}
+
+.sg-variant h4 {
+  margin: 0;
+  padding: var(--s2-spacing-200) var(--s2-spacing-300) 0;
+  font-size: 0.875rem;
+  color: var(--s2-gray-800);
+}
+
+.sg-example > p,
+.sg-variant > p {
   padding-left: 10px;
 }
 
@@ -70,6 +82,10 @@ body {
   color: var(--s2-gray-700);
   background: var(--s2-yellow-100, #fff8e1);
   border-bottom: 1px solid var(--s2-gray-300);
+}
+
+.sg-variant > .sg-note {
+  margin-top: var(--s2-spacing-100);
 }
 
 .sg-demo {
