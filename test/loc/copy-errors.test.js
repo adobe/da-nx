@@ -240,7 +240,42 @@ describe('engine reports', () => {
     const url = { destination: DESTINATION, sourceContent: html('Translated') };
     const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
     expect(result.error).to.include('The source content has content that the editor cannot keep');
+    expect(result.error).to.include('Fix the source page, then copy or translate it again.');
     expect(result.code).to.equal('canonicalize-loss');
+  });
+
+  ['mergeCopy', 'overwriteCopy'].forEach((method) => {
+    it(`${method} names the source page and language of a translation it can't keep`, async () => {
+      lossOn('source');
+      const { copy, writes } = setup();
+      const url = {
+        destination: DESTINATION,
+        sourceContent: html('Übersetzt'),
+        sourcePage: SOURCE,
+        langName: 'German',
+      };
+      const result = await copy[method](url, 'Translate', { recordBaseline: false });
+      expect(writes()).to.deep.equal([]);
+      expect(result.code).to.equal('canonicalize-loss');
+      expect(result.error).to.equal(`The German translation of ${SOURCE} has content that the editor cannot keep. Open ${SOURCE} in the editor, save it, then send it for translation again.`);
+      expect(url.error).to.include(DESTINATION);
+    });
+  });
+
+  it('names the source page of supplied source content without a language', async () => {
+    lossOn('source');
+    const { copy } = setup();
+    const url = { destination: DESTINATION, sourceContent: html('Upstream'), sourcePage: SOURCE };
+    const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+    expect(result.error).to.include(`Open ${SOURCE} in the editor, save it, then copy again`);
+  });
+
+  it('asks to fix the source page of a translation when the page is unknown', async () => {
+    lossOn('source');
+    const { copy } = setup();
+    const url = { destination: DESTINATION, sourceContent: html('Übersetzt'), langName: 'German' };
+    const result = await copy.mergeCopy(url, 'Translate', { recordBaseline: false });
+    expect(result.error).to.equal('The German translation of the source page has content that the editor cannot keep. Open the source page in the editor, save it, then send it for translation again.');
   });
 
   [true, false].forEach((contentChanged) => {

@@ -6,9 +6,13 @@ const CANONICALIZE_LOSS = 'canonicalize-loss';
 const LOSS = 'Copying would lose content that the editor cannot keep.';
 
 function lossMessage(url, side) {
-  const page = { source: url.source, target: url.destination }[side];
+  if (side === 'source' && !url.source && url.langName) {
+    const source = url.sourcePage || 'the source page';
+    return `The ${url.langName} translation of ${source} has content that the editor cannot keep. Open ${source} in the editor, save it, then send it for translation again.`;
+  }
+  const page = { source: url.source || url.sourcePage, target: url.destination }[side];
   if (page) return `${LOSS} Open ${page} in the editor, save it, then copy again.`;
-  if (side === 'source') return 'The source content has content that the editor cannot keep.';
+  if (side === 'source') return 'The source content has content that the editor cannot keep. Fix the source page, then copy or translate it again.';
   return `${LOSS} Open the source and the destination in the editor, save them, then copy again.`;
 }
 const SMART_OUTCOMES = { unchanged: 'unchanged', 'needs-review': 'review' };

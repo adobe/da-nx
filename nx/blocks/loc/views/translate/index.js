@@ -143,7 +143,17 @@ async function saveLang({
 
   const urlsToSave = urls.map((url) => {
     const daDestPath = getSaveDestPath({ url, lang, sourceLocations, snapshotPrefix });
-    return { ...url, destination: `/${org}/${site}${daDestPath}` };
+    const daSourcePath = lang.source
+      ? getSaveDestPath({
+        url, lang: { location: lang.source }, sourceLocations, snapshotPrefix,
+      })
+      : url.daDestPath;
+    return {
+      ...url,
+      destination: `/${org}/${site}${daDestPath}`,
+      ...(daSourcePath ? { sourcePage: `/${org}/${site}${daSourcePath}` } : {}),
+      langName: lang.name,
+    };
   });
 
   const saveFn = async (url) => {
