@@ -3,8 +3,12 @@ import {
   MARKETPLACE_PATH,
   normalizeItem,
   fetchMarketplace,
-  getCategories,
-  filterByCategories,
+  resetMarketplaceCache,
+  filterByCategory,
+  getCategoryFilters,
+  getActions,
+  searchItems,
+  getVisibleItems,
 } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
 
 const origin = 'https://main--da-live--adobe.aem.page';
@@ -23,19 +27,16 @@ describe('normalizeItem', () => {
       'Doc Url': 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
       'Try Url': 'https://da.live/app/x/msm',
       Owner: ' Adobe ',
-      Type: 'App & Plugin',
       Category: ' Core ',
-      Image: 'https://example.com/t.png',
+      Logo: 'https://example.com/t.png',
     };
     expect(normalizeItem({ row, origin })).to.deep.equal({
       title: 'MSM',
       description: 'Manage msm',
       docHref: 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
       tryHref: 'https://da.live/app/x/msm',
-      owner: 'Adobe',
-      type: 'App & Plugin',
       category: 'Core',
-      imageHref: 'https://example.com/t.png',
+      iconHref: 'https://example.com/t.png',
     });
   });
 
@@ -74,89 +75,188 @@ describe('normalizeItem', () => {
     expect(normalizeItem({ row, origin })).to.equal(null);
   });
 
-  it('resolves relative path and image', () => {
-    const row = { Title: 'MSM', 'Doc Url': '/tools/x.html', Image: '/media/t.png' };
+  it('resolves relative path and logo', () => {
+    const row = { Title: 'MSM', 'Doc Url': '/tools/x.html', Logo: '/media/t.png' };
     const result = normalizeItem({ row, origin });
     expect(result.docHref).to.equal(`${origin}/tools/x.html`);
-    expect(result.imageHref).to.equal(`${origin}/media/t.png`);
+    expect(result.iconHref).to.equal(`${origin}/media/t.png`);
   });
 
-  it('drops unsafe or empty image', () => {
+  it('drops unsafe or empty logo', () => {
     const base = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
-    expect(normalizeItem({ row: { ...base, Image: '' }, origin }).imageHref).to.equal(undefined);
-    expect(normalizeItem({ row: { ...base, Image: 'data:image/png;base64,AA' }, origin }).imageHref)
+    expect(normalizeItem({ row: { ...base, Logo: '' }, origin }).iconHref).to.equal(undefined);
+    expect(normalizeItem({ row: { ...base, Logo: 'data:image/png;base64,AA' }, origin }).iconHref)
       .to.equal(undefined);
     // eslint-disable-next-line no-script-url
-    expect(normalizeItem({ row: { ...base, Image: 'javascript:x' }, origin }).imageHref).to.equal(undefined);
+    expect(normalizeItem({ row: { ...base, Logo: 'javascript:x' }, origin }).iconHref).to.equal(undefined);
   });
 
-  it('handles missing description, owner and type', () => {
+  it('ignores the Image and Icon columns for the icon', () => {
+    const row = {
+      Title: 'MSM', 'Doc Url': 'https://da.live/a', Image: 'https://example.com/i.png', Icon: 'https://example.com/c.png',
+    };
+    expect(normalizeItem({ row, origin }).iconHref).to.equal(undefined);
+  });
+
+  it('handles missing description and category', () => {
     const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
     const result = normalizeItem({ row, origin });
     expect(result.description).to.equal('');
-    expect(result.owner).to.equal('');
-    expect(result.type).to.equal('');
     expect(result.category).to.equal('');
   });
 
-  it('keeps the type text as written, trimmed', () => {
-    const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a', Type: '  App & Plugin ' };
-    expect(normalizeItem({ row, origin }).type).to.equal('App & Plugin');
+  it('ignores the Type column', () => {
+    const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a', Type: 'App & Plugin' };
+    expect('type' in normalizeItem({ row, origin })).to.equal(false);
   });
 });
 
-describe('getCategories', () => {
-  const block = (className) => {
-    const el = document.createElement('div');
-    el.className = className;
-    return el;
-  };
-
-  it('returns empty list without options', () => {
-    expect(getCategories(block('marketplace'))).to.deep.equal([]);
+describe('getActions', () => {
+  it('returns try out first and view details last, so view details sits on the right', () => {
+    const actions = getActions({ docHref: 'https://example.com/a', tryHref: 'https://example.com/t' });
+    expect(actions).to.deep.equal([
+      { id: 'try', label: 'Try out', href: 'https://example.com/t' },
+      { id: 'details', label: 'View details', href: 'https://example.com/a' },
+    ]);
   });
 
-  it('returns option classes after the block name', () => {
-    expect(getCategories(block('marketplace core extension'))).to.deep.equal(['core', 'extension']);
+  it('puts view details first in grid view', () => {
+    const actions = getActions({ docHref: 'https://example.com/a', tryHref: 'https://example.com/t', view: 'grid' });
+    expect(actions.map(({ id }) => id)).to.deep.equal(['details', 'try']);
   });
 
-  it('ignores a prefixed block name', () => {
-    expect(getCategories(block('nx-marketplace core'))).to.deep.equal(['core']);
+  it('omits actions without a url', () => {
+    expect(getActions({ docHref: 'https://example.com/a' }).map(({ id }) => id)).to.deep.equal(['details']);
+    expect(getActions({ tryHref: 'https://example.com/t' }).map(({ id }) => id)).to.deep.equal(['try']);
   });
 });
 
-describe('filterByCategories', () => {
+describe('filterByCategory', () => {
   const items = [
     { title: 'A', category: 'Core' },
     { title: 'B', category: 'Extension' },
-    { title: 'C', category: '' },
+    { title: 'C', category: 'core' },
+    { title: 'D', category: '' },
   ];
   const titles = (list) => list.map(({ title }) => title);
 
-  it('returns all items without categories', () => {
-    expect(titles(filterByCategories({ items, categories: [] }))).to.deep.equal(['A', 'B', 'C']);
-    expect(titles(filterByCategories({ items }))).to.deep.equal(['A', 'B', 'C']);
+  it('returns all items for "all" or no filter', () => {
+    expect(titles(filterByCategory({ items, filter: 'all' }))).to.deep.equal(['A', 'B', 'C', 'D']);
+    expect(titles(filterByCategory({ items }))).to.deep.equal(['A', 'B', 'C', 'D']);
   });
 
-  it('filters by a single category, case-insensitive', () => {
-    expect(titles(filterByCategories({ items, categories: ['core'] }))).to.deep.equal(['A']);
+  it('returns core items, case-insensitive', () => {
+    expect(titles(filterByCategory({ items, filter: 'core' }))).to.deep.equal(['A', 'C']);
   });
 
-  it('filters by multiple categories', () => {
-    expect(titles(filterByCategories({ items, categories: ['core', 'extension'] })))
-      .to.deep.equal(['A', 'B']);
+  it('returns extension items', () => {
+    expect(titles(filterByCategory({ items, filter: 'extension' }))).to.deep.equal(['B']);
+  });
+});
+
+describe('getCategoryFilters', () => {
+  it('starts with All, then each sheet category in first-seen order', () => {
+    const items = [
+      { category: 'Extension' }, { category: 'Core' }, { category: 'extension' }, { category: 'Beta' },
+    ];
+    expect(getCategoryFilters(items)).to.deep.equal([
+      { value: 'all', label: 'All Types' },
+      { value: 'extension', label: 'Extension' },
+      { value: 'core', label: 'Core' },
+      { value: 'beta', label: 'Beta' },
+    ]);
   });
 
-  it('returns empty list when nothing matches', () => {
-    expect(filterByCategories({ items, categories: ['other'] })).to.deep.equal([]);
+  it('skips empty categories and one named "all"', () => {
+    const items = [{ category: '' }, { category: 'All' }, {}, { category: 'Core' }];
+    expect(getCategoryFilters(items).map(({ value }) => value)).to.deep.equal(['all', 'core']);
+  });
+
+  it('returns only All Types without items', () => {
+    expect(getCategoryFilters([])).to.deep.equal([{ value: 'all', label: 'All Types' }]);
+    expect(getCategoryFilters()).to.deep.equal([{ value: 'all', label: 'All Types' }]);
+  });
+});
+
+describe('searchItems', () => {
+  const items = [
+    { title: 'Anchor Links', description: 'Jump' },
+    { title: 'Tabs', description: 'Tabbed sections' },
+  ];
+
+  it('matches title, trimmed and case-insensitive', () => {
+    expect(searchItems({ items, query: '  ANCHOR ' })).to.deep.equal([items[0]]);
+  });
+
+  it('matches description', () => {
+    expect(searchItems({ items, query: 'sections' })).to.deep.equal([items[1]]);
+  });
+
+  it('returns the same array for an empty query', () => {
+    expect(searchItems({ items, query: '' })).to.equal(items);
+    expect(searchItems({ items, query: '   ' })).to.equal(items);
+  });
+
+  it('treats a null query as empty', () => {
+    expect(searchItems({ items, query: null })).to.equal(items);
+  });
+
+  it('returns [] without a match', () => {
+    expect(searchItems({ items, query: 'zzz' })).to.deep.equal([]);
+  });
+});
+
+describe('getVisibleItems', () => {
+  it('filters and searches together, keeping sheet order', () => {
+    const items = [
+      { title: 'Zeta ext', description: 'tool', category: 'Extension' },
+      { title: 'Alpha ext', description: 'tool', category: 'Extension' },
+      { title: 'Core tool', description: 'tool', category: 'Core' },
+      { title: 'Other', description: 'x', category: 'Extension' },
+    ];
+    const result = getVisibleItems({ items, filter: 'extension', query: 'tool' });
+    expect(result.map(({ title }) => title)).to.deep.equal(['Zeta ext', 'Alpha ext']);
   });
 });
 
 describe('fetchMarketplace', () => {
   let restoreFetch;
 
+  beforeEach(() => {
+    resetMarketplaceCache();
+  });
+
   afterEach(() => {
     restoreFetch?.();
+  });
+
+  it('shares one request between calls for the same origin', async () => {
+    let calls = 0;
+    restoreFetch = installFetch(async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
+    });
+
+    const [a, b] = await Promise.all([fetchMarketplace({ origin }), fetchMarketplace({ origin })]);
+
+    expect(calls).to.equal(1);
+    expect(a).to.equal(b);
+  });
+
+  it('does not cache failed results so a later call retries', async () => {
+    let calls = 0;
+    restoreFetch = installFetch(async () => {
+      calls += 1;
+      if (calls === 1) return new Response('', { status: 500 });
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
+    });
+
+    const first = await fetchMarketplace({ origin });
+    const second = await fetchMarketplace({ origin });
+
+    expect(first.error).to.equal('Could not load marketplace.');
+    expect(second).to.deep.equal({ items: [] });
+    expect(calls).to.equal(2);
   });
 
   it('requests the marketplace path on the origin', async () => {
@@ -176,8 +276,7 @@ describe('fetchMarketplace', () => {
       Title: 'MSM',
       Description: 'Manage msm',
       'Doc Url': 'https://da.live/app/x/msm',
-      Type: 'App',
-      Image: 'https://example.com/t.png',
+      Logo: 'https://example.com/t.png',
     };
     restoreFetch = installFetch(async () => new Response(
       JSON.stringify({ data: [validRow, { Title: '', 'Doc Url': 'x' }] }),
