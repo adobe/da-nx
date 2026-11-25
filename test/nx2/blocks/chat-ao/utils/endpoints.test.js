@@ -1,8 +1,9 @@
 import { expect } from '@esm-bundle/chai';
 import { resolveChatBases } from '../../../../../nx2/blocks/chat-ao/utils/endpoints.js';
 import {
-  CMA_BRIDGE_HTTP_BASE, CMA_BRIDGE_WS_BASE, AO_HTTP_BASE, AO_WS_BASE,
-} from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
+  CMA_BRIDGE_HTTP_BASE, CMA_BRIDGE_WS_BASE,
+} from '../../../../../nx2/blocks/chat-ao/cma/constants.js';
+import { AO_HTTP_BASE, AO_WS_BASE } from '../../../../../nx2/blocks/chat-ao/coworker/constants.js';
 
 describe('resolveChatBases', () => {
   it('returns the CMA bridge bases for the cma harness', () => {

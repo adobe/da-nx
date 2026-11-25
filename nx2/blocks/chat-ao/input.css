@@ -7,6 +7,10 @@
   font-weight: var(--s2-body-font-weight);
   box-sizing: border-box;
 
+  &:host([data-access-unavailable]) {
+    display: none;
+  }
+
   [hidden] {
     display: none;
   }

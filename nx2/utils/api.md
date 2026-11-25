@@ -52,7 +52,7 @@ versions.get('/adobe/aem-boilerplate/index.html', { versionId: 'abc' });
 **Every namespace method returns a raw `Response`** — augmented by `daFetch` with `resp.permissions: string[]` (parsed from `x-da-child-actions` / `x-da-actions`, defaulted to `['read', 'write']`). Treat like any `fetch` result: `await resp.json()`, check `resp.ok`, read `resp.headers`, etc.
 
 **Two exceptions:**
-- **`source.list`** → `{ ok, items, continuationToken, permissions }`. Merges body (normalized items) + headers (continuation token) + permissions into one object — the only namespace method whose return shape isn't a `Response`. Pass `continuationToken` back into the same call to fetch the next page.
+- **`source.list`** → `{ ok, items, continuationToken, permissions }`. Merges body (normalized items) + headers (continuation token) + permissions into one object — the only namespace method whose return shape isn't a `Response`. Pass `continuationToken` back into the same call to fetch the next page. A failed site-level listing also carries the HTTP `status` (e.g. `404` when the folder doesn't exist).
 - **`config.getAggregated`** on a non-hlx6 site → `{ error: 'Requires Helix 6 upgrade', status: 501 }` sentinel. On hlx6 sites it returns a normal `Response` like everything else.
 
 ### Opt-in response helpers
@@ -593,4 +593,4 @@ await source.get({ org: 'foo', site: 'bar', path: '/x.html' });
 expect(lastCall().url).to.equal('https://admin.da.live/source/foo/bar/x.html');
 ```
 
-The IMS dependency is mocked via the importmap in `web-test-runner.config.mjs` (`/nx2/utils/ims.js` → `/nx2/test/mocks/ims.js`).
+The IMS dependency is mocked via the importmap in `web-test-runner.config.mjs` (`/nx2/utils/ims.js` → `/test/nx2/mocks/ims.js`).

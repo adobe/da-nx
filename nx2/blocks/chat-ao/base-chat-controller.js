@@ -79,6 +79,7 @@ export default class BaseChatController {
       pendingPermission: this._pendingPermission,
       loadingEpisode: this._loadingEpisode,
       staleEpisode: this._staleEpisode,
+      access: this._access,
     });
   }
 
