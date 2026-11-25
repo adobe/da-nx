@@ -139,9 +139,12 @@ function renderPermissionArguments(value) {
 function renderPermissionRow(call, decisions, onDecide) {
   const detail = renderPermissionArguments(call.arguments);
   const decided = call.toolCallId in decisions;
+  const toolName = /^[^\s]*_[^\s]*$/.test(call.toolName)
+    ? call.toolName.replace(/_+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+    : call.toolName;
   const label = Object.hasOwn(PERMISSION_TOOL_LABELS, call.toolName)
     ? PERMISSION_TOOL_LABELS[call.toolName]
-    : call.toolName.replace(/_+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+    : toolName;
   return html`
     <div class="permission-row">
       <span class="permission-row-tool" title=${call.toolName}>${label}</span>

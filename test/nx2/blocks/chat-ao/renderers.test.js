@@ -17,7 +17,14 @@ describe('renderPermissionCard keydown', () => {
   [
     ['governance__bga_create_brand_context_rule', 'Governance Bga Create Brand Context Rule'],
     ['read_file', 'Reading file'],
-    ['constructor', 'Constructor'],
+    ['bash', 'Running command'],
+    ['constructor', 'constructor'],
+    ['readFile', 'readFile'],
+    ['read file', 'read file'],
+    ['read_file content', 'read_file content'],
+    [' read_file', ' read_file'],
+    ['read_file ', 'read_file '],
+    ['read_file\tcontent', 'read_file\tcontent'],
   ].forEach(([toolName, label]) => {
     it(`shows a human-readable approval label for ${toolName} and retains the identifier`, () => {
       const decisions = [];
