@@ -59,6 +59,7 @@ class NxMediaInfo extends LitElement {
   static properties = {
     media: { attribute: false },
     usageData: { attribute: false },
+    referencesLoading: { type: Boolean },
     org: { attribute: false },
     repo: { attribute: false },
     isIndexing: { type: Boolean },
@@ -172,6 +173,7 @@ class NxMediaInfo extends LitElement {
 
     this.media = data.media;
     this.usageData = data.usageData;
+    this.referencesLoading = data.referencesLoading || false;
     this.org = data.org;
     this.repo = data.repo;
     this.usePreviewDaLive = data.usePreviewDaLive || false;
@@ -825,9 +827,13 @@ class NxMediaInfo extends LitElement {
               <svg class="reference-icon icon" viewBox="0 0 22 20">
                 <use href="#S2_Icon_AIGenReferenceImage_20_N"></use>
               </svg>
-                ${this.isIndexing && (this.usageData?.length ?? 0) === 0
+                ${this.referencesLoading || this.usageData === undefined
+    || (this.isIndexing && (this.usageData?.length ?? 0) === 0)
     ? 'References'
     : `${(this.usageData?.length ?? 0)} ${(this.usageData?.length ?? 0) !== 1 ? 'References' : 'Reference'}`}
+                ${this.referencesLoading ? html`
+                  <span class="spinner" role="status" aria-label="${getMessage('UI_LOADING_REFERENCES')}"></span>
+                ` : ''}
               </button>
               <button
                 type="button"
@@ -1203,6 +1209,22 @@ class NxMediaInfo extends LitElement {
 
   renderUsageContent() {
     const usageData = this.usageData ?? [];
+
+    if (this.referencesLoading) {
+      return html`
+        <div class="loading-state" role="status" aria-live="polite">
+          <span>${getMessage('UI_LOADING_REFERENCES')}</span>
+        </div>
+      `;
+    }
+
+    if (this.usageData === undefined) {
+      return html`
+        <div class="no-usage" role="alert">
+          <p>${getMessage('UI_REFERENCES_UNAVAILABLE')}</p>
+        </div>
+      `;
+    }
 
     if (this.isIndexing && usageData.length === 0 && this.media?.usageCount > 0) {
       return html`

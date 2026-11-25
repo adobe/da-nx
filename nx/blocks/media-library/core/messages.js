@@ -61,6 +61,9 @@ const MESSAGES = {
 
   UI_DISCOVERING: 'Discovering',
   UI_LOADING: 'Loading',
+  UI_LOADING_MEDIA: 'Loading media...',
+  UI_LOADING_REFERENCES: 'Loading references...',
+  UI_REFERENCES_UNAVAILABLE: 'Unable to load references. Try refreshing the page.',
   UI_DISCOVERY_IN_PROGRESS: 'Discovery session in progress',
   UI_DISCOVERY_HINT: 'Media will appear automatically when discovery is complete.',
   UI_NO_ITEMS_FOUND: 'No {filterLabel} found',

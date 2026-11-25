@@ -7,6 +7,10 @@ let cachedImsDetails;
 let imsLoadPromise;
 let isRedirectingToSignIn = false;
 
+export function isSignInRedirectPending() {
+  return isRedirectingToSignIn;
+}
+
 /**
  * Inject IMS token for plugin mode
  * @param {string} token - Bearer token from plugin host

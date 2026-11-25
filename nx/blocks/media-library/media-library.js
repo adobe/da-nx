@@ -38,6 +38,7 @@ import {
   getAppState, updateAppState, onStateChange, showNotification, dismissNotification,
 } from './core/state.js';
 import { getMessage } from './core/messages.js';
+import { isSignInRedirectPending } from './core/ims-adapter.js';
 import { initService, disposeService, triggerBuild } from './indexing/coordinator.js';
 import { handleIndexingEvent } from './core/indexing-adapter.js';
 import { fetchSidekickConfig } from './indexing/admin-api.js';
@@ -149,7 +150,9 @@ class NxMediaLibrary extends LitElement {
 
     this._modalResolveUnsubscribe = onStateChange(['mediaData', 'progressiveMediaData'], () => {
       const state = getAppState();
-      if (state.selectedMediaKey) this._attemptModalResolution();
+      if (state.selectedMediaKey) {
+        this._attemptModalResolution({ referencesLoading: state.isLoadingData });
+      }
     });
 
     document.querySelector('.nx-app')?.classList.add('has-media-library');
@@ -472,11 +475,13 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
-  _attemptModalResolution() {
+  _attemptModalResolution({ mediaData, referencesLoading = false } = {}) {
     const state = getAppState();
-    if (!state.selectedMediaKey) return;
+    const params = !this._hasHydrated ? parseRouteState().params : null;
+    const mediaKey = state.selectedMediaKey || params?.get('media');
+    if (!mediaKey) return;
 
-    let sourceData = state.mediaData;
+    let sourceData = mediaData || state.mediaData;
 
     if ((!sourceData || sourceData.length === 0) && state.progressiveMediaData?.length > 0) {
       sourceData = state.progressiveMediaData;
@@ -486,7 +491,7 @@ class NxMediaLibrary extends LitElement {
 
     const matchedItem = sourceData.find((item) => {
       const key = getDedupeKey(item.url);
-      return key === state.selectedMediaKey;
+      return key === mediaKey;
     });
 
     if (matchedItem && isUiExcludedMediaItem(matchedItem)) {
@@ -497,21 +502,29 @@ class NxMediaLibrary extends LitElement {
 
     if (matchedItem) {
       const modal = this.shadowRoot.querySelector('nx-media-info');
+      const usageData = referencesLoading
+        ? undefined : state.usageIndex?.get(getUsageIndexKey(matchedItem)) || [];
+      const initialTab = state.selectedMediaKey ? state.selectedMediaTab : params?.get('tab');
       const dialogEl = modal?.shadowRoot?.querySelector('dialog');
       const dialogOpen = dialogEl?.open === true;
       if (dialogOpen && modal?.media?.url) {
         const currentKey = getDedupeKey(modal.media.url);
-        if (currentKey === state.selectedMediaKey) {
+        if (currentKey === mediaKey) {
+          modal.usageData = usageData;
+          modal.referencesLoading = referencesLoading;
+          modal.isIndexing = state.isIndexing;
           return;
         }
       }
       modal.show({
         media: matchedItem,
-        usageData: state.usageIndex?.get(getUsageIndexKey(matchedItem)) || [],
+        usageData,
+        referencesLoading,
         org: state.org,
         repo: state.repo,
+        usePreviewDaLive: this.siteAuthInfo?.requiresAuth || false,
         isIndexing: state.isIndexing,
-        initialTab: state.selectedMediaTab,
+        initialTab: initialTab === 'metadata' ? 'metadata' : 'usage',
       });
     }
   }
@@ -585,6 +598,7 @@ class NxMediaLibrary extends LitElement {
       const validation = await validateSitePath(this.sitePath);
 
       if (!validation.valid) {
+        if (isSignInRedirectPending()) return;
         updateAppState({
           isValidating: false,
           validationError: validation.error,
@@ -694,9 +708,13 @@ class NxMediaLibrary extends LitElement {
       });
 
       const finalData = accumulatedData.length > 0 ? accumulatedData : data;
+      this._attemptModalResolution({ mediaData: finalData, referencesLoading: true });
       await this.setMediaData(finalData);
       updateAppState({ isLoadingData: false, isProgressiveLoading: false });
+      this._attemptModalResolution();
     } catch (error) {
+      const modal = this.shadowRoot.querySelector('nx-media-info');
+      if (modal?.referencesLoading) modal.referencesLoading = false;
       updateAppState({
         isLoadingData: false,
         isProgressiveLoading: false,
@@ -787,7 +805,7 @@ class NxMediaLibrary extends LitElement {
         <div class="validation-state">
           <div class="validation-content indexing-state">
             <div class="indexing-spinner"></div>
-            <p class="indexing-message">${isMediaLibraryPluginMode() ? getMessage('UI_LOADING') : getMessage('UI_DISCOVERING')}</p>
+            <p class="indexing-message">${isMediaLibraryPluginMode() ? getMessage('UI_LOADING') : getMessage('UI_LOADING_MEDIA')}</p>
           </div>
         </div>
       `;
@@ -903,7 +921,7 @@ class NxMediaLibrary extends LitElement {
 
     // Show loading state when initially loading data (before any chunks arrive)
     if (this._appState.isLoadingData && !hasData) {
-      return this.renderIndexingState();
+      return this.renderIndexingState({ isLoading: true });
     }
 
     // Only show "Discovering..." full-screen state when truly no data exists
@@ -958,8 +976,10 @@ class NxMediaLibrary extends LitElement {
     `;
   }
 
-  renderIndexingState() {
-    const label = isMediaLibraryPluginMode() ? getMessage('UI_LOADING') : getMessage('UI_DISCOVERING');
+  renderIndexingState({ isLoading = false } = {}) {
+    const label = isMediaLibraryPluginMode()
+      ? getMessage('UI_LOADING')
+      : getMessage(isLoading ? 'UI_LOADING_MEDIA' : 'UI_DISCOVERING');
     return html`
       <div class="indexing-state">
         <div class="indexing-spinner"></div>
