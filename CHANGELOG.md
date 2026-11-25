@@ -1,3 +1,10 @@
+## [1.68.1](https://github.com/adobe/da-nx/compare/v1.68.0...v1.68.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* rollback access check for co ([#1058](https://github.com/adobe/da-nx/issues/1058)) ([045311e](https://github.com/adobe/da-nx/commit/045311ef6aea9580be5d734f67175eee2f19d73b))
+
 # [1.68.0](https://github.com/adobe/da-nx/compare/v1.67.0...v1.68.0) (2026-11-25)
 
 
