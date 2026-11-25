@@ -1,3 +1,10 @@
+# [1.67.0](https://github.com/adobe/da-nx/compare/v1.66.2...v1.67.0) (2026-11-25)
+
+
+### Features
+
+* introduce tooltips for sidenav items ([#1048](https://github.com/adobe/da-nx/issues/1048)) ([bfd76d7](https://github.com/adobe/da-nx/commit/bfd76d76d08734e01f4adfb690b7e17e7a6ee9b2))
+
 ## [1.66.2](https://github.com/adobe/da-nx/compare/v1.66.1...v1.66.2) (2026-11-25)
 
 
