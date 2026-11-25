@@ -215,6 +215,42 @@ describe('api.js', () => {
       expect(pingCount()).to.equal(3);
     });
 
+    it('treats a ping without an answer as legacy, without retrying or caching it', async () => {
+      installPings([new TypeError('Failed to fetch'), { status: 200, headers: { 'x-api-upgrade-available': 'true' } }]);
+      const o = uniq('org');
+      const s = uniq('site');
+      expect(await isHlx6(o, s)).to.equal(false);
+      expect(pingCount()).to.equal(1);
+      expect(await isHlx6(o, s)).to.equal(true);
+      expect(pingCount()).to.equal(2);
+    });
+
+    it('treats a 429 retry without an answer as legacy and does not cache it', async () => {
+      installPings([
+        { status: 429 },
+        new TypeError('Failed to fetch'),
+        { status: 200, headers: { 'x-api-upgrade-available': 'true' } },
+      ]);
+      const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+      const o = uniq('org');
+      const s = uniq('site');
+      const first = isHlx6(o, s);
+      await clock.tickAsync(1000);
+      clock.restore();
+      expect(await first).to.equal(false);
+      expect(await isHlx6(o, s)).to.equal(true);
+      expect(pingCount()).to.equal(3);
+    });
+
+    it('rejects without a ping when signed out', async () => {
+      installPings([{ status: 200 }]);
+      setMockIms({ token: null });
+      let error;
+      await isHlx6(uniq('org'), uniq('site')).catch((e) => { error = e; });
+      expect(error instanceof TypeError).to.equal(true);
+      expect(pingCount()).to.equal(0);
+    });
+
     it('treats a 403 ping as legacy without retrying', async () => {
       installPings([{ status: 403 }]);
       expect(await isHlx6(uniq('org'), uniq('site'))).to.equal(false);
