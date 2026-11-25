@@ -126,7 +126,7 @@ describe('quick-edit portal source', () => {
       expect(sourceUrl).to.equal(`${DA_ADMIN}/source/${org}/${site}/index.html`);
     });
 
-    it('rejects when the upgrade check fails, so the portal can retry', async () => {
+    it('rejects when the upgrade check fails', async () => {
       const savedFetch = window.fetch;
       window.fetch = async () => { throw new TypeError('Failed to fetch'); };
       const { org, site } = makeOrgSite();
