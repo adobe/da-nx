@@ -1,3 +1,10 @@
+# [1.68.0](https://github.com/adobe/da-nx/compare/v1.67.0...v1.68.0) (2026-11-25)
+
+
+### Features
+
+* **pills:** let hosts change the pill width cap via --nx-pill-max-width ([#1053](https://github.com/adobe/da-nx/issues/1053)) ([2ba66c8](https://github.com/adobe/da-nx/commit/2ba66c8b92b9539c11ec47e7819af8921999e77f))
+
 # [1.67.0](https://github.com/adobe/da-nx/compare/v1.66.2...v1.67.0) (2026-11-25)
 
 
