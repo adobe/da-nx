@@ -11,7 +11,10 @@ import {
 
 const { codeBase } = getConfig();
 
-const style = await loadStyle(import.meta.url);
+const [buttonStyle, style] = await Promise.all([
+  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
+  loadStyle(import.meta.url),
+]);
 
 const VIEW_ITEMS = [
   {
@@ -35,7 +38,7 @@ class NxMarketplace extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style];
+    this.shadowRoot.adoptedStyleSheets = [buttonStyle, style];
     this._failedIconHrefs ??= new Set();
     this._filter ??= 'all';
     this._query ??= '';
@@ -85,7 +88,7 @@ class NxMarketplace extends LitElement {
       <div class="item-actions">
         ${getActions({ ...item, view: this._view }).map(({ label, href }) => html`
           <a
-            class="item-action"
+            class="item-action nx-btn-primary"
             href=${href}
             target="_blank"
             rel="noopener noreferrer"
