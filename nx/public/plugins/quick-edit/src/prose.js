@@ -11,11 +11,16 @@ import {
 } from './toolbar.js';
 import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
-import { setupImageDropListeners } from './images.js';
+import { requestEditor, setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
-import { syncImageIndices } from './dom-index.js';
+import { syncImageIndices, setImageVersion } from './dom-index.js';
 import { scheduleSettle, settleEditor, settleOtherEditors } from './settle-editor.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
+
+// Marks the transaction that puts the caret back on FOCUS_EDITOR. The host already holds
+// that selection; reporting it as a caret move would make the host drop a mark the user
+// just queued from its toolbar (e.g. Bold at a collapsed caret).
+const RESTORED_FOCUS_META = 'quickEditRestoredFocus';
 
 function marksEqual(a, b) {
   if (!a && !b) return true;
@@ -81,7 +86,8 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   }
 
   const newSel = newState.selection;
-  if (oldSel.anchor !== newSel.anchor || oldSel.head !== newSel.head) {
+  const selectionMoved = oldSel.anchor !== newSel.anchor || oldSel.head !== newSel.head;
+  if (selectionMoved && !tr.getMeta(RESTORED_FOCUS_META)) {
     const base = currentCursorOffset - 1;
     if (newSel.anchor !== newSel.head) {
       const coords = editorView.coordsAtPos(newSel.anchor);
@@ -169,6 +175,13 @@ function focus(view, ctx) {
 function blur(view, event, ctx) {
   hideToolbar(view);
   setCurrentEditorView(null);
+  // Remembered so the host can return keyboard focus here (FOCUS_EDITOR) after the
+  // user tabs into its toolbar, which settles this editor.
+  const { anchor, head } = view.state.selection;
+  ctx.lastEditorFocus = {
+    cursorOffset: view.dom.parentElement?.getAttribute('data-prose-index'),
+    selection: { anchor, head },
+  };
   blurClearTimeout = setTimeout(() => {
     ctx.port.postMessage({ type: MESSAGE_TYPES.CURSOR_MOVE });
     blurClearTimeout = null;
@@ -181,16 +194,18 @@ function keydown(view, event) {
   return handleToolbarKeydown(event);
 }
 
-function focusEditor(view, { x, y, selection }) {
+function focusEditor(view, { x, y, selection, restored }) {
   const { doc } = view.state;
   const max = doc.content.size;
   const clicked = selection ? null : view.posAtCoords({ left: x, top: y })?.pos;
   const anchor = Math.min(selection?.anchor ?? clicked ?? max, max);
   const head = Math.min(selection?.head ?? clicked ?? max, max);
   view.focus();
-  view.dispatch(view.state.tr.setSelection(
+  const tr = view.state.tr.setSelection(
     TextSelection.between(doc.resolve(anchor), doc.resolve(head)),
-  ));
+  );
+  if (restored) tr.setMeta(RESTORED_FOCUS_META, true);
+  view.dispatch(tr);
 }
 
 export function captureFocusedEditor() {
@@ -198,6 +213,21 @@ export function captureFocusedEditor() {
   if (!editorParent?.view) return null;
   const { anchor, head } = editorParent.view.state.selection;
   return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
+}
+
+/** FOCUS_EDITOR: put the caret back where the user left it, reopening the editor if it
+ * settled to static markup while focus was in the host. */
+export function restoreEditorFocus(ctx) {
+  const last = ctx.lastEditorFocus;
+  if (last?.cursorOffset == null) return;
+  const restore = { selection: last.selection, restored: true };
+  const live = document.querySelector(`.prosemirror-editor[data-prose-index="${last.cursorOffset}"]`);
+  if (live?.view) {
+    focusEditor(live.view, restore);
+    return;
+  }
+  const element = document.querySelector(`[data-prose-index="${last.cursorOffset}"]:not(picture)`);
+  if (element) requestEditor(ctx, element, restore);
 }
 
 function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin } = {}) {
@@ -255,6 +285,7 @@ function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin
   // The replaced element still had the pre-edit content, so later indices haven't moved yet.
   if (lengthDiff) updateInstrumentation(lengthDiff, offset);
   syncImageIndices(editorView, editorParent, offset, node.nodeSize - lengthDiff, lengthDiff);
+  if (imageVersion) setImageVersion(imageVersion);
   if (!ctx.readOnly) setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
   initScrollListener(editorParent.ownerDocument.defaultView, ctx);
@@ -285,7 +316,6 @@ function updateEditor(editorEl, state, ctx, { imageVersion, origin } = {}) {
 
   // Editor already exists, update it with a transaction
   const view = editorEl;
-  if (imageVersion) view.dom.parentElement.setAttribute('data-image-version', imageVersion);
   const { schema } = view.state;
   const node = schema.nodeFromJSON(state);
 
@@ -295,6 +325,8 @@ function updateEditor(editorEl, state, ctx, { imageVersion, origin } = {}) {
     requestReload(ctx);
     return;
   }
+
+  if (imageVersion) setImageVersion(imageVersion);
 
   // Save selection to restore after the content replacement.
   // Marks don't change node structure, so positions are identical in the new doc.

@@ -1,11 +1,26 @@
 :host {
-  a {
+  a,
+  button {
     display: flex;
     justify-content: center;
     align-items: center;
     color: inherit;
     text-align: center;
     font-size: 0;
+  }
+
+  button {
+    margin: 0 auto;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--s2-gray-900);
+      outline-offset: 2px;
+      border-radius: var(--s2-corner-radius-200);
+    }
   }
 
   ul {
@@ -23,6 +38,10 @@
 }
 
 .nav-link {
+  &.chat.is-restoring {
+    visibility: hidden;
+  }
+
   .icon {
     position: relative;
     display: flex;
@@ -43,6 +62,30 @@
       opacity: 0;
       transition: opacity 0.2s ease-in-out;
     }
+  }
+
+  &.chat  .icon {
+    color: rgb(105 3 68 / 100%);
+    border-radius: 100%;
+    background: radial-gradient(70.43% 54.36% at 83.33% 100%, rgb(236 105 255 / 80%) 0%, rgb(236 105 255 / 35%) 100%);
+    backdrop-filter: blur(50px);
+    box-shadow: 0 4px 8px 0 var(--s2-gray-25) inset;
+
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    &::before {
+      content: none;
+    }
+  }
+
+  &.chat.is-active .icon {
+    background: var(--s2-gray-900);
+    color: var(--s2-gray-25);
+    box-shadow: none;
+    backdrop-filter: none;
   }
 
   &.is-active {

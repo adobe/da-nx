@@ -1,4 +1,5 @@
 import { fetchDaConfigs } from './daConfig.js';
+import { isCmaEntitled } from './entitlement.js';
 
 // Experience Workspace flags live in the `flags` sheet of the DA config docs,
 // keyed `ew.*`. Site-level config overrides org-level (it is fetched last).
@@ -158,13 +159,36 @@ export async function isEwChatDisabled({ org, site }) {
   return flags['ew.disableChat'] === 'true';
 }
 
+export async function isEwChatEnabled({ org, site }) {
+  if (!org) return false;
+  const [enabled, disabled] = await Promise.all([
+    isEWEnabled({ org, site }),
+    isEwChatDisabled({ org, site }),
+  ]);
+  return enabled && !disabled;
+}
+
 export async function getCoworkerConfig({ org, site }) {
   const flags = await getEWFlags({ org, site });
   return {
     enabled: flags['ew.coworker'] === 'true',
-    altHarness: !!flags['ew.altHarness'],
-    activationKey: flags['ew.altHarness'] ?? null,
   };
+}
+
+// Per-site rollout opt-in for the CMA harness (replaces ew.altHarness, #192).
+// Selector only; the hard gate is IMS entitlement (see isCmaEntitled).
+// Resolves the chat harness from the single `ew.coworker` flag to ONE of three
+// distinct states (they are not interchangeable - a non-entitled cma site
+// falls back to legacy, NOT coworker):
+//   'cma'      -> ew.coworker === 'cma' AND the user is IMS-entitled
+//   'coworker' -> ew.coworker === 'true' (Coworker on Agent Orchestrator)
+//   'legacy'   -> unset/other, or 'cma' without entitlement (da-agent)
+// Entitlement is a UI pre-check only; the bridge re-verifies server-side.
+export async function resolveHarness({ org, site }) {
+  const value = (await getEWFlags({ org, site }))['ew.coworker'];
+  if (value === 'cma') return (await isCmaEntitled()) ? 'cma' : 'legacy';
+  if (value === 'true') return 'coworker';
+  return 'legacy';
 }
 
 export async function isCoworkerEnabled({ org, site }) {

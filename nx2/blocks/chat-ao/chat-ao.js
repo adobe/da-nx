@@ -12,22 +12,23 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
+import { openProfileMenu } from '../../utils/profile.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
-import CoworkerChatController from './coworker-chat-controller.js';
-import CmaChatController from './cma-chat-controller.js';
-import { getCoworkerConfig } from '../../utils/ewFlags.js';
+import { resolveHarness } from '../../utils/ewFlags.js';
+import { getAoSession, getSessionScope, subscribeChatEvents } from './session.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
 } from './utils/coworker-nav.js';
 import {
-  ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
+  ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE, ADD_MENU_ITEMS_CMA,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
-import { CHAT_EVENT } from '../../utils/chat.js';
+import { CHAT_EVENT, skillsAppHref } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
+import { renderChatStatus, chatStatusStyle } from '../shared/chat/status/status.js';
 import { showToast } from '../shared/toast/toast.js';
 import '../shared/picker/picker.js';
 import '../shared/chat/new-chat/new-chat.js';
@@ -55,6 +56,7 @@ export default class NxChatAo extends LitElement {
     pendingPermission: { type: Object },
     loadingEpisode: { type: Boolean },
     staleEpisode: { type: Object },
+    access: { state: true },
     _prompts: { state: true },
     _planFeedback: { state: true },
   };
@@ -64,13 +66,67 @@ export default class NxChatAo extends LitElement {
     this._applyContext(value);
   }
 
+  _contextEvent = `nx-chat-context-${crypto.randomUUID()}`;
+
+  get isolated() { return !!this._isolated; }
+
+  set isolated(value) {
+    this._isolated = !!value;
+    this._initController();
+  }
+
   set harnessConfig(value) {
     this._applyHarnessConfig(value);
   }
 
   async setPrompt(text, { autoSend = false } = {}) {
+    const request = {};
+    const context = this._context;
+    const documentKey = this._documentKey;
+    this._promptRequest = request;
+    this._pendingAutoSend = undefined;
     await this.updateComplete;
-    await this._input?.setPrompt(text, { autoSend });
+    if (!this.isConnected || this._promptRequest !== request
+      || this._context !== context || this._documentKey !== documentKey) return false;
+    const defer = autoSend && !this._canSend;
+    const pending = defer && (!this._session || this._session.canQueueAutoSend())
+      ? {
+        request, context, documentKey, session: this._session,
+      } : undefined;
+    this._pendingAutoSend = pending;
+    const accepted = !!(await this._input?.setPrompt(text, { autoSend: autoSend && !defer }));
+    if (!this.isConnected || this._promptRequest !== request
+      || this._context !== context || this._documentKey !== documentKey) return false;
+    if (this._pendingAutoSend === pending) {
+      this._pendingAutoSend = accepted && pending ? { ...pending, accepted: true } : undefined;
+    }
+    this._flushPendingAutoSend();
+    return accepted;
+  }
+
+  get _canSend() {
+    return this._session ? this._session.canSend() : !!this._controller;
+  }
+
+  get _documentKey() {
+    const { org, site, path } = this._context ?? {};
+    return JSON.stringify([org, site, path]);
+  }
+
+  // Submits the draft (not the original text) so edits made while waiting are kept.
+  _flushPendingAutoSend() {
+    const prompt = this._pendingAutoSend;
+    if (!prompt) return;
+    if (!this.isConnected || this._promptRequest !== prompt.request
+      || this._context !== prompt.context || this._documentKey !== prompt.documentKey
+      || (prompt.session && this._session !== prompt.session)) {
+      this._pendingAutoSend = undefined;
+      return;
+    }
+    if (!prompt.accepted || !this._canSend) return;
+    this._pendingAutoSend = undefined;
+    this._input?.setPrompt(this._input.draft, { autoSend: true })
+      .catch((error) => showToast({ text: error.message, variant: 'error' }));
   }
 
   get _input() {
@@ -99,14 +155,14 @@ export default class NxChatAo extends LitElement {
 
   _applyContext(value) {
     this._context = value;
-    this._controller?.setContext(value);
+    this._flushPendingAutoSend();
+    this._initController();
     this._loadConfig();
   }
 
-  _applyHarnessConfig({ key = null, altHarness = false, activationKey = null } = {}) {
+  _applyHarnessConfig({ key = null, harness = 'coworker' } = {}) {
     this._harnessConfigKey = key;
-    this._altHarness = !!altHarness;
-    this._activationKey = activationKey;
+    this._harness = harness;
     this._flagsReady = true;
     this._initController();
   }
@@ -118,12 +174,15 @@ export default class NxChatAo extends LitElement {
     if (this._configKey === key) return;
     this._configKey = key;
     const { prompts } = await loadSiteConfig(org, site);
+    if (this._configKey !== key) return;
     this._prompts = prompts ?? [];
     if (this._harnessConfigKey !== key) {
-      // ew.altHarness selects the CMA bridge harness; its value is the
-      // activation key that authorizes/routes the chat socket to the bridge.
-      const { altHarness, activationKey } = await getCoworkerConfig({ org, site });
-      this._applyHarnessConfig({ key, altHarness, activationKey });
+      // Resolve the harness for this org/site (legacy | coworker | cma) via
+      // the shared resolver. CMA needs the flag + entitlement, both re-verified
+      // server-side by the bridge.
+      const harness = await resolveHarness({ org, site });
+      if (this._configKey !== key) return;
+      this._applyHarnessConfig({ key, harness });
       return;
     }
     this._initController();
@@ -132,6 +191,7 @@ export default class NxChatAo extends LitElement {
   _onControllerUpdate({
     messages, thinking, streamingText, episodes, episodeId,
     pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
+    access,
   }) {
     this.messages = streamingText
       ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
@@ -144,29 +204,54 @@ export default class NxChatAo extends LitElement {
     this.pendingPermission = pendingPermission;
     this.loadingEpisode = loadingEpisode;
     this.staleEpisode = staleEpisode;
+    this.access = access;
+    if (this._pendingAutoSend && ['denied', 'error'].includes(access?.status)) {
+      this._pendingAutoSend = undefined;
+      this._promptRequest = undefined;
+    }
+    this._flushPendingAutoSend();
   }
 
-  // The controller is created once the ew.altHarness flag is known, so the
-  // correct harness subclass (Coworker REST history vs CMA bridge) is chosen up
-  // front. Idempotent; recreates only if the harness actually changes. See
-  // docs/chat-ao-controller-decoupling.md.
+  // Creates/joins the session once flags + entitlement are known, picking the
+  // correct harness subclass up front. Idempotent; re-joins only on scope or
+  // isolation change. See docs/chat-ao-controller-decoupling.md.
   _initController() {
-    if (!this.isConnected || !this._flagsReady || !this._context?.org || !this._context?.site) {
+    if (!this.isConnected) return;
+    const { org, site } = this._context ?? {};
+    const configKey = `${org}/${site}`;
+    if (!this._flagsReady || !org || !site || this._harnessConfigKey !== configKey) {
+      if (this._session) {
+        this._releaseSession();
+        this._releaseSession = undefined;
+        this._session = undefined;
+        this._controller = undefined;
+        this._onControllerUpdate({ messages: [], loadingEpisode: true });
+      }
       return;
     }
-    const Controller = this._altHarness ? CmaChatController : CoworkerChatController;
-    if (this._controller instanceof Controller) {
-      this._controller.setActivationKey?.(this._activationKey);
-      return;
-    }
-    this._controller?.destroy();
-    this._controller = new Controller({
-      onUpdate: (state) => this._onControllerUpdate(state),
-      ...(this._altHarness ? { activationKey: this._activationKey } : {}),
+    const scope = getSessionScope({ org, site, harness: this._harness });
+    if (this._session?.scope === scope && this._session.isolated === this.isolated) return;
+    this._releaseSession?.();
+    this._session = getAoSession({
+      context: this._context,
+      owner: this,
+      isolated: this.isolated,
+      harness: this._harness,
     });
-    if (this._context) this._controller.setContext(this._context);
-    this._controller.loadEpisodes();
-    this._controller.loadSkills();
+    if (this._pendingAutoSend && !this._session.canQueueAutoSend({ includeReady: true })) {
+      this._pendingAutoSend = undefined;
+      this._promptRequest = undefined;
+    }
+    this._controller = this._session.controller;
+    this._releaseSession = this._session.subscribe(this, {
+      onUpdate: (state) => this._onControllerUpdate(state),
+      onTurnCompleted: (detail) => {
+        this.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
+          bubbles: true, composed: true, detail,
+        }));
+      },
+    });
+    this._flushPendingAutoSend();
   }
 
   _closePanel() {
@@ -193,7 +278,7 @@ export default class NxChatAo extends LitElement {
   }
 
   _handleNewSession() {
-    this._controller.startNewEpisode();
+    this._controller?.startNewEpisode();
     this._input?.focusInput();
   }
 
@@ -217,49 +302,58 @@ export default class NxChatAo extends LitElement {
     super.connectedCallback();
     fetchResolvedManifestId();
     this._loadCoworkerNav();
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle, artifactStyle];
+    this.shadowRoot.adoptedStyleSheets = [
+      styles, buttonStyle, spinnerStyle, artifactStyle, chatStatusStyle,
+    ];
     this._initController();
     this._unsubscribeHash = hashChange.subscribe((state) => {
       if (!this._explicitContext) this._applyContext(state);
     });
-    // See docs/chat-ao-component.md#connection-recovery for why this exists.
-    this._onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') this._controller.reattachIfIdle();
-    };
-    document.addEventListener('visibilitychange', this._onVisibilityChange);
-    this._onSetPromptEvent = ({ detail }) => {
-      this.setPrompt(detail.text, { autoSend: detail.autoSend });
-    };
-    document.addEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
+    this._unsubscribeEvents = subscribeChatEvents(this, {
+      getContext: () => this._context,
+      getSession: () => this._session,
+      onPrompt: ({ text, autoSend }) => this.setPrompt(text, { autoSend }),
+      onContext: (detail) => {
+        document.dispatchEvent(new CustomEvent(this._contextEvent, { detail }));
+      },
+    });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    this._controller?.destroy();
+    this._promptRequest = undefined;
+    this._releaseSession?.();
+    this._releaseSession = undefined;
+    this._session = undefined;
+    this._controller = undefined;
+    this._pendingAutoSend = undefined;
+    cancelAnimationFrame(this._scrollRaf);
     this._unsubscribeHash?.();
-    document.removeEventListener('visibilitychange', this._onVisibilityChange);
-    document.removeEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
+    this._unsubscribeEvents?.();
+    this._unsubscribeHash = undefined;
+    this._unsubscribeEvents = undefined;
   }
 
   willUpdate(changed) {
     if (changed.has('pendingPlanApproval') && this.pendingPlanApproval?.turnId !== changed.get('pendingPlanApproval')?.turnId) {
       this._planFeedback = '';
     }
-    if (changed.has('messages')) {
+    if (changed.has('messages') || changed.has('pendingQuestion')) {
       const log = this.shadowRoot?.querySelector('.chat-scroll-container');
       this._wasNearBottom = !log || (log.scrollHeight - log.scrollTop - log.clientHeight < 50);
     }
   }
 
   updated(changed) {
-    if (changed.has('messages')) {
+    if (changed.has('messages') || changed.has('pendingQuestion')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
       if (log && this._wasNearBottom) {
         cancelAnimationFrame(this._scrollRaf);
         this._scrollRaf = requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
       }
     }
-    if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
+    if (changed.has('thinking') && !this.thinking && changed.get('thinking')
+      && this.shadowRoot.activeElement) {
       this._input?.focusInput();
     }
 
@@ -270,20 +364,47 @@ export default class NxChatAo extends LitElement {
 
   _getSkills = () => this._controller?.getSkills() ?? [];
 
-  _stop = () => this._controller.stop();
+  _stop = () => this._controller?.stop();
 
-  _warmSession = () => this._controller.warmSession();
+  _warmSession = () => this._controller?.warmSession();
 
   _submit = ({ text, context, attachments }) => {
-    this._controller.sendMessage(text, context, attachments);
+    const args = [text, context, attachments];
+    if (this._session) return this._session.send({ context: this._context, args });
+    return !!this._controller && this._controller.sendMessage(...args) !== false;
   };
 
+  // CMA never shows Coworker items; Coworker shows "Continue in Coworker" with an episode.
+  get _menuItems() {
+    if (this._harness === 'cma') return ADD_MENU_ITEMS_CMA;
+    return this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS;
+  }
+
   _handleMenuSelect = (id) => {
-    if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
-    if (id === MENU_OPTIONS.MANAGE_SKILLS) this._openCoworker(COWORKER_SKILLS_PATH);
-    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) this._openCoworker(this.episodeId);
-    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) this._openCoworker(ENTERPRISE_CONTEXT_PATH);
+    const actions = {
+      [MENU_OPTIONS.MANAGE_PROMPT]: () => this._openConfigPage(),
+      [MENU_OPTIONS.MANAGE_SKILLS]: () => (this._harness === 'cma'
+        ? this._openSkillsApp()
+        : this._openCoworker(COWORKER_SKILLS_PATH)),
+      [MENU_OPTIONS.OPEN_COWORKER]: () => {
+        if (this.episodeId) this._openCoworker(this.episodeId);
+      },
+      [MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT]: () => {
+        // Defense in depth: the CMA menu already omits this; never fall through to Coworker.
+        if (this._harness === 'cma') return;
+        this._openCoworker(ENTERPRISE_CONTEXT_PATH);
+      },
+    };
+    actions[id]?.();
   };
+
+  // CMA: skills live in the ew-extensions skills app, not CX Coworker.
+  _openSkillsApp() {
+    const { org, site } = this._context ?? {};
+    if (!org || !site) return;
+    const href = skillsAppHref({ org, site, tab: MENU_OPTIONS.MANAGE_SKILLS });
+    window.open(href, '_blank', 'noopener,noreferrer');
+  }
 
   async _loadCoworkerNav() {
     this._coworkerNav = undefined;
@@ -315,6 +436,10 @@ export default class NxChatAo extends LitElement {
 
   render() {
     const prompts = this._visiblePrompts;
+    const accessView = this.access ? renderChatStatus({
+      ...this.access,
+      onAction: this.access.status === 'denied' ? openProfileMenu : () => this._session.retryAccess(),
+    }) : undefined;
 
     return html`
       <div class="chat-header">
@@ -329,19 +454,20 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon" @click=${this._handleNewSession}>
+          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon" ?disabled=${!!this.access} @click=${this._handleNewSession}>
             ${icon('newChat')}
           </button>
           <button
             class="nx-action-btn-icon"
+            title="Close chat panel"
             aria-label="Close chat panel"
             @click=${this._closePanel}
-          >${icon('close')}</button>
+          >${icon('closechat')}</button>
         </div>
       </div>
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
-          ${this.loadingEpisode ? html`
+          ${accessView ?? (this.loadingEpisode ? html`
             <div class="chat-loading"><span class="nx-loading-spinner"></span></div>
           ` : html`
             ${!this.messages?.length && !this.thinking
@@ -368,31 +494,37 @@ export default class NxChatAo extends LitElement {
                 <div class="message-content">${msg.content}</div>
               </div>
             `))}
+            ${this.pendingQuestion ? html`
+              <div class="message message-assistant">
+                <nx-question-card
+                  .pending=${this.pendingQuestion}
+                  .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
+                  .onDecline=${() => this._controller.declineQuestion()}
+                ></nx-question-card>
+                <div class="chat-waiting">Waiting for your response...</div>
+              </div>
+            ` : nothing}
             ${this.pendingPlanApproval ? renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
             onFeedbackText: (text) => { this._planFeedback = text; },
             onApprove: () => this._controller.respondToPlanApproval('approve'),
             onReject: () => this._controller.respondToPlanApproval('reject', this._planFeedback?.trim() ?? ''),
           }) : nothing}
-            ${this.thinking && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
+            ${this.thinking && !this.pendingQuestion && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
           ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
-          `}
+          `)}
         </div>
       </div>
       <div class="chat-form-wrap">
-        <nx-question-card
-          .pending=${this.pendingQuestion}
-          .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
-          .onDecline=${() => this._controller.declineQuestion()}
-        ></nx-question-card>
         ${renderPermissionCard(this.pendingPermission, {
             onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
           })}
         <nx-ao-input
+          .disabled=${!!this.access}
           .blocked=${this._blocked}
-          .altHarness=${this._altHarness}
+          .harness=${this._harness}
           .prompts=${prompts}
-          .menuItems=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS}
-          .addEvent=${CHAT_EVENT.ADD_TO_CHAT}
+          .menuItems=${this._menuItems}
+          .addEvent=${this._contextEvent}
           .getSkills=${this._getSkills}
           .onSubmit=${this._submit}
           .onStop=${this._stop}

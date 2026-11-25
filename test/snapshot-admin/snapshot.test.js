@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../nx2/scripts/nx.js';
+import { formatLocalDate } from '../../nx/blocks/snapshot-admin/utils/utils.js';
 
 await setConfig({ hostnames: [] });
 await import('../../nx/blocks/snapshot-admin/snapshot-admin.js');
@@ -75,7 +76,7 @@ describe('NxSnapshot', () => {
   describe('validateSchedule', () => {
     it('Sets error for a date in the past', async () => {
       const el = await createElement();
-      el.validateSchedule('2020-01-01T00:00:00');
+      expect(el.validateSchedule('2020-01-01T00:00:00')).to.equal(false);
       expect(el._message).to.not.be.undefined;
       expect(el._message.heading).to.equal('Schedule Error');
       expect(el._message.message).to.include('at least 5 minutes');
@@ -91,7 +92,7 @@ describe('NxSnapshot', () => {
     it('Does not set error for a date more than 5 minutes from now', async () => {
       const el = await createElement();
       const tenMinFromNow = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-      el.validateSchedule(tenMinFromNow);
+      expect(el.validateSchedule(tenMinFromNow)).to.equal(true);
       expect(el._message).to.be.undefined;
     });
   });
@@ -110,6 +111,269 @@ describe('NxSnapshot', () => {
       await el.handleSave();
       expect(el._message).to.not.be.undefined;
       expect(el._message.message).to.include('name');
+    });
+
+    it('Does not save when scheduled publish is too soon', async () => {
+      const posts = [];
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') posts.push(urlStr);
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? '2020-01-01T00:00' : undefined);
+      await el.handleSave();
+      expect(el._message.heading).to.equal('Schedule Error');
+      expect(posts).to.have.length(0);
+    });
+
+    it('Removes every page when the URL list is cleared', async () => {
+      const bulks = [];
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (urlStr.endsWith('/*')) bulks.push(JSON.parse(opts.body));
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement({ basics: { name: 'test-snapshot', open: true } });
+      el._editUrls = true;
+      await el.updateComplete;
+      el.shadowRoot.querySelector('[name="edit-urls"]').value = '';
+      await el.handleSave();
+      expect(bulks).to.deep.equal([{ delete: true, paths: ['/page1'] }]);
+    });
+  });
+
+  describe('handleSave - schedule failure', () => {
+    const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    function mockScheduleFailure(saved) {
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') {
+            const manifest = JSON.parse(opts.body);
+            saved.push(manifest);
+            return mockManifestResponse(manifest);
+          }
+          return mockManifestResponse();
+        },
+        'snapshot-scheduler': () => new Response(null, {
+          status: 400,
+          headers: new Headers({ 'X-Error': 'Scheduled publish is in the past' }),
+        }),
+      });
+    }
+
+    it('Shows the scheduler error and clears scheduledPublish on save', async () => {
+      const saved = [];
+      mockScheduleFailure(saved);
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleSave();
+      expect(el._message.heading).to.equal('Schedule Error');
+      expect(el._message.message).to.equal('Scheduled publish is in the past');
+      expect(saved).to.have.length(2);
+      expect(saved[0].metadata.scheduledPublish).to.equal(future);
+      expect(saved[1].metadata).to.not.have.property('scheduledPublish');
+      expect(el._manifest.metadata.scheduledPublish).to.be.undefined;
+    });
+
+    it('Shows the scheduler error and clears scheduledPublish on approve', async () => {
+      const saved = [];
+      mockScheduleFailure(saved);
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleReview('approve');
+      expect(el._message.message).to.equal('Scheduled publish is in the past');
+      expect(saved).to.have.length(2);
+      expect(saved[1].metadata).to.not.have.property('scheduledPublish');
+    });
+
+    it('Resets the scheduler input after a failed approve', async () => {
+      mockScheduleFailure([]);
+      const el = await createElement({ isRegistered: true, userPermissions: true });
+      const input = el.shadowRoot.querySelector('[name="scheduler"]');
+      // datetime-local is local time; slicing the UTC ISO string breaks east of UTC.
+      input.value = formatLocalDate(future);
+      await el.handleReview('approve');
+      await el.updateComplete;
+      expect(el._message.heading).to.equal('Schedule Error');
+      expect(input.value).to.equal('');
+    });
+
+    it('Clears scheduledPublish when the scheduler request throws', async () => {
+      const saved = [];
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') saved.push(JSON.parse(opts.body));
+          return mockManifestResponse();
+        },
+        'snapshot-scheduler': () => { throw new TypeError('Failed to fetch'); },
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleReview('approve');
+      expect(el._action).to.be.undefined;
+      expect(el._message.message).to.equal('Failed to schedule publish');
+      expect(saved).to.have.length(2);
+      expect(saved[1].metadata).to.not.have.property('scheduledPublish');
+    });
+
+    ['handleSave', 'handleReview'].forEach((method) => {
+      it(`Stays busy until scheduling and rollback finish (${method})`, async () => {
+        let posts = 0;
+        let resolveSchedule;
+        let resolveRollback;
+        let notifyScheduleCalled;
+        let notifyRollbackCalled;
+        const scheduleCalled = new Promise((r) => { notifyScheduleCalled = r; });
+        const rollbackCalled = new Promise((r) => { notifyRollbackCalled = r; });
+        setupFetchMock(originalFetch, {
+          'admin.hlx.page/snapshot/': (urlStr, opts) => {
+            if (opts?.method !== 'POST') return mockManifestResponse();
+            posts += 1;
+            if (posts === 1) return mockManifestResponse(JSON.parse(opts.body));
+            notifyRollbackCalled();
+            return new Promise((r) => { resolveRollback = () => r(mockManifestResponse()); });
+          },
+          'snapshot-scheduler': () => {
+            notifyScheduleCalled();
+            const failed = new Response(null, { status: 500 });
+            return new Promise((r) => { resolveSchedule = () => r(failed); });
+          },
+        });
+        const el = await createElement();
+        el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+        const done = method === 'handleSave' ? el.handleSave() : el.handleReview('approve');
+        await scheduleCalled;
+        expect(el._action).to.be.a('string');
+        resolveSchedule();
+        await rollbackCalled;
+        expect(el._action).to.be.a('string');
+        resolveRollback();
+        await done;
+        expect(el._action).to.be.undefined;
+        expect(el._message.heading).to.equal('Schedule Error');
+      });
+    });
+
+    it('Returns focus to Save after the schedule error dialog closes', async () => {
+      let posts = 0;
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method !== 'POST') return mockManifestResponse();
+          posts += 1;
+          return mockManifestResponse(posts === 1 ? JSON.parse(opts.body) : undefined);
+        },
+        'snapshot-scheduler': () => new Response(null, { status: 500 }),
+      });
+      const el = await createElement({ startOpen: true });
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      const save = [...el.shadowRoot.querySelectorAll('button')]
+        .find((b) => b.textContent.trim() === 'Save');
+      save.focus();
+      const done = el.handleSave();
+      await el.updateComplete;
+      save.blur();
+      await done;
+      const dialog = el.shadowRoot.querySelector('nx-snapshot-dialog');
+      await dialog.updateComplete;
+      expect(el.shadowRoot.activeElement === dialog).to.equal(true);
+      dialog.handleAction();
+      await el.updateComplete;
+      expect(el.shadowRoot.activeElement === save).to.equal(true);
+    });
+
+    it('Clears the busy state and reports the error when saving fails', async () => {
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') throw new TypeError('Failed to fetch');
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleSave();
+      expect(el._message.message).to.equal('Failed to fetch');
+      expect(el._action).to.be.undefined;
+    });
+
+    it('Clears the busy state and reports the error when a review request fails', async () => {
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') throw new TypeError('Failed to fetch');
+          return mockManifestResponse();
+        },
+      });
+      const el = await createElement();
+      await el.executeReview('request');
+      expect(el._message.message).to.equal('Failed to fetch');
+      expect(el._action).to.be.undefined;
+    });
+
+    [
+      ['delete', (el) => el.handleDialog({ detail: 'delete' })],
+      ['copy', (el) => el.executeCopy(
+        [{ path: '/img.png', aemPreview: 'https://main--site--org.aem.page/img.png' }],
+        'fork',
+        'overwrite',
+      )],
+      ['adding fragments', (el) => {
+        el._discoveredFragments = [{ path: '/fragments/a', selected: true }];
+        return el.handleAddFragments();
+      }],
+    ].forEach(([label, run]) => {
+      it(`Clears the busy state when ${label} throws`, async () => {
+        const el = await createElement({ startOpen: true });
+        window.fetch = async (url, opts) => {
+          const urlStr = typeof url === 'string' ? url : url.toString();
+          if (urlStr.startsWith('/') || urlStr.startsWith('http://localhost')) {
+            return originalFetch.call(window, url, opts);
+          }
+          // isHlx6 memoizes the ping per site, so a rejected ping would leak into later tests.
+          if (urlStr.includes('/ping/')) return new Response('', { status: 200 });
+          throw new TypeError('Failed to fetch');
+        };
+        await run(el).catch(() => {});
+        expect(el._action).to.be.undefined;
+      });
+    });
+
+    it('Reports when scheduledPublish could not be cleared', async () => {
+      let posts = 0;
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method !== 'POST') return mockManifestResponse();
+          posts += 1;
+          if (posts === 1) return mockManifestResponse(JSON.parse(opts.body));
+          return new Response(null, { status: 500, headers: new Headers({ 'X-Error': 'boom' }) });
+        },
+        'snapshot-scheduler': () => new Response(null, { status: 500 }),
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleSave();
+      expect(el._message.message).to.include('could not be cleared: boom');
+      expect(el._manifest.metadata.scheduledPublish).to.equal(future);
+    });
+
+    it('Still shows the scheduler error when clearing throws', async () => {
+      let posts = 0;
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method !== 'POST') return mockManifestResponse();
+          posts += 1;
+          if (posts === 1) return mockManifestResponse(JSON.parse(opts.body));
+          throw new TypeError('Failed to fetch');
+        },
+        'snapshot-scheduler': () => { throw new TypeError('Failed to fetch'); },
+      });
+      const el = await createElement();
+      el.getValue = (sel) => (sel === '[name="scheduler"]' ? future : undefined);
+      await el.handleSave();
+      expect(el._message.heading).to.equal('Schedule Error');
+      expect(el._message.message).to.include('could not be cleared: Failed to fetch');
     });
   });
 
@@ -299,6 +563,41 @@ describe('NxSnapshot', () => {
       // Simulate confirmation from dialog
       await el.handleDialog({ detail: 'delete' });
       expect(deleteEventFired).to.equal(true);
+    });
+
+    [
+      ['404', () => new Response(null, { status: 404 })],
+      ['500', () => new Response(null, { status: 500 })],
+      ['network error', () => { throw new TypeError('Failed to fetch'); }],
+    ].forEach(([label, schedulerResponse]) => {
+      it(`Removes the schedule and still succeeds when scheduler returns ${label}`, async () => {
+        const schedulerCalls = [];
+        setupFetchMock(originalFetch, {
+          'admin.hlx.page/snapshot/': (urlStr, opts) => {
+            if (opts?.method === 'POST' || opts?.method === 'DELETE') {
+              return new Response('{}', { status: 200, headers: new Headers({ 'x-da-actions': '' }) });
+            }
+            return mockManifestResponse();
+          },
+          '/source/': () => new Response('', { status: 200, headers: new Headers({ 'x-da-actions': '' }) }),
+          'snapshot-scheduler': (urlStr, opts) => {
+            schedulerCalls.push({ urlStr, opts });
+            return schedulerResponse();
+          },
+        });
+
+        const el = await createElement();
+        el._manifest = { resources: [{ path: '/page1' }], metadata: {} };
+        let deleteEventFired = false;
+        el.addEventListener('delete', () => { deleteEventFired = true; });
+        await el.handleDialog({ detail: 'delete' });
+
+        expect(deleteEventFired).to.equal(true);
+        expect(schedulerCalls).to.have.length(1);
+        expect(schedulerCalls[0].opts.method).to.equal('DELETE');
+        expect(schedulerCalls[0].urlStr).to.match(/\/schedule\/snapshot\/[^/]+\/[^/]+\/test-snapshot$/);
+        expect(schedulerCalls[0].opts.headers.Authorization).to.equal('Bearer test-token');
+      });
     });
 
     it('Sets error message on API failure', async () => {
@@ -510,27 +809,41 @@ describe('NxSnapshot', () => {
       expect(el._action).to.be.undefined;
     });
 
+    const copyFetch = (failPath) => setupFetchMock(originalFetch, {
+      '/source/': (urlStr, opts) => {
+        if (opts?.method === 'POST') return new Response('', { status: 200 });
+        if (failPath && urlStr.includes(failPath)) return new Response('', { status: 500 });
+        return new Response('{}', { status: 200, headers: new Headers({ 'content-type': 'application/json' }) });
+      },
+    });
+    const jsonRes = (path) => ({ path, aemPreview: `https://main--site--org.aem.page${path}` });
+
     it('Marks snapshot exists after fork sync completes', async () => {
+      copyFetch();
       const el = await createElement();
-      // Simulate post-copy state update directly (copyManifest requires full DA stack)
-      const resources = [{ path: '/page1' }, { path: '/page2' }];
       el._snapshotExists = {};
-      const updated = { ...el._snapshotExists };
-      resources.forEach((res) => { updated[res.path] = true; });
-      el._snapshotExists = updated;
-      expect(el._snapshotExists['/page1']).to.equal(true);
-      expect(el._snapshotExists['/page2']).to.equal(true);
+      await el.executeCopy([jsonRes('/a.json'), jsonRes('/b.json')], 'fork', 'overwrite');
+      expect(el._snapshotExists).to.deep.equal({ '/a.json': true, '/b.json': true });
+      expect(el._action).to.be.undefined;
+      expect(el._message).to.be.undefined;
+    });
+
+    it('Only marks pages that copied and reports failures', async () => {
+      copyFetch('/b.json');
+      const el = await createElement();
+      el._snapshotExists = {};
+      await el.executeCopy([jsonRes('/a.json'), jsonRes('/b.json')], 'fork', 'overwrite');
+      expect(el._snapshotExists).to.deep.equal({ '/a.json': true });
+      expect(el._message.message).to.equal('1 of 2 pages could not be synced.');
+      expect(el._action).to.be.undefined;
     });
 
     it('Does not mark snapshot exists for promote direction', async () => {
+      copyFetch();
       const el = await createElement();
-      // Promote direction should not update _snapshotExists
       el._snapshotExists = {};
-      const direction = 'promote';
-      if (direction === 'fork') {
-        el._snapshotExists = { '/page1': true };
-      }
-      expect(el._snapshotExists['/page1']).to.be.undefined;
+      await el.executeCopy([jsonRes('/a.json')], 'promote', 'overwrite');
+      expect(el._snapshotExists).to.deep.equal({});
     });
   });
 
@@ -548,13 +861,27 @@ describe('NxSnapshot', () => {
     it('Auto-overwrites fork when snapshot does not exist', async () => {
       const el = await createElement();
       const res = { path: '/page1', aemPreview: 'https://main--site--org.aem.page/page1' };
-      el._snapshotExists = {};
+      el._snapshotExists = { '/page1': false };
       // Stub executeCopy to avoid actual copy operations
       let executedMode;
       el.executeCopy = async (resources, direction, mode) => { executedMode = mode; };
       el.handleCopySingleUrl(res, 'fork');
       expect(el._copyModeDetails).to.be.undefined;
       expect(executedMode).to.equal('overwrite');
+    });
+
+    it('Asks before syncing while the existence check is pending', async () => {
+      const el = await createElement();
+      const res = { path: '/page1', aemPreview: 'https://main--site--org.aem.page/page1' };
+      let executed = false;
+      el.executeCopy = async () => { executed = true; };
+      [undefined, null].forEach((state) => {
+        el._snapshotExists = { '/page1': state };
+        el.handleCopySingleUrl(res, 'fork');
+        expect(el._copyModeDetails).to.not.be.undefined;
+        el._copyModeDetails = undefined;
+      });
+      expect(executed).to.equal(false);
     });
 
     it('Opens copy mode dialog for fork when snapshot exists', async () => {
@@ -675,7 +1002,7 @@ describe('NxSnapshot', () => {
       expect(links.length).to.equal(3); // reviews, aem.live, DA edit (no snapshot edit)
     });
 
-    it('Shows Edit Snapshot in DA when snapshot exists', async () => {
+    it('Shows Edit snapshot content when snapshot exists', async () => {
       const el = await createElement({ startOpen: true });
       el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': true };
@@ -689,57 +1016,70 @@ describe('NxSnapshot', () => {
     it('Hides Sync/Promote when hasLaunchPermission is false', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = false;
-      el._expandedUrl = '/page1';
+      el._launchEnabled = true;
       el._snapshotExists = { '/page1': true };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(0);
+      expect(el.shadowRoot.querySelector('.nx-url-actions')).to.be.null;
     });
 
-    it('Shows Sync Down but not Promote Up when snapshot does not exist', async () => {
+    it('Disables Promote when snapshot does not exist', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
       el._launchEnabled = true;
-      el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': false };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(1);
+      const buttons = el.shadowRoot.querySelector('.nx-url-actions').querySelectorAll('button');
+      expect(buttons.length).to.equal(2);
       expect(buttons[0].textContent).to.include('Sync');
+      expect(buttons[0].disabled).to.be.false;
+      expect(buttons[1].textContent).to.include('Promote');
+      expect(buttons[1].disabled).to.be.true;
+      expect(buttons[1].dataset.tooltip).to.equal('Sync this page first');
     });
 
-    it('Shows both Sync Down and Promote Up when snapshot exists', async () => {
+    it('Enables Sync and Promote when snapshot exists', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
       el._launchEnabled = true;
-      el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': true };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(2);
+      const buttons = el.shadowRoot.querySelector('.nx-url-actions').querySelectorAll('button');
+      expect(buttons[0].dataset.tooltip).to.equal('Sync from main content');
+      expect(buttons[1].disabled).to.be.false;
+      expect(buttons[1].dataset.tooltip).to.equal('Promote to main content');
     });
 
     it('Hides Sync/Promote when launchEnabled is false', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
       el._launchEnabled = false;
-      el._expandedUrl = '/page1';
-      el._snapshotExists = { '/page1': true };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(0);
+      expect(el.shadowRoot.querySelector('.nx-url-actions')).to.be.null;
     });
   });
 
   // --- URL row rendering ---
+
+  describe('header meta', () => {
+    it('Shows page count and scheduled badge only for a future schedule', async () => {
+      const el = await createElement();
+      const future = new Date(Date.now() + 86400000).toISOString();
+      el._manifest = { resources: [{ path: '/page1' }], metadata: { scheduledPublish: future } };
+      el.requestUpdate();
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-count').textContent).to.equal('1 page');
+      expect(el.shadowRoot.querySelector('.is-scheduled').textContent).to.include('Scheduled');
+
+      el._manifest = { resources: [], metadata: { scheduledPublish: '2000-01-01T00:00:00Z' } };
+      el.requestUpdate();
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.is-scheduled')).to.be.null;
+    });
+  });
 
   describe('renderUrls - accordion', () => {
     it('Renders URL rows instead of links', async () => {
@@ -798,6 +1138,39 @@ describe('NxSnapshot', () => {
       await el.updateComplete;
       const overlay = el.shadowRoot.querySelector('.nx-snapshot-overlay');
       expect(overlay).to.be.null;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-wrapper').inert).to.equal(false);
+    });
+
+    it('Makes the panel inert while busy', async () => {
+      const el = await createElement({ startOpen: true });
+      el._action = 'Saving';
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-wrapper').inert).to.equal(true);
+    });
+
+    it('Returns focus to the pressed button when busy ends', async () => {
+      const el = await createElement({ startOpen: true });
+      const button = el.shadowRoot.querySelector('.nx-snapshot-expand');
+      button.focus();
+      el._action = 'Saving';
+      await el.updateComplete;
+      button.blur();
+      el._action = undefined;
+      await el.updateComplete;
+      expect(el.shadowRoot.activeElement === button).to.equal(true);
+    });
+
+    it('Keeps focus elsewhere if the user moved it while busy', async () => {
+      const el = await createElement({ startOpen: true });
+      const other = document.createElement('input');
+      document.body.appendChild(other);
+      el.shadowRoot.querySelector('.nx-snapshot-expand').focus();
+      el._action = 'Saving';
+      await el.updateComplete;
+      other.focus();
+      el._action = undefined;
+      await el.updateComplete;
+      expect(document.activeElement === other).to.equal(true);
     });
   });
 
@@ -879,6 +1252,18 @@ describe('NxSnapshot', () => {
       const group = el.shadowRoot.querySelector('.nx-launch-action-group');
       const buttons = group.querySelectorAll('button');
       expect(buttons.length).to.equal(2);
+    });
+
+    it('Shows content actions as focusable buttons without a toggle', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = true;
+      el._launchEnabled = true;
+      el.requestUpdate();
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-launch-sub-heading').tagName).to.equal('P');
+      const buttons = [...el.shadowRoot.querySelectorAll('.nx-launch-action-group button')];
+      expect(buttons.map((b) => b.textContent.trim())).to.deep.equal(['Sync all pages', 'Promote all pages']);
+      buttons.forEach((b) => expect(b.tabIndex).to.equal(0));
     });
   });
 

@@ -1,5 +1,12 @@
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
-import { daFetch, loadIms } from '../../../../nx2/utils/api.js';
+import { daFetch, loadIms, source } from '../../../../nx2/utils/api.js';
+import { createCopy } from '../../../public/loc/copy.js';
+
+export const copy = createCopy({
+  fetch: (url, opts) => daFetch({ url, opts }),
+  daOrigin: DA_ADMIN,
+  saveSource: source.save,
+});
 
 const CONFIG_PATH = '/.da/translate.json';
 
@@ -272,6 +279,35 @@ export function getPathDetails() {
   };
 }
 
+/**
+ * Clears the cached translate config so the next fetch reads it fresh.
+ * @returns {void}
+ */
+export function clearConfigCache() {
+  CONFIG_CACHE = undefined;
+}
+
+/**
+ * Removes language rows whose fields are all empty, such as a stray trailing row.
+ * @param {object} options - Translate config sheets.
+ * @returns {object} The sheets, with blank language rows removed.
+ */
+function dropBlankLanguageRows(options) {
+  const rows = options?.languages?.data;
+  if (!Array.isArray(rows)) return options;
+  const isBlank = (row) => row && typeof row === 'object'
+    && Object.values(row).every((value) => String(value ?? '').trim() === '');
+  const data = rows.filter((row) => !isBlank(row));
+  return { ...options, languages: { ...options.languages, data } };
+}
+
+/**
+ * Fetches the translate config for a site, falling back to the org, then to defaults.
+ * The result is cached until clearConfigCache() is called.
+ * @param {string} org - Org name.
+ * @param {string} site - Site name.
+ * @returns {Promise<object>} Translate config sheets, without blank language rows.
+ */
 export async function fetchConfig(org, site) {
   if (CONFIG_CACHE) return CONFIG_CACHE;
 
@@ -299,9 +335,9 @@ export async function fetchConfig(org, site) {
     options = await fetchConf(fallbackUrl);
   }
 
-  CONFIG_CACHE = options;
+  CONFIG_CACHE = dropBlankLanguageRows(options);
 
-  return options;
+  return CONFIG_CACHE;
 }
 
 export function isSourceDetectEnabled(value) {

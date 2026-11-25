@@ -1,32 +1,10 @@
 import { loadIms } from '../../../utils/ims.js';
-import { AO_HTTP_BASE, AO_WS_BASE } from '../ao-constants.js';
+import { resolveAoHttpBase } from '../coworker/endpoints.js';
+
+export { resolveAoHttpBase, resolveAoWsBase } from '../coworker/endpoints.js';
 
 export function getOrgId(projectedProductContext) {
   return projectedProductContext?.find((p) => p.prodCtx?.owningEntity)?.prodCtx.owningEntity;
-}
-
-// Resolves the AO region from the IMS profile; null falls back to the default
-// base — see docs/chat-ao-component.md#region-resolution.
-function resolveAoLocation(projectedProductContext) {
-  const found = projectedProductContext?.find(({ prodCtx } = {}) => prodCtx?.statusCode === 'ACTIVE'
-    && (prodCtx?.serviceCode === 'acp' || prodCtx?.serviceCode === 'dma_tartan'));
-  try {
-    const { region, environment } = JSON.parse(found?.prodCtx?.fulfillable_data ?? 'null') ?? {};
-    if (!region || !environment) return null;
-    return { region: region.toLowerCase(), environment: environment.toLowerCase() };
-  } catch {
-    return null;
-  }
-}
-
-export function resolveAoHttpBase(projectedProductContext) {
-  const loc = resolveAoLocation(projectedProductContext);
-  return loc ? `https://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_HTTP_BASE;
-}
-
-export function resolveAoWsBase(projectedProductContext) {
-  const loc = resolveAoLocation(projectedProductContext);
-  return loc ? `wss://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_WS_BASE;
 }
 
 // Shared IMS -> {base, headers} composition every AO REST call needs.
@@ -35,6 +13,7 @@ export async function aoContext() {
   const tenantId = getOrgId(projectedProductContext);
   return {
     base: resolveAoHttpBase(projectedProductContext),
+    projectedProductContext,
     tenantId,
     userId,
     headers: {

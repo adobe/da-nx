@@ -1,9 +1,10 @@
 import { expect } from '@esm-bundle/chai';
 import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
 import {
-  AO_MANIFEST_ID, AO_HTTP_BASE, AO_COMPONENT_CATALOG_URL,
-} from '../../../../nx2/blocks/chat-ao/ao-constants.js';
-import { setMockIms, resetMockIms } from '../../../../nx2/test/mocks/ims.js';
+  AO_HTTP_BASE, AO_COMPONENT_CATALOG_URL,
+} from '../../../../nx2/blocks/chat-ao/coworker/constants.js';
+import { AO_MANIFEST_ID } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { setMockIms, resetMockIms } from '../../mocks/ims.js';
 
 const APPLICATION = {
   id: 'da.live',

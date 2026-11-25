@@ -11,7 +11,9 @@
  */
 
 import BaseChatController from './base-chat-controller.js';
-import { AO_COMPONENT_CATALOG_URL } from './ao-constants.js';
+import { AO_COMPONENT_CATALOG_URL } from './coworker/constants.js';
+import { checkCoworkerAccess } from './coworker/access.js';
+import { CHECKING_CHAT_ACCESS, getChatAccessState } from '../shared/chat/access.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
 } from './utils/episodes.js';
@@ -25,6 +27,16 @@ const STALE_EPISODE_MS = 24 * 60 * 60 * 1000;
 // AO-direct / CX Coworker harness: episode history comes from the orchestrator
 // REST API (list + messages + warm session). See docs/chat-ao-controller-decoupling.md.
 export default class CoworkerChatController extends BaseChatController {
+  async checkAccess() {
+    this._access = CHECKING_CHAT_ACCESS;
+    this._update();
+    const result = await checkCoworkerAccess();
+    if (this._destroyed) return false;
+    this._access = getChatAccessState(result);
+    this._update();
+    return result.allowed === true;
+  }
+
   _fetchEpisodes() { return fetchEpisodes(EPISODE_LIST_LIMIT); }
 
   _fetchEpisodeMessages(episodeId) { return fetchEpisodeMessages(episodeId); }
@@ -50,12 +62,13 @@ export default class CoworkerChatController extends BaseChatController {
 
   async loadEpisodes() {
     this._episodes = await this._fetchEpisodes();
+    if (this._destroyed) return;
     const latest = this._episodes[0];
     const age = latest ? Date.now() - new Date(latest.updated_at).getTime() : NaN;
-    if (latest && !(age > STALE_EPISODE_MS)) {
+    if (!this._isolated && latest && !(age > STALE_EPISODE_MS)) {
       await this._loadEpisode(latest.id);
     } else {
-      this._staleEpisode = age > STALE_EPISODE_MS ? latest : undefined;
+      this._staleEpisode = !this._isolated && age > STALE_EPISODE_MS ? latest : undefined;
       this._update();
     }
   }
@@ -76,6 +89,7 @@ export default class CoworkerChatController extends BaseChatController {
       this._fetchEpisodeMessages(episodeId),
       this._fetchEpisodeContext(episodeId),
     ]);
+    if (this._destroyed || this._episodeId !== episodeId) return;
     this._messages = messages;
     this._pendingQuestion = pendingInteraction?.type === 'question' ? pendingInteraction : undefined;
     this._pendingPlanApproval = pendingInteraction?.type === 'plan' ? pendingInteraction : undefined;

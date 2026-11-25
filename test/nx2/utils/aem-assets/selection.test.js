@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
+  assetNodeSpec,
   DM_ERROR_MSG,
   MISSING_FORMAT_ERROR_MSG,
   PUBLISH_ERROR_MSG,
@@ -15,7 +16,7 @@ const AUTHOR_PUBLISH_CONFIG = {
   assetBasePath: '/adobe/assets',
   isDmEnabled: false,
   isSmartCrop: false,
-  insertAsLink: false,
+  imageType: null,
 };
 
 const AUTHOR_DM_CONFIG = {
@@ -25,7 +26,7 @@ const AUTHOR_DM_CONFIG = {
   assetBasePath: '/adobe/assets',
   isDmEnabled: true,
   isSmartCrop: false,
-  insertAsLink: false,
+  imageType: null,
 };
 
 const DELIVERY_CONFIG = {
@@ -35,7 +36,7 @@ const DELIVERY_CONFIG = {
   assetBasePath: '/adobe/assets',
   isDmEnabled: true,
   isSmartCrop: false,
-  insertAsLink: false,
+  imageType: null,
 };
 
 describe('resolveAssetUrl', () => {
@@ -149,6 +150,7 @@ describe('resolveAssetSelection', () => {
 
   const IMAGE_ASSET = {
     'aem:formatName': 'jpeg',
+    'aem:published': true,
     mimetype: 'image/jpeg',
     name: 'photo.jpg',
     path: '/content/dam/photo.jpg',
@@ -232,20 +234,53 @@ describe('resolveAssetSelection', () => {
   });
 
   it('returns the publish error for an unpublished asset in author+publish mode', () => {
-    const asset = { ...IMAGE_ASSET, 'repo:scene7FileStatus': 'PublishIncomplete' };
+    const asset = { ...IMAGE_ASSET, 'aem:published': false };
     const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
     expect(result).to.deep.equal({ error: PUBLISH_ERROR_MSG });
     expect(result.error).to.include('not available on the publish tier');
   });
 
-  it('allows an asset whose scene7FileStatus is PublishComplete in author+publish mode', () => {
-    const asset = { ...IMAGE_ASSET, 'repo:scene7FileStatus': 'PublishComplete' };
+  it('returns the publish error for an unpublished non-image asset in author+publish mode', () => {
+    const asset = { ...PDF_ASSET, 'aem:published': false };
+    const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
+    expect(result).to.deep.equal({ error: PUBLISH_ERROR_MSG });
+  });
+
+  it('allows a published asset in author+publish mode', () => {
+    const asset = { ...IMAGE_ASSET, 'aem:published': true };
     const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
     expect(result.error).to.equal(undefined);
   });
 
-  it('does not check scene7FileStatus in author+DM mode', () => {
-    const asset = { ...IMAGE_ASSET, 'repo:scene7FileStatus': 'PublishIncomplete' };
+  it('returns the publish error when the publish state is missing in author+publish mode', () => {
+    const asset = { ...IMAGE_ASSET, 'aem:published': undefined };
+    const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
+    expect(result).to.deep.equal({ error: PUBLISH_ERROR_MSG });
+  });
+
+  it('returns the publish error when aem:published is a timestamp in author+publish mode', () => {
+    const asset = { ...IMAGE_ASSET, 'aem:published': '2026-01-01T00:00:00.000Z' };
+    const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
+    expect(result).to.deep.equal({ error: PUBLISH_ERROR_MSG });
+  });
+
+  it('prefers isPublishedToAemPublish over aem:published in author+publish mode', () => {
+    const published = { ...IMAGE_ASSET, isPublishedToAemPublish: true, 'aem:published': '2026-01-01T00:00:00.000Z' };
+    const unpublished = { ...IMAGE_ASSET, isPublishedToAemPublish: false, 'aem:published': true };
+    expect(resolveAssetSelection({ asset: published, repoConfig: AUTHOR_PUBLISH_CONFIG }).error)
+      .to.equal(undefined);
+    expect(resolveAssetSelection({ asset: unpublished, repoConfig: AUTHOR_PUBLISH_CONFIG }))
+      .to.deep.equal({ error: PUBLISH_ERROR_MSG });
+  });
+
+  it('ignores scene7FileStatus for a published asset in author+publish mode', () => {
+    const asset = { ...IMAGE_ASSET, 'aem:published': true, 'repo:scene7FileStatus': 'PublishIncomplete' };
+    const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
+    expect(result.error).to.equal(undefined);
+  });
+
+  it('does not check aem:published in author+DM mode', () => {
+    const asset = { ...IMAGE_ASSET, 'aem:published': false };
     const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_DM_CONFIG });
     expect(result.error).to.equal(undefined);
   });
@@ -262,5 +297,42 @@ describe('resolveAssetSelection', () => {
     expect(result.error).to.equal(undefined);
     expect(result.isImage).to.equal(true);
     expect(result.href).to.equal('https://delivery-p1-e1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:del-001/as/photo.avif');
+  });
+});
+
+describe('assetNodeSpec', () => {
+  const href = 'https://cdn.example.com/a.jpg';
+
+  [null, 'link', 'editable-link'].forEach((imageType) => {
+    it(`returns a link for non-images (imageType ${imageType})`, () => {
+      expect(assetNodeSpec({
+        href, isImage: false, alt: 'x', imageType,
+      })).to.deep.equal({ kind: 'link', href });
+    });
+  });
+
+  it('returns a link for images when imageType is link', () => {
+    expect(assetNodeSpec({
+      href, isImage: true, alt: 'x', imageType: 'link',
+    })).to.deep.equal({ kind: 'link', href });
+  });
+
+  it('returns a plain image when imageType is null', () => {
+    expect(assetNodeSpec({
+      href, isImage: true, alt: 'x', imageType: null,
+    })).to.deep.equal({ kind: 'image', attrs: { src: href, alt: 'x' } });
+  });
+
+  it('sets editAs when imageType is editable-link', () => {
+    expect(assetNodeSpec({
+      href, isImage: true, alt: 'x', imageType: 'editable-link',
+    })).to.deep.equal({ kind: 'image', attrs: { src: href, alt: 'x', editAs: 'image' } });
+  });
+
+  it('omits alt when absent or empty', () => {
+    expect(assetNodeSpec({ href, isImage: true }).attrs).to.deep.equal({ src: href });
+    expect(assetNodeSpec({
+      href, isImage: true, alt: '', imageType: 'editable-link',
+    }).attrs).to.deep.equal({ src: href, editAs: 'image' });
   });
 });
