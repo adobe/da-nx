@@ -207,21 +207,23 @@ export function createCopy({
     return response;
   };
 
+  const rawCopy = async (url, title) => {
+    const response = await saveDaSource({
+      url: `${daOrigin}/source${url.destination}`,
+      body: await readSource(url),
+      contentType: url.destination.includes('.json') ? 'application/json' : 'text/html',
+      fetch,
+    });
+    if (response.ok) await saveVersion(url.destination, `${title} - Rolled Out`);
+    setSaveStatus(url, response);
+    return response;
+  };
+
   const overwriteCopy = async (url, title, options) => {
     requireRecordBaseline('overwriteCopy', options);
     try {
       delete url.outcome;
-      if (!isPagePath(url.destination)) {
-        const response = await saveDaSource({
-          url: `${daOrigin}/source${url.destination}`,
-          body: await readSource(url),
-          contentType: url.destination.includes('.json') ? 'application/json' : 'text/html',
-          fetch,
-        });
-        if (response.ok) await saveVersion(url.destination, `${title} - Rolled Out`);
-        setSaveStatus(url, response);
-        return response;
-      }
+      if (!isPagePath(url.destination)) return await rawCopy(url, title);
       const recordBaseline = await shouldRecord(url, options.recordBaseline, {
         configErrorOptsOut: true,
       });
@@ -238,6 +240,7 @@ export function createCopy({
     requireRecordBaseline('mergeCopy', options);
     try {
       delete url.outcome;
+      if (!isPagePath(url.destination)) return await rawCopy(url, title);
       const recordBaseline = await shouldRecord(url, options.recordBaseline);
       const result = await applyCopy(url, { behavior: 'merge', recordBaseline, labels: options });
       return await saveResult(url, title, result);
@@ -256,6 +259,7 @@ export function createCopy({
 
   const rolloutCopy = async (url, title, options = {}) => {
     try {
+      if (!isPagePath(url.destination)) return await rawCopy(url, title);
       const result = await applyCopy(url, { behavior: 'merge', recordBaseline: false, labels: options });
       const response = await saveResult(url, title, result, saveWithTimeout);
       if (response.timeout) return 'timeout';

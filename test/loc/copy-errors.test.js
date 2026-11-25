@@ -112,6 +112,51 @@ const throwingImages = () => { throw new Error('Diff failed'); };
   });
 });
 
+describe('merges of a non-page destination', () => {
+  const SHEET_SOURCE = '/org/site/de/de/data.json';
+  const SHEET_DESTINATION = '/org/site/at/de/data.json';
+  const SHEET = '{"total":1,"data":[{"key":"a","value":"b"}]}';
+
+  const sheetSetup = () => {
+    const fetch = sinon.stub().callsFake(async (href, opts) => {
+      if (opts?.method === 'POST') return new Response('{}');
+      if (href === `${ORIGIN}/source${SHEET_DESTINATION}`) return new Response('{"total":0,"data":[]}');
+      if (href === `${ORIGIN}/source${SHEET_SOURCE}`) return new Response(SHEET);
+      throw new Error(`Unexpected fetch ${href}`);
+    });
+    const loadConfig = sinon.stub().resolves({ config: { data: [] } });
+    const copy = createCopy({ fetch, loadConfig, daOrigin: ORIGIN });
+    const saves = () => fetch.args
+      .filter(([href, opts]) => opts?.method === 'POST' && !href.includes('/versionsource'));
+    const versions = () => fetch.args.filter(([href]) => href.includes('/versionsource'));
+    return { copy, saves, versions };
+  };
+
+  ['mergeCopy', 'rolloutCopy'].forEach((method) => {
+    it(`${method} overwrites the sheet with the raw source`, async () => {
+      const { copy, saves, versions } = sheetSetup();
+      const url = { source: SHEET_SOURCE, destination: SHEET_DESTINATION };
+      const result = await copy[method](url, 'Rollout', { recordBaseline: false });
+      expect(saves().map(([href]) => href)).to.deep.equal([`${ORIGIN}/source${SHEET_DESTINATION}`]);
+      const data = saves()[0][1].body.get('data');
+      expect(data.type).to.equal('application/json');
+      expect(await data.text()).to.equal(SHEET);
+      expect(versions()).to.have.length(1);
+      expect(result.ok).to.equal(true);
+      expect(url.status).to.equal('success');
+    });
+
+    it(`${method} overwrites the sheet with supplied source content`, async () => {
+      const { copy, saves } = sheetSetup();
+      const url = { destination: SHEET_DESTINATION, sourceContent: SHEET };
+      await copy[method](url, 'Rollout', { recordBaseline: false });
+      expect(saves().map(([href]) => href)).to.deep.equal([`${ORIGIN}/source${SHEET_DESTINATION}`]);
+      expect(await saves()[0][1].body.get('data').text()).to.equal(SHEET);
+      expect(url.status).to.equal('success');
+    });
+  });
+});
+
 describe('overwriteCopy with a failing save', () => {
   afterEach(() => sinon.restore());
 
