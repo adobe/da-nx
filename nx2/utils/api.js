@@ -670,7 +670,7 @@ export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false 
   return resp;
 };
 
-// Header -> true, other answers -> false (429/5xx retried first), a failed fetch rejects uncached.
+// Header -> true, any other answer -> false, after retrying 429/5xx.
 export const isHlx6 = (() => {
   const cache = {};
 
@@ -700,10 +700,7 @@ export const isHlx6 = (() => {
     if (!site || site === '.da') return false;
 
     const path = `/${org}/${site}`;
-    cache[path] ??= fetchUpgradeStatus(path).catch((error) => {
-      delete cache[path];
-      throw error;
-    });
+    cache[path] ??= fetchUpgradeStatus(path);
     return cache[path];
   };
 })();

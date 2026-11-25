@@ -201,17 +201,6 @@ describe('api.js', () => {
       expect(pingCount()).to.equal(1);
     });
 
-    it('rejects a thrown ping and pings again on the next call', async () => {
-      installPings([new TypeError('Failed to fetch'), { status: 200, headers: { 'x-api-upgrade-available': 'true' } }]);
-      const o = uniq('org');
-      const s = uniq('site');
-      let error;
-      await isHlx6(o, s).catch((e) => { error = e; });
-      expect(error).to.be.instanceOf(Error);
-      expect(await isHlx6(o, s)).to.equal(true);
-      expect(pingCount()).to.equal(2);
-    });
-
     it('treats a 500 ping as legacy after 2 retries and caches it', async () => {
       installPings([{ status: 500 }, { status: 500 }, { status: 500 }, { status: 200 }]);
       const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
@@ -224,19 +213,6 @@ describe('api.js', () => {
       expect(pingCount()).to.equal(3);
       expect(await isHlx6(o, s)).to.equal(false);
       expect(pingCount()).to.equal(3);
-    });
-
-    it('rejects when signed out and pings again on the next call', async () => {
-      installPings([{ status: 200 }]);
-      const o = uniq('org');
-      const s = uniq('site');
-      setMockIms({ token: null });
-      let error;
-      await isHlx6(o, s).catch((e) => { error = e; });
-      expect(error instanceof TypeError).to.equal(true);
-      resetMockIms();
-      expect(await isHlx6(o, s)).to.equal(false);
-      expect(pingCount()).to.equal(1);
     });
 
     it('treats a 403 ping as legacy without retrying', async () => {
