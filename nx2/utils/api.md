@@ -106,7 +106,7 @@ const upgraded = await isHlx6('adobe', 'aem-boilerplate');
 - Any other answer without the header (2xx, 401/403, 404, or a 429/5xx after the retries) -> `false`, kept in module memory.
 - A failed fetch (or no signed-in user) rejects. The namespace methods below reject with it.
 
-Returns `false` without a ping when `site` is missing or `.da`.
+Returns `false` without a ping when `site` is missing.
 
 Most callers don't call `isHlx6` directly — they let the namespace methods do the routing.
 

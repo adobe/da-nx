@@ -257,11 +257,6 @@ describe('api.js', () => {
       expect(await result).to.equal(true);
       expect(pingCount()).to.equal(2);
     });
-
-    it('returns false for the reserved .da folder without pinging', async () => {
-      expect(await isHlx6(uniq('org'), '.da')).to.equal(false);
-      expect(pingCount()).to.equal(0);
-    });
   });
 
   describe('source', () => {
