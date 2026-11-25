@@ -88,7 +88,9 @@ sends no mountpoint. In that case the portal uses `config.owner` / `config.repo`
 upgrade check (nx2 `isHlx6`) says the site is on Helix 6. It ignores `apiUpgrade`: the sidekick
 sends `true` for most legacy sites too. The standalone portal reads org/site from either url
 shape and asks nx2 `api.js` (`isHlx6`) where the document lives,
-so the payload shape doesn't decide the store. It names the collab room with
+so the payload shape doesn't decide the store. If the check fails (the ping gets no answer), the
+portal treats the site as legacy DA, as it did before Helix 6 support: it opens, uploads and
+previews through the legacy DA and Helix admin APIs. It names the collab room with
 `getSourceUrl`, the url the da-live editors use, so quick edit and the canvas join the
 same room.
 
