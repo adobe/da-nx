@@ -1,5 +1,4 @@
 import { expect } from '@esm-bundle/chai';
-import { validateConfig } from '../../../nx/blocks/loc/utils/validate-config.js';
 import {
   AEM_API, DA_ADMIN, calls, installFetch, makeSite, restoreFetch,
 } from './mock-fetch.js';
@@ -58,23 +57,5 @@ describe('fetchConfig', () => {
       `${DA_ADMIN}/source/${org}/.da/translate.json`,
     ]);
     expect(options.config.data[0].value).to.equal('org');
-  });
-
-  it('reports a failed org config read on legacy DA sites and does not cache it', async () => {
-    const first = makeSite();
-    const second = makeSite();
-    installFetch(({ url }) => {
-      if (url === `${DA_ADMIN}/source/${first.org}/.da/translate.json`) throw new TypeError('Failed to fetch');
-      if (url.startsWith(`${DA_ADMIN}/source/${second.org}/${second.site}/`)) {
-        return json({ config: { data: [{ key: 'from', value: 'second' }] } });
-      }
-      return new Response('', { status: 404 });
-    });
-    const fetchConfig = await loadFetchConfig();
-    const failed = await fetchConfig(first.org, first.site);
-    expect(failed).to.deep.equal({ loadError: 'Failed to fetch' });
-    expect((await validateConfig(failed)).errors).to.deep.equal(['Failed to fetch']);
-    const options = await fetchConfig(second.org, second.site);
-    expect(options.config.data[0].value).to.equal('second');
   });
 });

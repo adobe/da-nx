@@ -54,10 +54,6 @@ export async function getUrls(
   // Only fetch the content if needed
   if (fetchContent) {
     const config = await fetchConfig(org, site);
-    if (config.loadError) {
-      formattedUrls.forEach((url) => { url.error = config.loadError; });
-      return { urls: formattedUrls };
-    }
 
     // Fetch the content and add DNT
     const fetchUrl = async (url) => {
@@ -91,11 +87,9 @@ export async function getUrls(
       }
     };
 
-    const queue = new Queue(fetchUrl, MAX_CONCURRENT_READS, (url, error) => {
-      url.error = `Error fetching content from ${url.daDestPath} - ${error.message}`;
-    });
+    const queue = new Queue(fetchUrl, MAX_CONCURRENT_READS);
 
-    await Promise.all(formattedUrls.map((url) => queue.push(url)));
+    await Promise.allSettled(formattedUrls.map((url) => queue.push(url)));
   }
 
   return { urls: formattedUrls };
@@ -341,8 +335,7 @@ export async function sendAllForTranslation(conf, connector) {
  *  are not mutated (this function builds its own `options` override).
  * @param {Object} connector - The active loc connector.
  * @param {Object} lang - The dependent language to submit; mutated in
- *  place (`translation.status`, and `waitingFor` is deleted). A failed read
- *  throws before that, so the language stays waiting.
+ *  place (`translation.status`, and `waitingFor` is deleted).
  * @param {Object[]} originalUrls - The project's full supplied urls.
  * @param {string} [sourceLocation] - The project's default source
  *  location, the fallback prefix when a url is under no configured source.
@@ -372,8 +365,6 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     baseUrls,
     true,
   );
-  const errors = [...new Set(urls.filter((url) => url.error).map((url) => url.error))];
-  if (errors.length) throw new Error(`Could not send ${lang.name}: ${errors.join(' ')}`);
   lang.translation.status = 'not started';
   delete lang.waitingFor;
 
@@ -399,10 +390,7 @@ export async function checkWaitingLanguages(conf, connector, originalUrls, origi
     }
   }
 
-  const errors = [];
   for (const lang of readyLangs) {
-    await sendLanguageForTranslation(conf, connector, lang, originalUrls, originalSourceLocation)
-      .catch((error) => errors.push(error.message));
+    await sendLanguageForTranslation(conf, connector, lang, originalUrls, originalSourceLocation);
   }
-  if (errors.length) throw new Error(errors.join(' '));
 }

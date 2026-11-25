@@ -320,8 +320,8 @@ export async function fetchConfig(org, site) {
       const resp = await request();
       if (!resp.ok) return { error: 'Options not available.' };
       return resp.json();
-    } catch (error) {
-      return { loadError: error.message };
+    } catch {
+      return { config: { data: [] } };
     }
   };
 
@@ -338,8 +338,6 @@ export async function fetchConfig(org, site) {
     const fallbackUrl = new URL('../connectors/google/translate.json', import.meta.url).href;
     options = await fetchConf(() => daFetch({ url: fallbackUrl }));
   }
-
-  if (options.loadError) return options;
 
   CONFIG_CACHE = dropBlankLanguageRows(options);
 
@@ -455,8 +453,7 @@ async function fetchProject({ path, updates, updateDocTitle = true }) {
 
   const resp = await (updates
     ? saveSource(`${path}.json`, JSON.stringify(updates))
-    : getSource(`${path}.json`)).catch((error) => error);
-  if (resp instanceof Error) return { message: { text: resp.message } };
+    : getSource(`${path}.json`));
   if (!resp.ok) {
     if (resp.status === 401 || resp.status === 403) {
       const [org, site] = path.substring(1).split('/');

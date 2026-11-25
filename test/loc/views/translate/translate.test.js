@@ -88,20 +88,6 @@ describe('NxLocTranslate - Send All retry', () => {
   });
 });
 
-describe('NxLocTranslate - Send All follow-up save', () => {
-  it('shows an error when saving or sending ready languages fails', async () => {
-    const el = createTranslateEl();
-    el._service = { connector: { sendAllLanguages: async () => {} } };
-    el.getBaseTranslationConf = async () => ({ langsWithUrls: [], langs: [] });
-    el.runCheckAndSaveLangs = async () => { throw new Error('Could not send French (Canada): Failed to fetch'); };
-
-    await el.handleSendAll();
-    await el._saveLangsChain;
-
-    expect(el._message).to.deep.equal({ text: 'Could not send French (Canada): Failed to fetch', type: 'error' });
-  });
-});
-
 describe('NxLocTranslate - checkAndSaveLangs serialization', () => {
   it('runs overlapping calls one at a time', async () => {
     const el = createTranslateEl();

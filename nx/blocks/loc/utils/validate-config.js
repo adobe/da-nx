@@ -293,7 +293,6 @@ function validateLanguages(rows, config) {
  * @returns {Promise<{ errors: string[] }>} Human-readable errors; empty when valid.
  */
 export async function validateConfig(sheets) {
-  if (sheets?.loadError) return { errors: [sheets.loadError] };
   if (!sheets || sheets.error || !(sheets.config || sheets.languages)) {
     return { errors: ['No translate config available. Add a ".da/translate.json" config to the site or org.'] };
   }
