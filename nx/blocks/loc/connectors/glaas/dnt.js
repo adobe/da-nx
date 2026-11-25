@@ -86,7 +86,7 @@ const parseDntConfig = (config, reset = false) => {
   const sheetRules = dntConfig.get('sheetRules');
   config['dnt-sheet-rules']?.data.forEach((sheetRule) => {
     if (Object.keys(sheetRule).length > 0) {
-      sheetRules.push(extractPattern(sheetRule));
+      sheetRules.push(sheetRule.action === 'dnt-inline' ? sheetRule : extractPattern(sheetRule));
     }
   });
 
