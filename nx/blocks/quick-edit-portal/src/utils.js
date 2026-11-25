@@ -272,7 +272,7 @@ async function requestPreview({ owner, repo, path }) {
     ? `${AEM_API}/${owner}/sites/${repo}/preview${page}`
     : `${HLX_ADMIN}/preview/${owner}/${repo}/main${page}`;
   const resp = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${accessToken.token}` } });
-  return resp.ok ? undefined : (resp.statusText || `${resp.status}`);
+  return resp.ok ? undefined : resp.statusText;
 }
 
 export async function handlePreview(ctx) {
