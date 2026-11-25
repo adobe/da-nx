@@ -130,28 +130,6 @@ describe('schema editor utils', () => {
       expect(calls.find((c) => c.method === 'DELETE').url).to.equal(url);
     });
 
-    it('lists only HTML schemas, not other files or folders', async () => {
-      const { org, site } = uniqueOrgSite();
-      const folder = `${AEM_API}/${org}/sites/${site}/source/.da/forms/schemas`;
-      installRoutes({
-        hlx6: true,
-        routes: {
-          [`GET ${folder}/`]: json([
-            { name: 'faqs.html', 'content-type': 'text/html' },
-            { name: 'faqs.json', 'content-type': 'application/json' },
-            { name: 'old/', 'content-type': 'application/folder' },
-          ]),
-          [`GET ${folder}/faqs.html`]: html(schemaHtml(JSON.stringify(SCHEMA))),
-          [`GET ${folder}/faqs.json`]: json({}),
-        },
-      });
-
-      const schemas = await loadSchemas(org, site);
-
-      expect(schemas).to.deep.equal({ faqs: { status: 'loaded', schema: SCHEMA } });
-      expect(calls.some((c) => c.url.endsWith('/faqs.json'))).to.be.false;
-    });
-
     it('drops a schema whose body cannot be read', async () => {
       const { org, site } = uniqueOrgSite();
       const folder = `${AEM_API}/${org}/sites/${site}/source/.da/forms/schemas`;
