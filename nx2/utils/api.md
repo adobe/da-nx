@@ -104,7 +104,8 @@ const upgraded = await isHlx6('adobe', 'aem-boilerplate');
 - The `x-api-upgrade-available` header -> `true`, kept in module memory and in `localStorage` under the key `hlx6-upgrade`.
 - A 429 or 5xx without the header is retried up to 2 times, 1 s apart.
 - Any other answer without the header (2xx, 401/403, 404, or a 429/5xx after the retries) -> `false`, kept in module memory.
-- A failed fetch (or no signed-in user) rejects. The namespace methods below reject with it.
+- No answer at all (the fetch throws: network error, a 429 without CORS headers, admin unreachable) -> `false`, not kept and not retried, so the next call pings again.
+- With no signed-in user it rejects without a ping (`daFetch` starts the sign-in). The namespace methods below reject with it.
 
 Returns `false` without a ping when `site` is missing.
 

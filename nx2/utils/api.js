@@ -670,12 +670,17 @@ export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false 
   return resp;
 };
 
-// Header -> true, any other answer -> false, after retrying 429/5xx.
+// Header -> true, other answers -> false after 429/5xx retries, no answer -> false (not cached).
 export const isHlx6 = (() => {
   const cache = {};
 
   const ping = async (path, retries = PING_RETRIES) => {
-    const resp = await daFetch({ url: `${HLX_ADMIN}/ping${path}` });
+    let resp;
+    try {
+      resp = await daFetch({ url: `${HLX_ADMIN}/ping${path}` });
+    } catch {
+      return null;
+    }
     if (resp.headers.get('x-api-upgrade-available') !== null) return true;
     if (retries > 0 && (resp.status === 429 || resp.status >= 500)) {
       await new Promise((resolve) => { setTimeout(resolve, PING_RETRY_WAIT); });
@@ -700,7 +705,10 @@ export const isHlx6 = (() => {
     if (!site) return false;
 
     const path = `/${org}/${site}`;
-    cache[path] ??= fetchUpgradeStatus(path);
+    cache[path] ??= fetchUpgradeStatus(path).then((upgraded) => {
+      if (upgraded === null) delete cache[path];
+      return upgraded ?? false;
+    });
     return cache[path];
   };
 })();
