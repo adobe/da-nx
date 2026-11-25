@@ -93,18 +93,28 @@ export async function withRetry(task, {
 
 const limiters = {};
 
-// Like main, which always used admin.da.live, a failed check means a legacy DA site.
-async function checkSite(org, site) {
+// Like main, which always used admin.da.live, a failed check means a legacy DA site. It
+// returns undefined, not false: nx2's helpers ping again and get the same cached rejection.
+export async function checkSite(org, site) {
   try {
     return await isHlx6(org, site);
   } catch {
-    return false;
+    return undefined;
   }
 }
 
-async function run(path, task, { retry = true, signal } = {}) {
+const daAdmin = (kind, path, opts) => daFetch({ url: `${DA_ADMIN}/${kind}${path}`, opts });
+
+const toForm = (name, value) => {
+  const body = new FormData();
+  body.append(name, value);
+  return body;
+};
+
+async function run(path, task, { retry = true, signal, legacy } = {}) {
   const { org, site } = fromPath(path);
   const hlx6 = await checkSite(org, site);
+  if (hlx6 === undefined) return legacy();
   if (!hlx6) return task(hlx6);
   const key = `/${org}/${site}`;
   limiters[key] ??= createLimiter({
@@ -119,30 +129,48 @@ async function run(path, task, { retry = true, signal } = {}) {
 
 export async function getSource(path, { noCache, signal } = {}) {
   signal?.throwIfAborted();
-  return run(path, (hlx6) => {
-    const opts = {};
-    if (signal) opts.signal = signal;
-    // api.aem.live does not allow cache-control in CORS and answers no-store anyway.
-    if (noCache && !hlx6) opts.headers = { 'Cache-Control': 'no-cache' };
-    return source.get(path, { opts: Object.keys(opts).length ? opts : undefined });
-  }, { signal });
+  const opts = signal ? { signal } : {};
+  // The Helix 6 API does not allow cache-control in CORS and answers no-store anyway.
+  const legacyOpts = noCache ? { ...opts, headers: { 'Cache-Control': 'no-cache' } } : opts;
+  return run(
+    path,
+    (hlx6) => source.get(path, { opts: hlx6 ? opts : legacyOpts }),
+    { signal, legacy: () => daAdmin('source', path, legacyOpts) },
+  );
 }
 
 export function saveSource(path, body) {
-  return run(path, () => source.save(path, { body }));
+  const type = path.endsWith('.json') ? 'application/json' : 'text/html';
+  return run(path, () => source.save(path, { body }), {
+    legacy: () => daAdmin('source', path, { method: 'POST', body: toForm('data', new Blob([body], { type })) }),
+  });
 }
 
 export async function listSource(path, { signal } = {}) {
   signal?.throwIfAborted();
-  return run(path, () => source.list(path, { opts: signal ? { signal } : undefined }), { signal });
+  const opts = signal ? { signal } : undefined;
+  return run(path, () => source.list(path, { opts }), {
+    signal,
+    legacy: async () => {
+      const resp = await daAdmin('list', path, opts);
+      return resp.ok
+        ? { ok: true, items: await resp.json(), status: resp.status }
+        : { ok: false, items: [], status: resp.status };
+    },
+  });
 }
 
 export function moveSource(path, destination) {
-  return run(path, () => source.move(path, { destination }), { retry: false });
+  return run(path, () => source.move(path, { destination }), {
+    retry: false,
+    legacy: () => daAdmin('move', path, { method: 'POST', body: toForm('destination', destination) }),
+  });
 }
 
 export function createVersion(path, label) {
-  return run(path, () => versions.create(path, { comment: label }));
+  return run(path, () => versions.create(path, { comment: label }), {
+    legacy: () => daAdmin('versionsource', path, { method: 'POST', body: JSON.stringify({ label }) }),
+  });
 }
 
 const DA_ROUTES = ['source', 'versionsource'].map((kind) => ({ kind, prefix: `${DA_ADMIN}/${kind}` }));

@@ -1,4 +1,6 @@
-import { status } from '../../../../../nx2/utils/api.js';
+import { daFetch, status } from '../../../../../nx2/utils/api.js';
+import { HLX_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { checkSite } from '../../utils/source.js';
 import { getHasExt, formatDate } from '../../utils/utils.js';
 
 function getDate(suppliedDate) {
@@ -41,7 +43,10 @@ export function getAemPaths(path) {
 export async function getAemDetails(path) {
   const [org, site, ...parts] = splitPath(path);
 
-  const resp = await status.get({ org, site, path: `/${parts.join('/')}` });
+  const aemPath = parts.join('/');
+  const resp = await (await checkSite(org, site) === undefined
+    ? daFetch({ url: `${HLX_ADMIN}/status/${org}/${site}/main/${aemPath}` })
+    : status.get({ org, site, path: `/${aemPath}` }));
   if (!resp.ok) return { preview: 'Unknown', publish: 'Unknown' };
   const json = await resp.json();
 
