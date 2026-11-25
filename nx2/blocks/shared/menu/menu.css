@@ -55,9 +55,11 @@ nx-popover:has(.menu-item-description) {
 .menu-item-icon {
   display: flex;
   align-items: center;
+  align-self: flex-start;
   flex-shrink: 0;
   width: 16px;
   height: 16px;
+  margin-top: calc((1lh - 16px) / 2);
 
   svg {
     display: block;
@@ -155,9 +157,10 @@ ul:has(.menu-item-description) {
     line-height: var(--s2-component-m-regular-line-height);
   }
 
-  .menu-item-icon svg {
+  .menu-item-icon {
     width: 18px;
     height: 18px;
+    margin-top: calc((1lh - 18px) / 2);
   }
 
   .menu-item-description {

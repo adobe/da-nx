@@ -32,3 +32,43 @@ Only the logo is visible by default, and breadcrumbs start at 56px. Set
 Deploy the Nexter capability before enabling it in a consuming application.
 Older Nexter versions ignore `navBrand` and continue rendering the fragment's
 original brand.
+
+## Help and feedback menu
+
+The `help-and-feedback` nav action renders the `nx-help-and-feedback` lightbulb
+menu. Its items come entirely
+from `/fragments/nav/help-and-feedback` on the consuming app's origin. JavaScript does not
+insert menu entries: authors control their presence, order, labels, links, icons
+and descriptions.
+
+The lightbulb trigger stays hidden while loading and when the fragment is
+missing, fails to load, or contains no usable menu items.
+
+Author each item as a linked paragraph, optionally with an icon span inside the
+link and an emphasized description after it. Separate groups with sections or
+horizontal rules. For example, the fragment's main content can contain:
+
+```html
+<div>
+  <p><a href="#whatsnew"><span class="icon icon-gift"></span>Explore what's new</a></p>
+</div>
+<div>
+  <p><a href="#idea"><span class="icon icon-lightbulb"></span>Submit an idea</a><br>
+    <em>Suggestions and feature requests</em></p>
+  <p><a href="#bug"><span class="icon icon-bug"></span>Report a bug</a><br>
+    <em>Problems using AEM</em></p>
+  <p><a href="https://discord.gg/aem-live"><span class="icon icon-discord"></span>Join our Discord Server</a><br>
+    <em>Discussion forum</em></p>
+</div>
+<div>
+  <p><a href="https://www.aem.live/docs/ew/about">Resources</a></p>
+  <p><a href="#legal">Legal notices</a></p>
+</div>
+```
+
+Same-origin `#idea` and `#bug` open the existing feedback dialogs. `#whatsnew`
+opens the existing What's new dialog with its unseen-content indicator, and
+`#legal` opens the shared Legal notices modal. Links to
+`/fragments/guides/whats-new` and `/fragments/nav/help` also open those modals.
+Other links open in a new tab; external links are never interpreted as modal
+actions, even when they contain one of these hashes.
