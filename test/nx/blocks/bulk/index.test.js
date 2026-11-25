@@ -19,7 +19,7 @@ describe('bulk operations', () => {
 
   it('publishes a Helix 6 page through the site API and reports its status', async () => {
     installFetch({ pingHlx6: true, status: 404 });
-    const [url] = formatUrls('https://main--publish-site--org.aem.page/about', 'live');
+    const [url] = formatUrls('https://branch--publish-site--org.aem.page/about', 'live');
     const result = await sendAction(url);
     expect(lastCall().url).to.equal(`${AEM_API}/org/sites/publish-site/live/about`);
     expect(lastCall().method).to.equal('POST');
@@ -41,6 +41,28 @@ describe('bulk operations', () => {
     await sendAction(url);
     expect(lastCall().url).to.equal(`${HLX_ADMIN}/preview/org/legacy-site/branch/about`);
     expect(lastCall().method).to.equal('POST');
+  });
+
+  it('keeps the legacy route when the upgrade probe fails', async () => {
+    installFetch();
+    const mockFetch = window.fetch;
+    window.fetch = async (url, opts) => {
+      if (url.startsWith(`${HLX_ADMIN}/ping/`)) throw new TypeError('Failed to fetch');
+      return mockFetch(url, opts);
+    };
+    const [url] = formatUrls('https://branch--probe-fails--org.aem.page/about', 'live');
+    await sendAction(url);
+    expect(lastCall().url).to.equal(`${HLX_ADMIN}/live/org/probe-fails/branch/about`);
+    expect(lastCall().method).to.equal('POST');
+  });
+
+  it('marks a URL as failed when the request throws', async () => {
+    installFetch();
+    window.fetch = async () => { throw new TypeError('Failed to fetch'); };
+    const [url] = formatUrls('https://main--request-fails--org.aem.page/about', 'index');
+    const result = await sendAction(url);
+    expect(result.ok).to.equal(false);
+    expect(result.status).to.equal(0);
   });
 
   it('versions a page through DA with its label', async () => {
