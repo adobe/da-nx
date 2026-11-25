@@ -1,8 +1,8 @@
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
-import { daFetch, isHlx6, loadIms } from '../../../../nx2/utils/api.js';
+import { daFetch, loadIms } from '../../../../nx2/utils/api.js';
 import { createCopy } from '../../../public/loc/copy.js';
 import {
-  getSource, loadCopyConfig, saveSource, sourceFetch,
+  checkSite, getSource, loadCopyConfig, saveSource, sourceFetch,
 } from './source.js';
 
 export const copy = createCopy({
@@ -329,7 +329,7 @@ export async function fetchConfig(org, site) {
   let options = await fetchConf(() => getSource(`/${org}/${site}${CONFIG_PATH}`));
 
   // Attempt an org based config (Helix 6 has no org-level source)
-  if (options.error && !(await isHlx6(org, site))) {
+  if (options.error && !(await checkSite(org, site))) {
     options = await fetchConf(() => daFetch({ url: `${DA_ADMIN}/source/${org}${CONFIG_PATH}` }));
   }
 
