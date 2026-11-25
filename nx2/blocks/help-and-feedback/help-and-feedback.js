@@ -130,7 +130,10 @@ export default class NxHelpAndFeedback extends LitElement {
   get _menuItems() {
     return this._items?.map((item) => (
       !item.divider && getAction(item) === 'whatsnew'
-        ? { ...item, statusDot: this._hasUnseen ? 'var(--s2-blue-900)' : undefined }
+        ? {
+          ...item,
+          trailing: this._hasUnseen ? { type: 'dot', color: 'var(--s2-blue-900)' } : undefined,
+        }
         : item
     ));
   }

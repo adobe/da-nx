@@ -1,13 +1,13 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { setConfig } from '../../../../../scripts/nx.js';
+import { setConfig } from '../../../../nx2/scripts/nx.js';
 
 // help-and-feedback.js captures getConfig() into a module-level constant at import
 // time (for ICON_HREF), so setConfig() must resolve before help-and-feedback.js is
 // ever imported — a static import would evaluate (and freeze that constant)
 // before this file's own top-level code could run.
 await setConfig({ hostnames: [] });
-const { parseHelpAndFeedbackItems } = await import('../../../../../blocks/help-and-feedback/help-and-feedback.js');
+const { parseHelpAndFeedbackItems } = await import('../../../../nx2/blocks/help-and-feedback/help-and-feedback.js');
 
 const FEEDBACK_FRAGMENT_HTML = `
   <div>
@@ -233,7 +233,12 @@ describe('help and feedback menu', () => {
   });
 
   it('opens a single whats-new modal and clears its indicator on close', async () => {
-    await import('../../../../../blocks/whatsnew/whatsnew-dialog.js');
+    el._hasUnseen = true;
+    await el.updateComplete;
+    const menu = el.shadowRoot.querySelector('nx-menu');
+    await menu.updateComplete;
+    expect(menu.shadowRoot.querySelector('.menu-item-status-dot')).to.exist;
+    await import('../../../../nx2/blocks/whatsnew/whatsnew-dialog.js');
     const loadContent = sinon.spy(customElements.get('nx-whatsnew-dialog').prototype, '_loadContent');
     await el._handleSelect({ detail: { id: 'whatsnew' } });
     await loadContent.firstCall.returnValue;
@@ -245,6 +250,8 @@ describe('help and feedback menu', () => {
     dialog.close();
     await el.updateComplete;
     expect(el._hasUnseen).to.equal(false);
+    await menu.updateComplete;
+    expect(menu.shadowRoot.querySelector('.menu-item-status-dot')).to.be.null;
   });
 
   it('opens legal notices in the shared modal', async () => {
