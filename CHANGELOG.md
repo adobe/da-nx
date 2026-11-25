@@ -1,3 +1,167 @@
+# [1.68.0](https://github.com/adobe/da-nx/compare/v1.67.0...v1.68.0) (2026-11-25)
+
+
+### Features
+
+* **pills:** let hosts change the pill width cap via --nx-pill-max-width ([#1053](https://github.com/adobe/da-nx/issues/1053)) ([2ba66c8](https://github.com/adobe/da-nx/commit/2ba66c8b92b9539c11ec47e7819af8921999e77f))
+
+# [1.67.0](https://github.com/adobe/da-nx/compare/v1.66.2...v1.67.0) (2026-11-25)
+
+
+### Features
+
+* introduce tooltips for sidenav items ([#1048](https://github.com/adobe/da-nx/issues/1048)) ([bfd76d7](https://github.com/adobe/da-nx/commit/bfd76d76d08734e01f4adfb690b7e17e7a6ee9b2))
+
+## [1.66.2](https://github.com/adobe/da-nx/compare/v1.66.1...v1.66.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* expose copy for complete assistant response ([#1051](https://github.com/adobe/da-nx/issues/1051)) ([e1a6a3b](https://github.com/adobe/da-nx/commit/e1a6a3b54ae64203293c0d7fc97f637b52ff44fb))
+
+## [1.66.1](https://github.com/adobe/da-nx/compare/v1.66.0...v1.66.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **schema-editor:** hlx6 - list, save and delete schemas ([#936](https://github.com/adobe/da-nx/issues/936)) ([ec27644](https://github.com/adobe/da-nx/commit/ec2764498b6c16d5becc315bfd3927726b72ac82))
+
+# [1.66.0](https://github.com/adobe/da-nx/compare/v1.65.0...v1.66.0) (2026-11-25)
+
+
+### Features
+
+* **marketplace:** new marketplace design and featured teaser block ([#953](https://github.com/adobe/da-nx/issues/953)) ([2515769](https://github.com/adobe/da-nx/commit/2515769db1dfda56f4300c84e393c3e67f12f59a))
+
+# [1.65.0](https://github.com/adobe/da-nx/compare/v1.64.0...v1.65.0) (2026-11-24)
+
+
+### Features
+
+* introduce coworker access check ([#1038](https://github.com/adobe/da-nx/issues/1038)) ([bb8e8f4](https://github.com/adobe/da-nx/commit/bb8e8f4c1ae1cba30a184b73e9df31b2b9cf61f7))
+
+# [1.64.0](https://github.com/adobe/da-nx/compare/v1.63.0...v1.64.0) (2026-11-24)
+
+
+### Features
+
+* introduce trailing item support for menu ([#1045](https://github.com/adobe/da-nx/issues/1045)) ([58a83f3](https://github.com/adobe/da-nx/commit/58a83f30914e97d05706d5a0a09918339cf39a9e))
+
+# [1.63.0](https://github.com/adobe/da-nx/compare/v1.62.1...v1.63.0) (2026-11-24)
+
+
+### Features
+
+* introduce shared tooltip ([#1034](https://github.com/adobe/da-nx/issues/1034)) ([80a135c](https://github.com/adobe/da-nx/commit/80a135c340923f080214e08304df6adcf7c44309))
+
+## [1.62.1](https://github.com/adobe/da-nx/compare/v1.62.0...v1.62.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **quick-edit:** scope comment marker styles so site button css cannot override them ([9f14741](https://github.com/adobe/da-nx/commit/9f147414b752ca84654e49631c21ba8fea6191d7))
+
+# [1.62.0](https://github.com/adobe/da-nx/compare/v1.61.1...v1.62.0) (2026-11-20)
+
+
+### Bug Fixes
+
+* **snapshot:** allow clearing every url in a snapshot ([66bc37b](https://github.com/adobe/da-nx/commit/66bc37be3a3a4450f3f296765d5932c4c7f80edd))
+* **snapshot:** keep page row sync and promote tooltips visible ([6b027c1](https://github.com/adobe/da-nx/commit/6b027c1f28ffdc182766580004a86ba5e5745517))
+* **snapshot:** treat failed source checks as unknown and report job failures ([3c03208](https://github.com/adobe/da-nx/commit/3c03208278e68e17ee469f65e01fb3a91dc7696c))
+* **snapshot:** use s2 arrow icons and handle copy and sdk errors ([cb762a3](https://github.com/adobe/da-nx/commit/cb762a3bdcef592e893a1d64dbd7d44df999cd98))
+
+
+### Features
+
+* **snapshot:** restyle admin to spectrum 2 and add public snapshot api ([12c70b5](https://github.com/adobe/da-nx/commit/12c70b57db6fb51477573f975f7b2e67da5f3835))
+
+## [1.61.1](https://github.com/adobe/da-nx/compare/v1.61.0...v1.61.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* preserve newlines in coworker user messages ([#1041](https://github.com/adobe/da-nx/issues/1041)) ([f6a7316](https://github.com/adobe/da-nx/commit/f6a731666dea831704ba8df6aae36a2e3f385927))
+
+# [1.61.0](https://github.com/adobe/da-nx/compare/v1.60.0...v1.61.0) (2026-11-20)
+
+
+### Features
+
+* add deepL connector ([#746](https://github.com/adobe/da-nx/issues/746)) ([7181809](https://github.com/adobe/da-nx/commit/7181809a3abccdcb0463d6ccd398ca2ca80e6f7d))
+
+# [1.60.0](https://github.com/adobe/da-nx/compare/v1.59.0...v1.60.0) (2026-11-20)
+
+
+### Features
+
+* move chat question card inline ([#1033](https://github.com/adobe/da-nx/issues/1033)) ([27108ee](https://github.com/adobe/da-nx/commit/27108ee2f84b3e90e50e6ce57e1d85b1e70cbb3f))
+
+# [1.59.0](https://github.com/adobe/da-nx/compare/v1.58.1...v1.59.0) (2026-11-20)
+
+
+### Features
+
+* **siteselector:** expose selected site getter ([#1027](https://github.com/adobe/da-nx/issues/1027)) ([8d018f4](https://github.com/adobe/da-nx/commit/8d018f46f2d8ec639ad696e457ebcce6dd42a607))
+
+## [1.58.1](https://github.com/adobe/da-nx/compare/v1.58.0...v1.58.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **loc:** correctly apply DNT content rules ([#733](https://github.com/adobe/da-nx/issues/733)) ([d962deb](https://github.com/adobe/da-nx/commit/d962deb81fcdc1f14f43101575408a97c3b0aca3))
+* **loc:** show GlobalLink error details and record failed submissions ([#824](https://github.com/adobe/da-nx/issues/824)) ([eae84a0](https://github.com/adobe/da-nx/commit/eae84a0e913265451f37d0ed653cb4871d37af8d))
+
+# [1.58.0](https://github.com/adobe/da-nx/compare/v1.57.2...v1.58.0) (2026-11-19)
+
+
+### Features
+
+* **cards:** rework of /app to the new "tools" ([#978](https://github.com/adobe/da-nx/issues/978)) ([dd67797](https://github.com/adobe/da-nx/commit/dd6779732cf84523b0b90c1ae2ca11ca16cfccb5)), closes [#E5F0FE](https://github.com/adobe/da-nx/issues/E5F0FE)
+
+## [1.57.2](https://github.com/adobe/da-nx/compare/v1.57.1...v1.57.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* **snapshot-admin:** keep panel busy through scheduling and rollback ([f4f9bed](https://github.com/adobe/da-nx/commit/f4f9bed956b9c6c07c931e8f7b19dafc494ae6c5))
+* **snapshot-admin:** remove schedule on delete and surface scheduling errors ([83ed01d](https://github.com/adobe/da-nx/commit/83ed01d3fc2f8275a4ef447c3f730a6067bcc0d8))
+* **snapshot-admin:** reset scheduler input and simplify delete message ([3928f47](https://github.com/adobe/da-nx/commit/3928f47f9aae3ea3bafaa606a8be0c954035295a))
+* **versions:** include hlx6 audit history ([#1014](https://github.com/adobe/da-nx/issues/1014)) ([87d4b30](https://github.com/adobe/da-nx/commit/87d4b303d72b0069bcf41bb5c65ab4b447821f33)), closes [adobe/helix-api-service#550](https://github.com/adobe/helix-api-service/issues/550) [adobe/helix-api-service#556](https://github.com/adobe/helix-api-service/issues/556) [adobe/da-live#1450](https://github.com/adobe/da-live/issues/1450)
+
+## [1.57.1](https://github.com/adobe/da-nx/compare/v1.57.0...v1.57.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **loc:** keep smart overwrite moves out of page-only content ([938ba40](https://github.com/adobe/da-nx/commit/938ba405a26725c3f8202d0e43f2844a7affdc1f))
+
+# [1.57.0](https://github.com/adobe/da-nx/compare/v1.56.0...v1.57.0) (2026-11-18)
+
+
+### Features
+
+* **loc:** scope sheet translation exclusions by document path ([#987](https://github.com/adobe/da-nx/issues/987)) ([9b5be1d](https://github.com/adobe/da-nx/commit/9b5be1d2bc6cb5d8428178e2dedf087c8be3b890))
+
+# [1.56.0](https://github.com/adobe/da-nx/compare/v1.55.0...v1.56.0) (2026-11-18)
+
+
+### Bug Fixes
+
+* **loc:** ignore recovered Trados task failures in status checks ([#1002](https://github.com/adobe/da-nx/issues/1002)) ([eae249e](https://github.com/adobe/da-nx/commit/eae249ec146a0833adfcde5c2e512b943cc05eba))
+
+
+### Features
+
+* **loc:** validate translate config at project start ([#955](https://github.com/adobe/da-nx/issues/955)) ([b46e3b3](https://github.com/adobe/da-nx/commit/b46e3b3472e1a76c2bd7470912f83f75c3f9e9aa))
+
+# [1.55.0](https://github.com/adobe/da-nx/compare/v1.54.3...v1.55.0) (2026-11-18)
+
+
+### Features
+
+* **glaas:** integrate video caption localization and delivery tracking ([#1020](https://github.com/adobe/da-nx/issues/1020)) ([1bbe94c](https://github.com/adobe/da-nx/commit/1bbe94cf1989e9691bfa41fa0cd45213d5867a8a))
+
 ## [1.54.3](https://github.com/adobe/da-nx/compare/v1.54.2...v1.54.3) (2026-11-18)
 
 

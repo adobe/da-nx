@@ -177,14 +177,14 @@ describe('Glaas DNT', () => {
     expect(htmlWithDnt).to.include(`<div>loc-images</div><div>${locImagesValue}</div>`);
     expect(htmlWithDnt).to.include('<div>acceptedhashes</div><div>abc123,def456</div>');
 
-    const htmlWithoutDnt = await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom', { stripLocImages: true });
+    const htmlWithoutDnt = await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom', { stripLocSelections: true });
     expect(htmlWithoutDnt).to.not.include('loc-images');
     expect(htmlWithoutDnt).to.not.include('translate="no"');
     // Unrelated row survives byte-identical.
     expect(htmlWithoutDnt).to.include('<div>acceptedhashes</div><div>abc123,def456</div>');
   });
 
-  it('retains loc-images by default (stripLocImages is opt-in, e.g. for sync/rollout)', async () => {
+  it('retains loc-images by default (stripLocSelections is opt-in, e.g. for sync/rollout)', async () => {
     const config = JSON.parse((await readFile({ path: './mocks/hubspot/translate.json' })));
     const html = `<body>
   <main><p>Some text</p></main>
@@ -196,6 +196,23 @@ describe('Glaas DNT', () => {
     const htmlWithDnt = await addDnt(html, config, { reset: true });
     const htmlWithoutDnt = await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom');
     expect(htmlWithoutDnt).to.include('loc-images');
+  });
+
+  it('protects video selections and strips them only on translated save-back', async () => {
+    const config = JSON.parse((await readFile({ path: './mocks/hubspot/translate.json' })));
+    const selections = '[{"src":"https://video.tv.adobe.com/v/333754","translate":"true"}]';
+    const html = `<body><main><p>Text</p></main><div class="da-metadata">
+      <div><div>loc-videos</div><div>${selections}</div></div>
+      <div><div>acceptedhashes</div><div>abc123</div></div>
+    </div></body>`;
+    const annotated = await addDnt(html, config, { reset: true });
+    expect(annotated).to.include('<div class="da-metadata" translate="no">');
+    expect(annotated).to.include(selections);
+    const retained = await removeDnt(annotated, 'org', 'site');
+    expect(retained).to.include('loc-videos');
+    const stripped = await removeDnt(annotated, 'org', 'site', { stripLocSelections: true });
+    expect(stripped).not.to.include('loc-videos');
+    expect(stripped).to.include('<div>acceptedhashes</div><div>abc123</div>');
   });
 
   it('stashes a marked AEM-hosted image\'s original absolute src in LOC_SRC_ATTR before relativizing it, but leaves an unmarked one alone', async () => {
@@ -238,5 +255,34 @@ describe('Glaas DNT', () => {
     const htmlWithoutDnt = await removeDnt(htmlWithDnt, 'adobecom', 'da-cc');
     expect(htmlWithoutDnt).to.include(`<img src="${markedSrc}" loading="lazy">`);
     expect(htmlWithoutDnt).to.not.include(LOC_SRC_ATTR);
+  });
+
+  describe('site config dnt tab', () => {
+    const multi = JSON.stringify({
+      ':type': 'multi-sheet',
+      ':names': ['data', 'other'],
+      data: { data: [{ sku: 'A-1', title: 'Hello' }] },
+      other: { data: [{ sku: 'B-1', title: 'World' }] },
+    });
+    const dntConfig = (...rows) => ({
+      dnt: { data: rows.map(([s, c]) => ({ 'dnt-sheet': s, 'dnt-columns': c })) },
+    });
+    const run = async (config, path) => new DOMParser().parseFromString(
+      await addDnt(multi, config, { fileType: 'json', reset: true, path }),
+      'text/html',
+    );
+    const isDnt = (html, sheet, key) => html.querySelector(`div[name="${sheet}"] div[key="${key}"]`)
+      .getAttribute('translate') === 'no';
+
+    it('ignores bare-tab rules', async () => {
+      const html = await run(dntConfig(['data', 'sku'], ['other', '*']));
+      expect(isDnt(html, 'data', 'sku')).to.be.false;
+      expect(html.querySelector('div[name="other"]').getAttribute('translate')).to.be.null;
+    });
+
+    it('ignores /path rules even when a path is supplied', async () => {
+      const html = await run(dntConfig(['/products/prices:data', 'sku']), '/products/prices.json');
+      expect(isDnt(html, 'data', 'sku')).to.be.false;
+    });
   });
 });

@@ -1,6 +1,7 @@
 import decorateTable from './decorateTable.js';
 import parseQuery from './parseQuery.js';
 import { processAltText, resetAltText } from './processAltText.js';
+import { parseSheetRef } from './sheetRules.js';
 
 const DNT_ELEMENTS = ['code', 'body > .da-metadata'];
 
@@ -51,15 +52,56 @@ function resetHrefs(doc, org, repo) {
   });
 }
 
-const addDntWrapper = (node, dntContent) => {
-  node.innerHTML = node.innerHTML.replaceAll(dntContent, `<span translate="no" class="dnt-text">${dntContent}</span>`);
-};
+/**
+ * Wraps each occurrence of dntContent under root in a translate="no" span.
+ * @param {Node} root Node to search; skipped if inside translate="no".
+ * @param {string} dntContent Literal text to protect.
+ * @returns {void}
+ */
+const addDntWrappers = (root, dntContent) => {
+  if (!dntContent) return;
+  if (root.closest?.('[translate="no"]')) return;
 
-const findAndAddDntWrapper = (document, dntContent) => {
-  const contentMatches = document.evaluate(`//text()[contains(., "${dntContent}")]/..`, document, null, 0, null);
-  // eslint-disable-next-line no-underscore-dangle
-  contentMatches?._value?.nodes.forEach((node) => {
-    addDntWrapper(node, dntContent);
+  const document = root.ownerDocument || root;
+  const walker = document.createTreeWalker(
+    root,
+    // eslint-disable-next-line no-bitwise
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          return node.getAttribute('translate') === 'no'
+            ? NodeFilter.FILTER_REJECT
+            : NodeFilter.FILTER_SKIP;
+        }
+        return node.nodeValue.includes(dntContent)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_SKIP;
+      },
+    },
+  );
+
+  const textNodes = [];
+  while (walker.nextNode()) {
+    textNodes.push(walker.currentNode);
+  }
+
+  textNodes.forEach((textNode) => {
+    const parts = textNode.nodeValue.split(dntContent);
+    const fragment = document.createDocumentFragment();
+
+    parts.forEach((part, index) => {
+      if (part) fragment.append(document.createTextNode(part));
+      if (index < parts.length - 1) {
+        const wrapper = document.createElement('span');
+        wrapper.classList.add('dnt-text');
+        wrapper.setAttribute('translate', 'no');
+        wrapper.textContent = dntContent;
+        fragment.append(wrapper);
+      }
+    });
+
+    textNode.replaceWith(fragment);
   });
 };
 
@@ -96,7 +138,7 @@ const addDntInfoToHtml = (html, dntRules) => {
   });
 
   dntRules.contentRules.forEach((dntContent) => {
-    findAndAddDntWrapper(document, dntContent);
+    addDntWrappers(document.body, dntContent);
   });
 
   DNT_ELEMENTS.forEach((dntElement) => {
@@ -105,7 +147,7 @@ const addDntInfoToHtml = (html, dntRules) => {
     });
   });
 
-  processAltText(document, addDntWrapper);
+  processAltText(document, addDntWrappers);
   return document.documentElement.outerHTML;
 };
 
@@ -135,6 +177,7 @@ function parseConfig(config) {
     dntSheets: [],
     dntSheetToColumns: new Map(),
     dntUniversalColumns: [],
+    dntPathRules: [],
   };
 
   docRules.forEach((rule) => {
@@ -157,17 +200,17 @@ function parseConfig(config) {
   });
 
   dntSheetData.forEach((row) => {
-    const dntSheet = row['dnt-sheet'];
+    const { path, sheet: dntSheet } = parseSheetRef(row['dnt-sheet']);
     const dntColumnsStr = row['dnt-columns'];
-    if (dntColumnsStr === '*') {
+    const dntColumns = dntColumnsStr === '*' ? '*' : dntColumnsStr.split(',').map((col) => col.trim());
+    if (path) {
+      rules.dntPathRules.push({ path, sheet: dntSheet, columns: dntColumns });
+    } else if (dntColumns === '*') {
       rules.dntSheets.push(dntSheet);
+    } else if (dntSheet === '*') {
+      rules.dntUniversalColumns.push(...dntColumns);
     } else {
-      const dntColumns = dntColumnsStr.split(',').map((col) => col.trim());
-      if (dntSheet === '*') {
-        rules.dntUniversalColumns.push(...dntColumns);
-      } else {
-        rules.dntSheetToColumns.set(dntSheet, dntColumns);
-      }
+      rules.dntSheetToColumns.set(dntSheet, dntColumns);
     }
   });
 
@@ -190,14 +233,23 @@ export async function removeDnt({ org, site, html, ext = 'html' }) {
   return document.documentElement.outerHTML;
 }
 
-export async function addDnt(inputText, config, { fileType = 'html' } = {}) {
+/**
+ * Wraps do-not-translate content in markup for a translation service.
+ * @param {string} inputText - Document source (HTML or JSON text).
+ * @param {Object} config - Site translate config sheets.
+ * @param {Object} [options] - Options.
+ * @param {string} [options.fileType] - `html` (default) or `json`.
+ * @param {string} [options.path] - Language-agnostic document path, used to match `/path` rules.
+ * @returns {Promise<string>} HTML with DNT markup applied.
+ */
+export async function addDnt(inputText, config, { fileType = 'html', path } = {}) {
   let html = inputText;
   const rules = parseConfig(config);
 
   if (fileType === 'json') {
     const json = JSON.parse(inputText);
     const { json2html } = await import('./json2html.js');
-    html = json2html(json, rules);
+    html = json2html(json, rules, path);
   }
 
   if (fileType === 'html') {

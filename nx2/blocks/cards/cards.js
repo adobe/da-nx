@@ -1,0 +1,74 @@
+import { getConfig, loc } from '../../scripts/nx.js';
+import {
+  acceptsSiteHash, hashChange, loadStyle, withSiteHash,
+} from '../../utils/utils.js';
+import '../shared/action-card/action-card.js';
+import { iconSvg } from '../shared/utils/icons.js';
+import { attachCardSearch } from '../shared/utils/card-search.js';
+
+const style = await loadStyle(import.meta.url);
+const { codeBase } = getConfig();
+
+// Short S2 icon name (`treeview`, `TreeView`, `tree-view`) → icon URL.
+const iconUrl = (name) => {
+  const short = (name ?? '').toLowerCase().replaceAll('-', '');
+  return /^[a-z0-9]+$/.test(short) ? `${codeBase}/img/icons/s2-icon-${short}-20-n.svg` : undefined;
+};
+
+// Authored icon `:treeview:` → class `icon-treeview` → `treeview`.
+const iconName = (col) => [...(col?.querySelector('span.icon')?.classList ?? [])]
+  .find((c) => c.startsWith('icon-'))?.slice(5);
+
+const byAdobe = () => {
+  const extra = document.createElement('span');
+  extra.slot = 'extra';
+  extra.className = 'byline';
+  const text = document.createElement('span');
+  text.className = 'byline-text';
+  text.textContent = loc`By Adobe`;
+  extra.append(iconSvg({ href: iconUrl('byadobe') }), text);
+  return extra;
+};
+
+function toCard({ row, tools }) {
+  const [iconCol, bodyCol] = row.querySelectorAll(':scope > div');
+  const heading = bodyCol?.querySelector('h1, h2, h3, h4, h5, h6');
+  const href = heading?.querySelector('a')?.href;
+  const learnMoreHref = bodyCol?.querySelector('ul a')?.href;
+  const icon = iconUrl(iconName(iconCol));
+  const tint = iconCol?.querySelector('em')?.textContent.trim();
+
+  const card = document.createElement('nx-action-card');
+  card.setAttribute('role', 'listitem');
+  card.heading = heading?.textContent.trim() ?? '';
+  card.description = [...(bodyCol?.querySelectorAll('p') ?? [])]
+    .map((p) => p.textContent.trim()).filter(Boolean).join(' ');
+  // Opening the tool in a new tab is left to the browser (the action is a link).
+  card.menu = learnMoreHref ? [{ id: 'learn-more', label: loc`Learn more` }] : [];
+  if (icon) card.append(iconSvg({ href: icon, slot: 'icon' }));
+  if (tint) card.tint = tint;
+  // Tools on this site, da.live or author.aem.live carry the page's site path as hash.
+  const sync = ({ fullpath } = {}) => {
+    if (href) card.action = acceptsSiteHash(href) ? withSiteHash({ href, fullpath }) : href;
+  };
+  if (href) card.actionLabel = loc`Open`;
+  card.addEventListener('select', ({ detail }) => {
+    if (detail?.id === 'learn-more') window.open(learnMoreHref, '_blank', 'noopener');
+  });
+  if (tools) card.append(byAdobe());
+  return { card, sync };
+}
+
+export default function init(el) {
+  if (!document.adoptedStyleSheets.includes(style)) {
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
+  }
+  const tools = el.classList.contains('tools');
+  el.setAttribute('role', 'list');
+  const items = [...el.querySelectorAll(':scope > div')].map((row) => toCard({ row, tools }));
+  el.replaceChildren(...items.map(({ card }) => card));
+  hashChange.subscribe((details) => {
+    if (el.isConnected) items.forEach(({ sync }) => sync(details ?? {}));
+  });
+  attachCardSearch(el);
+}

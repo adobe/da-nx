@@ -65,6 +65,12 @@ A shell/framework for Adobe AEM Edge Delivery Services. Provides shared blocks, 
 - `docs/style-guide/style-guide.html` is a living reference of shared CSS patterns (`nx2/styles/*.css`) and shared components (`nx2/blocks/shared/*`). When you add or change a class in `nx2/styles/` or a component in `nx2/blocks/shared/`, add or update its entry in the style guide, and keep the matching `docs/*.md` file (if one exists for that component) in sync too.
 - This does not apply to page- or feature-specific blocks (`nx2/blocks/nav`, `sidenav`, `profile`, etc.) — only the shared, reusable patterns the style guide actually catalogs.
 
+## Keep the config editor in sync
+
+- Admins edit org and site configuration in da-live's config editor (`blocks/config/`), but many of those options are read here. When you add, change, or remove a user-facing option read in da-nx, call out that a matching da-live PR must update the editor (field, default, validation, org/site scope and inheritance, tests), and link it from this PR once it exists. Don't change da-live from a da-nx task unless the developer asks.
+- Options read here include `ew.*` flags (`nx2/utils/ewFlags.js` and its callers), `aem.*` asset settings (`nx2/utils/aem-assets/`), `.da/translate.json` (`nx/blocks/loc/`, the locales and rollout plugins), and the `apps` sheet (`nx/blocks/site-apps/`).
+- Options intentionally left out of the editor are listed with a reason in da-live's `CLAUDE.md`.
+
 ## Semantic commits & releases
 
 - Releases are automated with semantic-release on every push to `main`: the version is derived from commit messages, a `vX.Y.Z` tag + GitHub Release is created, and `CHANGELOG.md`, `package.json` and `package-lock.json` are updated. Nothing is published to npm; EDS deploys independently.

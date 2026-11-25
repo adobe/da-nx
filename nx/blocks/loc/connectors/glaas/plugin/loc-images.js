@@ -2,8 +2,8 @@ import { html, LitElement } from 'da-lit';
 import DA_SDK from '../../../../../utils/sdk.js';
 import getStyle from '../../../../../utils/styles.js';
 import {
-  fetchPageHtml, buildImageRows, ensureThumbnailLogins, resolveAuthenticatedThumbnails,
-  saveSelections,
+  fetchPageHtml, buildImageRows, buildVideoRows, ensureThumbnailLogins,
+  resolveAuthenticatedThumbnails, saveSelections,
 } from './index.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -12,6 +12,7 @@ const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
 
 const cloneRows = (rows) => rows.map((row) => ({ ...row }));
+const countSelected = (rows) => rows.filter((row) => row.checked).length;
 
 class NxGlaasLocImages extends LitElement {
   static properties = {
@@ -21,6 +22,8 @@ class NxGlaasLocImages extends LitElement {
     token: { attribute: false },
     _rows: { state: true },
     _initialRows: { state: true },
+    _videoRows: { state: true },
+    _initialVideoRows: { state: true },
     _status: { state: true },
     _saving: { state: true },
   };
@@ -42,61 +45,101 @@ class NxGlaasLocImages extends LitElement {
     const {
       org, site, path, token,
     } = this;
-    const pageHtml = await fetchPageHtml({ org, site, path, token });
-    if (pageHtml === null) {
+    try {
+      const pageHtml = await fetchPageHtml({
+        org, site, path, token,
+      });
+      if (pageHtml === null) {
+        this._status = { text: 'Could not load this page.', type: 'error' };
+        return;
+      }
+      const doc = new DOMParser().parseFromString(pageHtml, 'text/html');
+      const rows = buildImageRows(doc);
+      const videoRows = buildVideoRows(doc);
+      await Promise.all([
+        ensureThumbnailLogins(rows, token),
+        resolveAuthenticatedThumbnails(rows, token),
+      ]);
+      this._rows = rows;
+      this._initialRows = cloneRows(rows);
+      this._videoRows = videoRows;
+      this._initialVideoRows = cloneRows(videoRows);
+    } catch {
       this._status = { text: 'Could not load this page.', type: 'error' };
-      return;
     }
-    const rows = buildImageRows(pageHtml);
-    await Promise.all([
-      ensureThumbnailLogins(rows, token),
-      resolveAuthenticatedThumbnails(rows, token),
-    ]);
-    this._rows = rows;
-    this._initialRows = cloneRows(rows);
   }
 
   handleToggle(row) {
     row.checked = !row.checked;
-    this._rows = [...this._rows];
+    this.requestUpdate();
   }
 
   async handleSave() {
     this._saving = true;
     this._status = undefined;
-    const result = await saveSelections({
-      org: this.org,
-      site: this.site,
-      path: this.path,
-      token: this.token,
-      initialRows: this._initialRows,
-      currentRows: this._rows,
-    });
-    this._saving = false;
-    if (result.error || !result.ok) {
+    try {
+      const result = await saveSelections({
+        org: this.org,
+        site: this.site,
+        path: this.path,
+        token: this.token,
+        initialRows: this._initialRows,
+        currentRows: this._rows,
+        initialVideoRows: this._initialVideoRows,
+        currentVideoRows: this._videoRows,
+      });
+      if (result.error || !result.ok) {
+        this._status = { text: 'Could not save your selection.', type: 'error' };
+        return;
+      }
+      this._initialRows = cloneRows(this._rows);
+      this._initialVideoRows = cloneRows(this._videoRows);
+      this._status = { text: 'Saved.', type: 'success' };
+    } catch {
       this._status = { text: 'Could not save your selection.', type: 'error' };
-      return;
+    } finally {
+      this._saving = false;
     }
-    this._initialRows = cloneRows(this._rows);
-    this._status = { text: 'Saved.', type: 'success' };
   }
 
-  get _markedCount() {
-    return this._rows?.filter((row) => row.checked).length ?? 0;
+  renderCheckbox({ row, label, disabled = false }) {
+    return html`
+      <input
+        type="checkbox"
+        aria-label=${label}
+        .checked=${row.checked}
+        ?disabled=${this._saving || disabled}
+        @change=${() => this.handleToggle(row)} />
+    `;
   }
 
   renderRow(row) {
     return html`
       <li class="row ${row.eligible ? '' : 'is-ineligible'}">
-        <input
-          type="checkbox"
-          .checked=${row.checked}
-          ?disabled=${!row.eligible}
-          @change=${() => this.handleToggle(row)} />
+        ${this.renderCheckbox({
+          row,
+          label: `Translate image: ${row.alt || row.src}`,
+          disabled: !row.eligible,
+        })}
         <img class="thumb" src=${row.thumbnail} alt="" loading="lazy" />
         <div class="row-details">
           <p class="row-alt">${row.alt || row.src}</p>
-          ${row.eligible ? null : html`<p class="row-note">Not eligible for image translation (svg, or not an absolute http(s) URL).</p>`}
+          ${row.eligible ? null : html`<p class="row-note">${row.ineligibleReason}</p>`}
+        </div>
+      </li>
+    `;
+  }
+
+  renderVideoRow(row) {
+    return html`
+      <li class="row">
+        ${this.renderCheckbox({ row, label: `Translate video captions: ${row.src}` })}
+        <span class="thumb video-thumb" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7Z"></path></svg>
+        </span>
+        <div class="row-details">
+          <p class="row-alt"><a href=${row.src} target="_blank" rel="noopener noreferrer">${row.src}</a></p>
+          <p class="row-note">Translate captions</p>
         </div>
       </li>
     `;
@@ -108,14 +151,24 @@ class NxGlaasLocImages extends LitElement {
   }
 
   render() {
-    if (!this._rows) return html`<p>Loading images…</p>`;
-    if (!this._rows.length) return html`<p>No images found on this page.</p>`;
+    if (!this._rows || !this._videoRows) {
+      return this._status ? this.renderMessage() : html`<p>Loading images and videos…</p>`;
+    }
+    if (!this._rows.length && !this._videoRows.length) {
+      return html`<p>No images or supported videos found on this page.</p>`;
+    }
 
     return html`
       <div class="loc-images">
-        <p class="summary">${this._markedCount} of ${this._rows.length} images already marked for translation.</p>
-        <ul class="row-list">
+        <h2>Images</h2>
+        <p class="summary">${countSelected(this._rows)} of ${this._rows.length} images already marked for translation.</p>
+        <ul class="row-list image-list">
           ${this._rows.map((row) => this.renderRow(row))}
+        </ul>
+        <h2>Videos</h2>
+        <p class="summary">${countSelected(this._videoRows)} of ${this._videoRows.length} videos marked for caption translation.</p>
+        <ul class="row-list video-list">
+          ${this._videoRows.map((row) => this.renderVideoRow(row))}
         </ul>
         <div class="actions">
           ${this.renderMessage()}

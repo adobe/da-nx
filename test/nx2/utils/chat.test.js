@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { useAoChat, loadChat } from '../../../nx2/utils/chat.js';
-import { resetMockIms, setMockIms } from '../../../nx2/test/mocks/ims.js';
+import { resetMockIms, setMockIms } from '../mocks/ims.js';
 import { REQUIRED_SERVICE_CODES } from '../../../nx2/utils/entitlement.js';
 
 // isHlx6's upgrade probe reads resp.headers.get(...) before daConfig ever reads

@@ -4,6 +4,11 @@ import { getSiteOptions, getCreateSiteHref, setRecentSite } from './site-utils.j
 import '../shared/picker/picker.js';
 
 const styles = await loadStyle(import.meta.url);
+const connectedSelectors = new Set();
+
+export function getSelectedSite() {
+  return [...connectedSelectors].at(-1)?.value;
+}
 
 class NxSiteselector extends LitElement {
   static properties = {
@@ -17,6 +22,7 @@ class NxSiteselector extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    connectedSelectors.add(this);
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._connection = new AbortController();
     this.size ??= 's';
@@ -30,6 +36,7 @@ class NxSiteselector extends LitElement {
   }
 
   disconnectedCallback() {
+    connectedSelectors.delete(this);
     this._connection.abort();
     super.disconnectedCallback();
   }
