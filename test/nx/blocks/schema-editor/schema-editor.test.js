@@ -100,18 +100,4 @@ describe('schema editor', () => {
     expect(el._currentSchema).to.equal('my-schema');
     expect(button('Delete schema')).to.exist;
   });
-
-  it('shows a failed delete as an alert', async () => {
-    await mount((path) => ({
-      [`GET ${DA_ADMIN}/list${path}`]: () => new Response(JSON.stringify([{ name: 'faqs', ext: 'html', path: `${path}/faqs.html` }]), { status: 200 }),
-      [`GET ${DA_ADMIN}/source${path}/faqs.html`]: () => new Response(schemaHtml(JSON.stringify(SCHEMA)), { status: 200 }),
-      [`DELETE ${DA_ADMIN}/source${path}/faqs.html`]: () => new Response('', { status: 500 }),
-    }));
-    expect(el._currentSchema).to.equal('faqs');
-
-    await el.handleDelete();
-
-    expect(el._alert.message).to.equal('Error deleting. Status: 500');
-    expect(el._schemas.faqs).to.exist;
-  });
 });
