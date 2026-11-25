@@ -147,37 +147,23 @@ describe('media library source access', () => {
       expect(await isHlx6(org, 'site')).to.be.false;
     });
 
-    it('treats a site whose primary content is on DA as legacy, even with a source bus overlay', async () => {
+    it('treats a ping with the header as Helix 6, whatever the primary content source is', async () => {
       const org = uniqueOrg('hlx6');
-      stubFetch([[`${HLX_ADMIN}/sidekick/${org}/site/main/config.json`, () => json({
-        contentSourceType: 'markup',
-        contentSourceUrl: `https://content.da.live/${org}/site/`,
+      const calls = stubFetch([[`${HLX_ADMIN}/sidekick/${org}/site/main/config.json`, () => json({
+        contentSourceType: 'onedrive',
+        contentSourceUrl: `https://adobe.sharepoint.com/sites/${org}/Shared%20Documents/site`,
       })]]);
 
-      expect(await isHlx6(org, 'site')).to.be.false;
+      expect(await isHlx6(org, 'site')).to.be.true;
+      expect(calls.filter((c) => c.url.startsWith(`${HLX_ADMIN}/sidekick/`))).to.have.length(0);
     });
 
-    it('treats a sourcebus content source without a URL as Helix 6', async () => {
+    it('classifies a site from the ping alone, without any other admin request', async () => {
       const org = uniqueOrg('hlx6');
-      stubFetch([[`${HLX_ADMIN}/sidekick/${org}/site/main/config.json`, () => json({ contentSourceType: 'sourcebus' })]]);
+      const calls = stubFetch([]);
 
       expect(await isHlx6(org, 'site')).to.be.true;
-    });
-
-    it('falls back to DA when the content source cannot be read', async () => {
-      const org = uniqueOrg('hlx6');
-      const config = `${HLX_ADMIN}/sidekick/${org}/site/main/config.json`;
-      const calls = stubFetch([[config, () => new Response('', { status: 500 })]]);
-
-      expect(await withRetryWaits(() => isHlx6(org, 'site'))).to.be.false;
-      expect(calls.filter((c) => c.url === config)).to.have.length(3);
-    });
-
-    it('falls back to DA when the content source is not JSON', async () => {
-      const org = uniqueOrg('hlx6');
-      stubFetch([[`${HLX_ADMIN}/sidekick/${org}/site/main/config.json`, () => new Response('<html>')]]);
-
-      expect(await isHlx6(org, 'site')).to.be.false;
+      expect(calls.map((c) => c.url)).to.deep.equal([`${HLX_ADMIN}/ping/${org}/site`]);
     });
 
     it('resolves the source origin from a site path', async () => {
