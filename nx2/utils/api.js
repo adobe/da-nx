@@ -284,10 +284,10 @@ export const source = {
       resp = await daFetch({ url, opts: fetchOpts });
     }
     const nextToken = resp?.headers?.get?.('da-continuation-token') || null;
-    const { permissions, status: respStatus } = resp || {};
+    const { permissions } = resp || {};
     if (!resp?.ok) {
       return {
-        ok: false, items: [], continuationToken: nextToken, permissions, status: respStatus,
+        ok: false, items: [], continuationToken: nextToken, permissions, status: resp?.status,
       };
     }
     let raw;

@@ -36,7 +36,7 @@ export interface ListResult {
   continuationToken: string | null;
   /** Same hint as `ApiResponse.permissions`. */
   permissions?: string[];
-  /** HTTP status of a failed site-level listing (e.g. 404 for a missing hlx6 folder). */
+  /** HTTP status of a failed site-level listing (e.g. 404 for a missing folder). */
   status?: number;
 }
 

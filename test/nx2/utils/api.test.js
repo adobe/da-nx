@@ -377,6 +377,15 @@ describe('api.js', () => {
       expect(result.permissions).to.deep.equal(['read', 'write']);
     });
 
+    it('source.list returns the status of a failed site listing', async () => {
+      restoreFetch();
+      installFetch({ status: 404, body: '' });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await source.list({ org: o, site: s, path: '/folder' });
+      expect(result.ok).to.equal(false);
+      expect(result.status).to.equal(404);
+    });
+
     it('source.list normalizes hlx6 items via hlx6ToDaList using the parent path', async () => {
       restoreFetch();
       installFetch({
