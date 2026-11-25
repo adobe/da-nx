@@ -1,7 +1,8 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
-import { isHlx6, loadIms as loadApiIms } from '../../../../nx2/utils/api.js';
+import { loadIms as loadApiIms } from '../../../../nx2/utils/api.js';
 import { AEM_API, HLX_ADMIN } from '../../../../nx2/utils/utils.js';
+import { checkSite } from './source.js';
 import { isRenderedBlock } from './rerender-scope.js';
 
 const DA_LIVE_PREVIEW_ENVS = {
@@ -268,7 +269,7 @@ async function requestPreview({ owner, repo, path }) {
   const { accessToken } = await loadApiIms();
   if (!accessToken) return 'not signed in';
   const page = path.endsWith('/') ? `${path}index` : path;
-  const url = await isHlx6(owner, repo)
+  const url = await checkSite(owner, repo)
     ? `${AEM_API}/${owner}/sites/${repo}/preview${page}`
     : `${HLX_ADMIN}/preview/${owner}/${repo}/main${page}`;
   const resp = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${accessToken.token}` } });

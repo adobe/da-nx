@@ -1,5 +1,5 @@
 /* eslint-disable import/prefer-default-export */
-import { source } from '../../../../nx2/utils/api.js';
+import { uploadImage } from './source.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import {
   resolveImagePosition, updateImageInDocument,
@@ -46,7 +46,7 @@ export async function handleImageReplace(payload, ctx) {
     const parentPath = ctx.path === '/' ? '' : ctx.path.replace(/\/[^/]+$/, '');
 
     const uploadPath = `${parentPath}/.${pageName}/${fileName}`;
-    const resp = await source.uploadMedia({
+    const resp = await uploadImage({
       org: ctx.owner, site: ctx.repo, path: uploadPath, body: blob,
     });
 
