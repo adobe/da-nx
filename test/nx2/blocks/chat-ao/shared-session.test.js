@@ -19,6 +19,7 @@ const deferred = () => {
 const tick = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
 
 describe('standalone input and full AO chat sharing', () => {
+  const { checkAccess } = CoworkerChatController.prototype;
   let elements;
   let sockets;
   let originals;
@@ -116,6 +117,9 @@ describe('standalone input and full AO chat sharing', () => {
     accessEffect = 'permit';
     accessStatus = 200;
     accessWait = undefined;
+    patch(CoworkerChatController.prototype, 'checkAccess', function enforceAccess() {
+      return checkAccess.call(this, { enforceEntitlement: true });
+    });
     setMockIms({
       projectedProductContext: [{ prodCtx: { owningEntity: org } }],
     });
@@ -212,6 +216,26 @@ describe('standalone input and full AO chat sharing', () => {
     });
     originals.reverse().forEach((restore) => restore());
     resetMockIms();
+  });
+
+  it('initializes both Coworker views without calling entitlement enforcement by default', async () => {
+    patch(CoworkerChatController.prototype, 'checkAccess', checkAccess);
+    accessEffect = 'deny';
+    accessStatus = 503;
+    const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
+    expect(accessChecks).to.equal(0);
+    expect(episodeLoads).to.equal(1);
+    expect(skillLoads).to.equal(1);
+    expect(standalone.checkVisibility()).to.equal(true);
+    expect(full.shadowRoot.querySelector('.chat-status')).to.equal(null);
+    [standalone, full].forEach((chat) => {
+      expect(input(chat).disabled).to.equal(false);
+      expect(chat._session.canSend()).to.equal(true);
+    });
+    submit(full, 'Send without entitlement enforcement');
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
   });
 
   it('shares a pending Coworker access check and only initializes after permission', async () => {
