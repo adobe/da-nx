@@ -1,3 +1,17 @@
+## [1.66.1](https://github.com/adobe/da-nx/compare/v1.66.0...v1.66.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **schema-editor:** hlx6 - list, save and delete schemas ([#936](https://github.com/adobe/da-nx/issues/936)) ([ec27644](https://github.com/adobe/da-nx/commit/ec2764498b6c16d5becc315bfd3927726b72ac82))
+
+# [1.66.0](https://github.com/adobe/da-nx/compare/v1.65.0...v1.66.0) (2026-11-25)
+
+
+### Features
+
+* **marketplace:** new marketplace design and featured teaser block ([#953](https://github.com/adobe/da-nx/issues/953)) ([2515769](https://github.com/adobe/da-nx/commit/2515769db1dfda56f4300c84e393c3e67f12f59a))
+
 # [1.65.0](https://github.com/adobe/da-nx/compare/v1.64.0...v1.65.0) (2026-11-24)
 
 
