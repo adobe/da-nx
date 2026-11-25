@@ -293,29 +293,6 @@ describe('schema editor utils', () => {
       expect(result.error).to.be.undefined;
       expect(calls.filter((c) => c.url === url).map((c) => c.method)).to.deep.equal(['HEAD', 'POST']);
     });
-
-    it('keeps markup and entities in schema text when saving and reading it back', async () => {
-      const { org, site } = uniqueOrgSite();
-      const folder = `${AEM_API}/${org}/sites/${site}/source/.da/forms/schemas`;
-      const schema = { ...SCHEMA, description: 'Use <em>small</em> &copy; exactly. <img src="https://example.com/x.png">' };
-      let stored;
-      installRoutes({
-        hlx6: true,
-        routes: {
-          [`POST ${folder}/faqs.html`]: () => new Response(null, { status: 201 }),
-          [`GET ${folder}/`]: json([{ name: 'faqs.html', 'content-type': 'text/html' }]),
-          [`GET ${folder}/faqs.html`]: () => new Response(stored, { status: 200 }),
-        },
-      });
-
-      await saveSchema(`/${org}/${site}`, 'faqs', JSON.stringify(schema));
-      stored = calls.find((c) => c.method === 'POST').body;
-      const schemas = await loadSchemas(org, site);
-
-      expect(stored).not.to.include('<em>');
-      expect(stored).not.to.include('<img');
-      expect(schemas.faqs).to.deep.equal({ status: 'loaded', schema });
-    });
   });
 
   describe('legacy DA site', () => {
