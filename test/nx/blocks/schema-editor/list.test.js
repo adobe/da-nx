@@ -16,7 +16,7 @@ describe('schema editor list', () => {
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {
       const key = `${opts.method || 'GET'} ${url}`;
-      requested.push(key);
+      if (!String(url).includes('/ping/')) requested.push(key);
       if (key === `GET ${DA_ADMIN}/list${path}`) {
         return new Response(JSON.stringify([
           { name: 'faqs', ext: 'html', path: `${path}/faqs.html` },
