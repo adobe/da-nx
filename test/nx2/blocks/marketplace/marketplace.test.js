@@ -53,6 +53,7 @@ describe('nx-marketplace', () => {
 
     expect(div.children.length).to.equal(1);
     expect(div.firstElementChild.localName).to.equal('nx-marketplace');
+    expect(document.title).to.equal('Marketplace | Experience Workspace');
   });
 
   it('shows loading state before data resolves', async () => {

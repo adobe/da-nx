@@ -1,6 +1,7 @@
 import { html, LitElement, repeat, nothing } from 'da-lit';
 import getStyle from '../../../nx2/public/utils/styles.js';
 import { getConfig } from '../../../nx2/scripts/nx.js';
+import { setPageTitle } from '../../../nx2/utils/utils.js';
 import '../../../nx2/public/sl/components.js';
 import {
   getAemConfig,
@@ -185,6 +186,7 @@ function setup(el) {
 }
 
 export default function init(el) {
+  setPageTitle('Permissions');
   el.innerHTML = '';
   setup(el);
   window.addEventListener('hashchange', () => { setup(el); });

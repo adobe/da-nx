@@ -186,6 +186,13 @@ export const loadPageStyle = (href) => new Promise((resolve) => {
 export { loadStyle };
 export { default as loadScript } from '../../nx/utils/script.js';
 
+export const PRODUCT_NAME = 'Experience Workspace';
+
+// Sets the document title as `<name> | Experience Workspace`, or just the product name.
+export function setPageTitle(name) {
+  document.title = name ? `${name} | ${PRODUCT_NAME}` : PRODUCT_NAME;
+}
+
 // Sheet-format JSON (as served by DA/AEM config stores) -> simple object,
 // keyed by sheet name(s), values are each sheet's `data` array.
 export function sheet2object(json) {
