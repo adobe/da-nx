@@ -194,19 +194,50 @@ describe('loc source helpers', () => {
       expect(calls[2].body).to.equal(label);
     });
 
-    it('never sends a read or a write to the source bus', async () => {
+    it('sends the same reads and writes as main to the DA admin', async () => {
+      installFetch(() => new Response('[]', { status: 200 }));
+      const { org, site } = makeSite({ pingFails: true });
+      const { signal } = new AbortController();
+      const page = `/${org}/${site}/de/page.html`;
+      const project = `/${org}/${site}/.da/translation/active/1.json`;
+      await getSource(page, { noCache: true, signal });
+      await saveSource(page, '<main></main>');
+      await saveSource(project, '{"a":1}');
+      const listed = await listSource(`/${org}/${site}/.da/translation/active`, { signal });
+      await moveSource(project, `/${org}/${site}/.da/translation/archive/1.json`);
+      await createVersion(page, 'Project - Rolled Out');
+      expect(calls.map(({ method, url }) => `${method} ${url}`)).to.deep.equal([
+        `GET ${DA_ADMIN}/source${page}`,
+        `POST ${DA_ADMIN}/source${page}`,
+        `POST ${DA_ADMIN}/source${project}`,
+        `GET ${DA_ADMIN}/list/${org}/${site}/.da/translation/active`,
+        `POST ${DA_ADMIN}/move${project}`,
+        `POST ${DA_ADMIN}/versionsource${page}`,
+      ]);
+      expect(calls[0].headers['Cache-Control']).to.equal('no-cache');
+      expect(calls[0].signal).to.equal(signal);
+      expect(calls[3].signal).to.equal(signal);
+      expect(calls[1].body.get('data').type).to.equal('text/html');
+      expect(await calls[1].body.get('data').text()).to.equal('<main></main>');
+      expect(calls[2].body.get('data').type).to.equal('application/json');
+      expect(calls[4].body.get('destination')).to.equal(`/${org}/${site}/.da/translation/archive/1.json`);
+      expect(JSON.parse(calls[5].body)).to.deep.equal({ label: 'Project - Rolled Out' });
+      expect(listed).to.deep.include({ ok: true, items: [] });
+    });
+
+    it('reports a failed list like main does, with the status', async () => {
+      installFetch(() => new Response('', { status: 404 }));
+      const { org, site } = makeSite({ pingFails: true });
+      const result = await listSource(`/${org}/${site}/.da/translation/active`);
+      expect(result.ok).to.equal(false);
+      expect(result.status).to.equal(404);
+    });
+
+    it('does not send a read or a write to the source bus', async () => {
       installFetch();
       const { org, site } = makeSite({ pingFails: true });
-      const results = await Promise.allSettled([
-        getSource(`/${org}/${site}/en/page.html`),
-        saveSource(`/${org}/${site}/de/page.html`, '<main></main>'),
-        listSource(`/${org}/${site}/.da/translation/active`),
-        moveSource(`/${org}/${site}/a.json`, `/${org}/${site}/b.json`),
-        createVersion(`/${org}/${site}/de/page.html`, 'label'),
-      ]);
-      results.forEach(({ reason }) => {
-        expect(reason?.message ?? '').not.to.include('Could not check where');
-      });
+      await getSource(`/${org}/${site}/en/page.html`);
+      await saveSource(`/${org}/${site}/de/page.html`, '<main></main>');
       expect(calls.filter(({ url }) => url.startsWith(AEM_API))).to.deep.equal([]);
     });
   });

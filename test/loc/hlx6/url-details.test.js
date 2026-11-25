@@ -27,4 +27,11 @@ describe('loc url details', () => {
     await getAemDetails(`/${org}/${site}/en/page`);
     expect(calls[0].url).to.equal(`${HLX_ADMIN}/status/${org}/${site}/main/en/page`);
   });
+
+  it('reads the legacy status when the site check fails, as main does', async () => {
+    const { org, site } = makeSite({ pingFails: true });
+    const details = await getAemDetails(`/${org}/${site}/en/page`);
+    expect(calls[0].url).to.equal(`${HLX_ADMIN}/status/${org}/${site}/main/en/page`);
+    expect(details.publish).to.equal('Never');
+  });
 });
