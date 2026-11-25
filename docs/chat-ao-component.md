@@ -44,6 +44,10 @@ send is scheduled, and a warning toast asks the user to wait for the response.
 and organization, returning `{ allowed }` or `{ error, status? }`. ACS uses
 the AO region with a VA7 fallback; only production is supported.
 
+Entitlement enforcement is temporarily bypassed during Coworker startup; no ACS
+request is made. The helper and access handling remain intact. The flow below
+applies when `checkAccess({ enforceEntitlement: true })` is used.
+
 Coworker session startup checks access before loading history or skills and
 opening connections. The standalone input stays hidden until access is permitted,
 preserving its draft and attachments. The full panel shows checking, denied, and
