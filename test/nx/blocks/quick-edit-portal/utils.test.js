@@ -49,6 +49,21 @@ describe('quick-edit portal preview', () => {
     expect(ctx.posted.at(-1).payload.ok).to.equal(true);
   });
 
+  it('previews through the legacy admin when the upgrade check fails', async () => {
+    installFetch();
+    const pingFetch = window.fetch;
+    window.fetch = async (url, opts) => {
+      if (url.startsWith(`${HLX_ADMIN}/ping/`)) throw new TypeError('Failed to fetch');
+      return pingFetch(url, opts);
+    };
+    const ctx = makeCtx();
+    await handlePreview(ctx);
+
+    expect(lastCall().url).to.equal(`${HLX_ADMIN}/preview/${ctx.owner}/${ctx.repo}/main/drafts/page`);
+    expect(lastCall().method).to.equal('POST');
+    expect(ctx.posted.at(-1)).to.deep.equal({ type: MESSAGE_TYPES.PREVIEW, payload: { ok: true } });
+  });
+
   it('previews the index document of a folder', async () => {
     installFetch();
     const ctx = makeCtx({ hlx6: true, path: '/drafts/' });

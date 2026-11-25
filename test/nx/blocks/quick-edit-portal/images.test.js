@@ -186,6 +186,23 @@ describe('standalone quick-edit image replacement', () => {
     expect(uploads[0].opts.body.get('data').type).to.equal('image/webp');
   });
 
+  it('uploads to the da source store when the upgrade check fails', async () => {
+    ctx.owner = `qe-img-down-${Math.floor(Math.random() * 1e6)}`;
+    ctx.repo = 'site';
+    const contentUrl = `https://content.da.live/${ctx.owner}/site/.page/pic.png`;
+    window.fetch = async (url, opts = {}) => {
+      if (url.startsWith(`${HLX_ADMIN}/ping/`)) throw new TypeError('Failed to fetch');
+      uploads.push({ url, opts });
+      return new Response(JSON.stringify({ source: { contentUrl } }), { status: 201 });
+    };
+    await handleImageReplace(request(), ctx);
+
+    expect(uploads).to.have.length(1);
+    expect(uploads[0].url).to.equal(`${DA_ADMIN}/source/${ctx.owner}/site/.page/pic.png`);
+    expect(uploads[0].opts.body).to.be.instanceof(FormData);
+    expect(posted.at(-1).payload.newSrc).to.equal(contentUrl);
+  });
+
   it('uploads to the media bus on hlx6 sites and uses the returned media url', async () => {
     const org = `qe-img-${Math.floor(Math.random() * 1e6)}`;
     const site = 'hlx6-site';

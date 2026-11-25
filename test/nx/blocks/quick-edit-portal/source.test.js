@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { AEM_API, DA_ADMIN } from '../../../../nx2/utils/utils.js';
+import { AEM_API, DA_ADMIN, HLX_ADMIN } from '../../../../nx2/utils/utils.js';
 import {
   calls, installFetch, restoreFetch, lastCall,
 } from '../../../nx2/mocks/fetch.js';
@@ -126,13 +126,21 @@ describe('quick-edit portal source', () => {
       expect(sourceUrl).to.equal(`${DA_ADMIN}/source/${org}/${site}/index.html`);
     });
 
-    it('rejects when the upgrade check fails', async () => {
-      const savedFetch = window.fetch;
-      window.fetch = async () => { throw new TypeError('Failed to fetch'); };
+    it('uses the da-admin source url when the upgrade check fails', async () => {
+      installFetch();
       const { org, site } = makeOrgSite();
-      const error = await loadDocSource({ org, site, pathname: '/page' }).then(() => null, (e) => e);
-      window.fetch = savedFetch;
-      expect(error).to.be.instanceof(Error);
+      const pingFetch = window.fetch;
+      window.fetch = async (url, opts) => {
+        if (url.startsWith(`${HLX_ADMIN}/ping/`)) throw new TypeError('Failed to fetch');
+        return pingFetch(url, opts);
+      };
+      const result = await loadDocSource({ org, site, pathname: '/page' });
+
+      const expected = `${DA_ADMIN}/source/${org}/${site}/page.html`;
+      expect(result.sourceUrl).to.equal(expected);
+      expect(lastCall().url).to.equal(expected);
+      expect(lastCall().method).to.equal('HEAD');
+      expect(result.permissions).to.deep.equal(['read', 'write']);
     });
 
     it('returns an error with the status when the document cannot be read', async () => {
