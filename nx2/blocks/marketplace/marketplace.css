@@ -39,7 +39,6 @@
     grid-template-columns: 224px minmax(0, 1fr);
   }
 
-  /* The note sits under the list, in the list's column. */
   .body.has-rail .info-note {
     grid-column: 2;
   }
@@ -158,7 +157,6 @@
 }
 
 .item-action {
-  /* Same as the tools cards (nx-action-card .action): shared .nx-btn-primary, outlined. */
   display: inline-flex;
   box-sizing: border-box;
   padding: 5px 10px;
@@ -335,7 +333,6 @@
   color: var(--s2-red-900);
 }
 
-/* Authored note, styled like da-live's config-info / permissions-info-note. */
 .info-note {
   display: flex;
   flex-direction: column;
@@ -365,8 +362,6 @@
   white-space: nowrap;
 }
 
-/* One column grid for all rows: the actions column is wide enough for both
-   buttons (or the widest row), so descriptions wrap at the same point. */
 @container (width >= 600px) {
   .items.list:not(.loading) {
     display: grid;

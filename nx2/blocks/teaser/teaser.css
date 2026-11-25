@@ -1,4 +1,3 @@
-/* Featured teaser: text left, picture right. Tint via --teaser-bg (set in teaser.js). */
 .nx-teaser {
   container-type: inline-size;
   border-radius: 16px;
