@@ -1,3 +1,38 @@
+# [1.68.0](https://github.com/adobe/da-nx/compare/v1.67.0...v1.68.0) (2026-11-25)
+
+
+### Features
+
+* **pills:** let hosts change the pill width cap via --nx-pill-max-width ([#1053](https://github.com/adobe/da-nx/issues/1053)) ([2ba66c8](https://github.com/adobe/da-nx/commit/2ba66c8b92b9539c11ec47e7819af8921999e77f))
+
+# [1.67.0](https://github.com/adobe/da-nx/compare/v1.66.2...v1.67.0) (2026-11-25)
+
+
+### Features
+
+* introduce tooltips for sidenav items ([#1048](https://github.com/adobe/da-nx/issues/1048)) ([bfd76d7](https://github.com/adobe/da-nx/commit/bfd76d76d08734e01f4adfb690b7e17e7a6ee9b2))
+
+## [1.66.2](https://github.com/adobe/da-nx/compare/v1.66.1...v1.66.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* expose copy for complete assistant response ([#1051](https://github.com/adobe/da-nx/issues/1051)) ([e1a6a3b](https://github.com/adobe/da-nx/commit/e1a6a3b54ae64203293c0d7fc97f637b52ff44fb))
+
+## [1.66.1](https://github.com/adobe/da-nx/compare/v1.66.0...v1.66.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **schema-editor:** hlx6 - list, save and delete schemas ([#936](https://github.com/adobe/da-nx/issues/936)) ([ec27644](https://github.com/adobe/da-nx/commit/ec2764498b6c16d5becc315bfd3927726b72ac82))
+
+# [1.66.0](https://github.com/adobe/da-nx/compare/v1.65.0...v1.66.0) (2026-11-25)
+
+
+### Features
+
+* **marketplace:** new marketplace design and featured teaser block ([#953](https://github.com/adobe/da-nx/issues/953)) ([2515769](https://github.com/adobe/da-nx/commit/2515769db1dfda56f4300c84e393c3e67f12f59a))
+
 # [1.65.0](https://github.com/adobe/da-nx/compare/v1.64.0...v1.65.0) (2026-11-24)
 
 

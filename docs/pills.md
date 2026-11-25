@@ -160,6 +160,18 @@ nx-pills {
 }
 ```
 
+Each pill is capped at 200px wide (240px at `size="m"`) and its label is truncated with an ellipsis beyond that; the full label is in the pill's tooltip. Hosts showing labels that are only distinguishable in full (for example IDs or emails that share a long prefix) can change the cap:
+
+| Custom property        | Default                     | Applies to              |
+| ---------------------- | --------------------------- | ----------------------- |
+| `--nx-pill-max-width`  | `200px` (`240px` at `size="m"`) | `max-width` of each pill |
+
+```css
+nx-pills {
+  --nx-pill-max-width: 100%;
+}
+```
+
 ## Cleanup
 
 If an item has a `thumbnail` that's a blob URL (`URL.createObjectURL(...)`), nx-pills revokes it for you when that item is removed, cleared, or the component disconnects — in self-managed mode. In controlled mode, that's still on you, same as owning the list itself.
