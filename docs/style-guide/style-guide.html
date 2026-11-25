@@ -341,12 +341,19 @@ menu.items = [
           <button type="button" class="nx-action-btn" id="demo-tooltip-long">Longer description</button>
           <nx-tooltip for="demo-tooltip-long">Save a draft without publishing. You can continue editing
             later.</nx-tooltip>
+          <button type="button" class="nx-action-btn" id="demo-tooltip-wide" aria-label="Help" style="width:160px">
+            <span id="demo-tooltip-icon" style="display:inline-block;width:32px">?</span>
+          </button>
+          <nx-tooltip for="demo-tooltip-wide" anchor="demo-tooltip-icon" placement="right">Help</nx-tooltip>
         </div>
         <pre><code>&lt;button id="save" type="button"&gt;Save&lt;/button&gt;
 &lt;nx-tooltip for="save"&gt;Save your changes&lt;/nx-tooltip&gt;
 
 &lt;button id="save-bottom" type="button"&gt;Save&lt;/button&gt;
 &lt;nx-tooltip for="save-bottom" placement="bottom"&gt;Save your changes&lt;/nx-tooltip&gt;
+
+&lt;button id="help" aria-label="Help"&gt;&lt;span id="help-icon"&gt;?&lt;/span&gt;&lt;/button&gt;
+&lt;nx-tooltip for="help" anchor="help-icon" placement="right"&gt;Help&lt;/nx-tooltip&gt;
 </code></pre>
       </article>
 
