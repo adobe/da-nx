@@ -17,6 +17,7 @@ function makeController({ context = { org: 'o', site: 's' } } = {}) {
   controller._ensureSocket = async () => { };
   controller._attach = async () => { };
   controller._resolveManifest = async () => ({ manifestId: 'experience-workspace', debugMode: false });
+  controller._fetchLatestSession = async () => null;
   controller._ws = { send: (msg) => sent.push(JSON.parse(msg)), close: () => { } };
   return { controller, updates, sent };
 }
@@ -188,5 +189,143 @@ describe('cma-controller error surfacing', () => {
     controller._onSessionError({ data: { message: 'Tenant acme is not provisioned for the required product' } });
     const last = controller._messages.at(-1);
     expect(last.content).to.contain('isn\'t provisioned for the alternate assistant');
+  });
+});
+
+describe('cma-controller latest-session resume (Coworker parity)', () => {
+  const HOUR = 60 * 60 * 1000;
+  const ago = (ms) => new Date(Date.now() - ms).toISOString();
+
+  beforeEach(reset);
+  afterEach(reset);
+
+  it('resumes the latest session on the site when this tab has none', async () => {
+    const { controller } = makeController();
+    controller._fetchLatestSession = async () => ({ id: 'sesn_latest', updated_at: ago(HOUR) });
+
+    await controller.loadEpisodes();
+
+    expect(controller._episodeId).to.equal('sesn_latest');
+    expect(controller._resuming).to.equal(true);
+    expect(controller._staleEpisode).to.equal(undefined);
+  });
+
+  it('prefers this tab\'s own pointer and never asks the bridge', async () => {
+    sessionStorage.setItem('nx2:cma-episode:o/s', 'ep-tab');
+    const { controller } = makeController();
+    let asked = false;
+    controller._fetchLatestSession = async () => {
+      asked = true;
+      return null;
+    };
+
+    await controller.loadEpisodes();
+
+    expect(controller._episodeId).to.equal('ep-tab');
+    expect(asked).to.equal(false);
+  });
+
+  it('offers a stale latest session instead of auto-resuming it', async () => {
+    const { controller, updates } = makeController();
+    const stale = { id: 'sesn_old', updated_at: ago(25 * HOUR) };
+    controller._fetchLatestSession = async () => stale;
+
+    await controller.loadEpisodes();
+
+    expect(controller._episodeId).to.equal(undefined);
+    expect(controller._resuming).to.not.equal(true);
+    expect(updates.at(-1).staleEpisode).to.equal(stale);
+  });
+
+  it('starts fresh when the bridge has no latest session', async () => {
+    const { controller, updates } = makeController();
+    await controller.loadEpisodes();
+    expect(controller._episodeId).to.equal(undefined);
+    expect(updates.at(-1).staleEpisode).to.equal(undefined);
+  });
+
+  it('isolated sessions never look up or resume the latest session', async () => {
+    const controller = new CmaChatController({ onUpdate: () => { }, isolated: true });
+    controller.setContext({ org: 'o', site: 's' });
+    let asked = false;
+    controller._fetchLatestSession = async () => {
+      asked = true;
+      return { id: 'x', updated_at: ago(0) };
+    };
+
+    await controller.loadEpisodes();
+
+    expect(asked).to.equal(false);
+    expect(controller._episodeId).to.equal(undefined);
+  });
+
+  it('continuing a stale session clears the offer and resumes it', async () => {
+    const { controller } = makeController();
+    controller._staleEpisode = { id: 'sesn_old', updated_at: ago(25 * HOUR) };
+
+    await controller.switchEpisode('sesn_old');
+
+    expect(controller._episodeId).to.equal('sesn_old');
+    expect(controller._staleEpisode).to.equal(undefined);
+    expect(controller._resuming).to.equal(true);
+  });
+
+  it('does not switch away mid-turn', async () => {
+    const { controller } = makeController();
+    controller._episodeId = 'ep-1';
+    controller._thinking = true;
+    await controller.switchEpisode('ep-2');
+    expect(controller._episodeId).to.equal('ep-1');
+  });
+});
+
+describe('cma-controller _fetchLatestSession', () => {
+  let origFetch;
+  beforeEach(() => {
+    reset();
+    origFetch = window.fetch;
+    setMockIms({ userId: 'u-1', projectedProductContext: [{ prodCtx: { owningEntity: 'ORG@AdobeOrg' } }] });
+  });
+  afterEach(() => {
+    window.fetch = origFetch;
+    reset();
+  });
+
+  const fresh = () => {
+    const controller = new CmaChatController({ onUpdate: () => { } });
+    controller.setContext({ org: 'acme', site: 'www' });
+    return controller;
+  };
+
+  it('asks the CMA bridge for the caller\'s latest session on this site', async () => {
+    let call;
+    window.fetch = async (url, opts) => {
+      call = { url: new URL(url), opts };
+      return new Response(JSON.stringify({ session: { id: 'sesn_1', updated_at: '2026-11-25T10:00:00Z' } }));
+    };
+
+    const latest = await fresh()._fetchLatestSession();
+
+    expect(latest).to.deep.equal({ id: 'sesn_1', updated_at: '2026-11-25T10:00:00Z' });
+    expect(call.url.href.startsWith(CMA_BRIDGE_HTTP_BASE)).to.equal(true);
+    expect(call.url.pathname).to.equal('/api/v1/sessions/latest');
+    expect(call.url.searchParams.get('site')).to.equal('acme/www');
+    expect(call.opts.headers['x-user-id']).to.equal('u-1');
+    expect(call.opts.headers['x-tenant-id']).to.equal('ORG@AdobeOrg');
+    expect(call.opts.headers.authorization).to.match(/^Bearer /);
+  });
+
+  it('returns null for a non-ok, malformed or failed response', async () => {
+    window.fetch = async () => new Response('{}', { status: 404 });
+    expect(await fresh()._fetchLatestSession()).to.equal(null);
+
+    window.fetch = async () => new Response(JSON.stringify({ session: { id: 5 } }));
+    expect(await fresh()._fetchLatestSession()).to.equal(null);
+
+    window.fetch = async () => new Response(JSON.stringify({ session: null }));
+    expect(await fresh()._fetchLatestSession()).to.equal(null);
+
+    window.fetch = async () => { throw new TypeError('network'); };
+    expect(await fresh()._fetchLatestSession()).to.equal(null);
   });
 });

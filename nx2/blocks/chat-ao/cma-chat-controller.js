@@ -12,7 +12,7 @@
 
 import { loadIms } from '../../utils/ims.js';
 import BaseChatController from './base-chat-controller.js';
-import { AO_FRAME } from './ao-constants.js';
+import { AO_FRAME, STALE_EPISODE_MS } from './ao-constants.js';
 import { getOrgId } from './utils/uploads.js';
 import { resolveChatBases } from './utils/endpoints.js';
 import { fetchSkills } from './utils/skills.js';
@@ -119,16 +119,62 @@ export default class CmaChatController extends BaseChatController {
     }
   }
 
-  // WS-only: no episode list to fetch. Resume the session last used in this tab
-  // for the current site so a reload doesn't lose the conversation.
+  // Resume this tab's session for the site; else, like Coworker, the user's
+  // latest session on the site (another tab's), offered instead when stale.
   async loadEpisodes() {
     const stored = this._restoreEpisodeId();
     if (stored) {
       this._resuming = true;
       await this._loadEpisode(stored);
-    } else {
-      this._update();
+      return;
     }
+    const latest = this._isolated ? null : await this._fetchLatestSession();
+    if (this._destroyed) return;
+    const age = latest ? Date.now() - new Date(latest.updated_at).getTime() : NaN;
+    if (latest && !(age > STALE_EPISODE_MS)) {
+      this._resuming = true;
+      await this._loadEpisode(latest.id);
+      return;
+    }
+    this._staleEpisode = age > STALE_EPISODE_MS ? latest : undefined;
+    this._update();
+  }
+
+  // Bridge pointer to the user's latest session on this site; null on any failure.
+  async _fetchLatestSession() {
+    const { org, site } = this._context ?? {};
+    if (!org || !site) return null;
+    try {
+      const {
+        accessToken, userId, projectedProductContext,
+      } = await loadIms();
+      const url = new URL(`${resolveChatBases({ harness: 'cma' }).httpBase}/api/v1/sessions/latest`);
+      url.searchParams.set('site', `${org}/${site}`);
+      const resp = await fetch(url, {
+        headers: {
+          authorization: `Bearer ${accessToken?.token}`,
+          'x-tenant-id': getOrgId(projectedProductContext),
+          'x-user-id': userId,
+        },
+      });
+      if (!resp.ok) return null;
+      const { session } = await resp.json();
+      return typeof session?.id === 'string' && session.updated_at ? session : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async switchEpisode(episodeId) {
+    if (!episodeId || episodeId === this._episodeId || this._blockedByActiveTurn) return;
+    const ws = this._ws;
+    this._ws = null;
+    ws?.close();
+    this._staleEpisode = undefined;
+    this._streaming = '';
+    this._streamingText = undefined;
+    this._resuming = true;
+    await this._loadEpisode(episodeId);
   }
 
   // Lean resume: point at the stored session and attach — the bridge replays

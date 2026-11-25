@@ -27,6 +27,10 @@ export const AO_UPLOAD_EXTENSIONS = [
 // AO's per-file size limit (filesystem/quotas.py's _SINGLE_FILE_LIMIT).
 export const AO_MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
+// See docs/chat-ao-component.md#episode-switching: beyond this, don't
+// auto-resume; offer it as an explicit choice from the welcome view instead.
+export const STALE_EPISODE_MS = 24 * 60 * 60 * 1000;
+
 export const ADD_MENU_ITEMS = [
   { section: 'Add' },
   { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },

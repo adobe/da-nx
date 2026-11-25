@@ -68,11 +68,11 @@ Proposed classes: `BaseChatController`, `CoworkerChatController extends Base`,
 ## Episodes / history — the real divergence
 | Method | Base ⟐ | Coworker | CMA | Note |
 |---|:--:|:--:|:--:|---|
-| `loadEpisodes` | ⟐ abstract | ✅ REST list + latest/stale | ✅ resume stored id (WS replay) | core split |
+| `loadEpisodes` | ⟐ abstract | ✅ REST list + latest/stale | ✅ resume stored id, else bridge latest/stale (WS replay) | core split |
 | `_fetchEpisodes`, `_fetchEpisodeMessages`, `_fetchEpisodeContext` | | ✅ | | orchestrator REST (empty on CMA) |
 | `_loadEpisode` | | ✅ | | REST messages → render → warm |
 | `_refreshEpisodeList` | ⟐ no-op | ✅ REST list | (inherits no-op) | **Base declares a no-op hook** so `_onSessionReady` is safe for a harness with no list; Coworker overrides it (see Resolved decision 2) |
-| `switchEpisode` | ⟐ no-op | ✅ | | episode picker (no list on CMA) |
+| `switchEpisode` | ⟐ no-op | ✅ | ✅ | episode picker; CMA: continue a stale latest session |
 | `warmSession`, `_fetchWarmSession` | | ✅ | | REST warm wrapping the shared `_attach` |
 | `startNewEpisode` | ⟐ | (base clears state) | override | CMA also clears stored pointer |
 

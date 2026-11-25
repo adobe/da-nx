@@ -39,7 +39,7 @@ selection operate on the shared controller. Removing one UI only unsubscribes it
 the last removal destroys the controller and releases document listeners.
 
 The first conversation preserves existing Coworker auto-resume and CMA's per-site
-sessionStorage pointer. Additional conversations in the same scope and explicitly
+sessionStorage pointer (falling back to the bridge's latest session for the site). Additional conversations in the same scope and explicitly
 isolated views start fresh, without reading or updating that resume pointer.
 
 ## Document commands

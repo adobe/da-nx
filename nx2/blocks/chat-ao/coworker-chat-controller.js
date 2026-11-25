@@ -12,6 +12,7 @@
 
 import BaseChatController from './base-chat-controller.js';
 import { AO_COMPONENT_CATALOG_URL } from './coworker/constants.js';
+import { STALE_EPISODE_MS } from './ao-constants.js';
 import { checkCoworkerAccess } from './coworker/access.js';
 import { CHECKING_CHAT_ACCESS, getChatAccessState } from '../shared/chat/access.js';
 import {
@@ -19,10 +20,6 @@ import {
 } from './utils/episodes.js';
 
 const EPISODE_LIST_LIMIT = 10;
-
-// See docs/chat-ao-component.md#episode-switching — beyond this, don't
-// auto-resume; offer it as an explicit choice from the welcome view instead.
-const STALE_EPISODE_MS = 24 * 60 * 60 * 1000;
 
 // AO-direct / CX Coworker harness: episode history comes from the orchestrator
 // REST API (list + messages + warm session). See docs/chat-ao-controller-decoupling.md.

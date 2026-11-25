@@ -232,6 +232,16 @@ switching away.
 _before_ fetching, so switching feels instant rather than leaving stale
 messages on screen for however long the fetch takes.
 
+**Latest-session resume (both harnesses).** With no episode of its own, a
+non-isolated chat resumes the user's most recent conversation if it was
+updated within `STALE_EPISODE_MS` (24h, `ao-constants.js`); older, it's offered
+via the welcome view's "continue" card (`staleEpisode` -> `switchEpisode`).
+Coworker reads it from the orchestrator episode list. CMA has no list: it first
+resumes this tab's sessionStorage pointer, else asks the bridge
+`GET /api/v1/sessions/latest?site=<org>/<site>` (the user's last session on
+that site, any tab). So a new tab, e.g. the skills app opened from Manage
+Skills, continues the canvas conversation. Any lookup failure starts fresh.
+
 **`_refreshEpisodeList` never overwrites a known list with an empty one.**
 `fetchEpisodes` (`utils/episodes.js`) collapses every failure mode — a
 non-ok response, a thrown error — into a plain `[]`, indistinguishable from
