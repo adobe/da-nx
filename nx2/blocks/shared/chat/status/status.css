@@ -1,0 +1,21 @@
+.chat-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s2-spacing-200);
+  padding: var(--s2-spacing-400) var(--s2-spacing-200);
+  color: var(--s2-gray-800);
+  text-align: center;
+
+  h3 {
+    margin: 0;
+    font-size: var(--s2-component-m-bold-font-size);
+    font-weight: var(--s2-component-m-bold-font-weight);
+  }
+
+  p {
+    margin: 0;
+    color: var(--s2-gray-700);
+    font-size: var(--s2-component-m-regular-font-size);
+  }
+}

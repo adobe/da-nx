@@ -68,6 +68,10 @@
   max-width: 720px;
   min-height: 100%;
   box-sizing: border-box;
+
+  &:has(> .chat-status) {
+    justify-content: center;
+  }
 }
 
 .message-content {

@@ -1,7 +1,7 @@
 {
   "name": "nexter",
   "private": true,
-  "version": "1.62.0",
+  "version": "1.65.0",
   "description": "Next generation unified shell for Edge Delivery applications.",
   "type": "module",
   "scripts": {
@@ -52,6 +52,7 @@
   "homepage": "https://github.com/adobe/da-nx#readme",
   "devDependencies": {
     "@adobe/eslint-config-helix": "^3.0.17",
+    "@adobe/semantic-release-ipaas-chg": "^1.2.12",
     "@adobe/spectrum-tokens": "^14.2.2",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
@@ -70,7 +71,7 @@
     "globals": "^17.3.0",
     "husky": "9.1.7",
     "lint-staged": "^16.2.7",
-    "prosemirror-model": "1.25.12",
+    "prosemirror-model": "1.25.13",
     "prosemirror-state": "1.4.4",
     "prosemirror-tables": "1.8.5",
     "prosemirror-view": "1.42.9",
