@@ -126,3 +126,24 @@ describe('NxLocTranslate - checkAndSaveLangs serialization', () => {
     expect(calls).to.deep.equal(['a', 'b']);
   });
 });
+
+describe('NxLocTranslate - Copy All errors', () => {
+  it('shows the copy errors', async () => {
+    const el = createTranslateEl();
+    el.project = { org: 'org', site: 'site', title: 'title', options: { 'copy.conflict.behavior': 'overwrite' } };
+    el._copyLangs = [{ code: 'fr', location: '/fr' }];
+    el.fetchUrls = async () => ({
+      urls: [],
+      langsWithUrls: [{ urls: [{ suppliedPath: '/a', daDestPath: '/a.html', content: '<p>hello</p>' }] }],
+    });
+    el.handleSaveLangs = () => {};
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response('', { status: 500 });
+    try {
+      await el.handleCopyAll();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    expect(el._urlErrors.map(({ error }) => error)).to.deep.equal(['/org/site/fr/a.html: Save failed (500)']);
+  });
+});
