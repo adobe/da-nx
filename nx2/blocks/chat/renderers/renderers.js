@@ -5,8 +5,9 @@ import {
 import { parseDirectives } from '../utils/parse.js';
 import { linkifyBareUrls, sanitizeLinks } from '../utils/links.js';
 import { parseMarkdown } from '../../shared/chat/markdown.js';
-import { renderCopyButton } from '../../shared/chat/copy-button.js';
+import { getResponseCopies, renderCopyButton } from '../../shared/chat/copy-button.js';
 import { renderSelectionPills } from '../../shared/chat/selection-pills.js';
+import { renderToolCard as renderActivityCard } from './card-renderers.js';
 
 const { hastToDom } = await import('../../../deps/mdast/dist/index.js');
 
@@ -84,17 +85,18 @@ function renderApprovalCard(pending, onApprove) {
   `;
 }
 
-function renderAssistantMessage(msg, toolCards) {
+function renderAssistantMessage(msg, toolCards, copyContent) {
   if (Array.isArray(msg.content)) {
     return html`${msg.content.map((part) => (part.type === PART_TYPE.TOOL
       ? renderToolCard(part.toolCallId, toolCards)
-      : nothing))}`;
+      : nothing))}
+      ${copyContent ? html`<div class="message message-assistant">${renderCopyButton(copyContent)}</div>` : nothing}`;
   }
 
   return html`
     <div class="message message-assistant">
       <div class="message-content">${renderMessageContent(msg.content)}</div>
-      ${renderCopyButton(msg.content, { streaming: msg.streaming })}
+      ${copyContent ? renderCopyButton(copyContent) : nothing}
     </div>
   `;
 }
@@ -108,11 +110,27 @@ function renderUserMessage(msg) {
   `;
 }
 
-function renderMessage(msg, toolCards) {
+function renderMessage(msg, toolCards, copyContent) {
   if (msg.role === ROLE.TOOL) return nothing;
   return msg.role === ROLE.ASSISTANT
-    ? renderAssistantMessage(msg, toolCards)
+    ? renderAssistantMessage(msg, toolCards, copyContent)
     : renderUserMessage(msg);
 }
 
-export { renderMessage, renderApprovalCard, summarizeToolError };
+function renderMessages({ messages = [], thinking, toolCards } = {}) {
+  const copies = getResponseCopies({ messages, thinking });
+  return messages.map((msg, index) => {
+    const copyContent = copies.get(index);
+    if (msg.toolCard || msg.role === ROLE.TOOL) {
+      return html`
+        ${msg.toolCard ? renderActivityCard(msg.toolCard) : nothing}
+        ${copyContent ? html`<div class="message message-assistant">${renderCopyButton(copyContent)}</div>` : nothing}
+      `;
+    }
+    return renderMessage(msg, toolCards, copyContent);
+  });
+}
+
+export {
+  renderMessage, renderMessages, renderApprovalCard, summarizeToolError,
+};
