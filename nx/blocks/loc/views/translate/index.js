@@ -330,8 +330,8 @@ export async function sendAllForTranslation(conf, connector) {
  * @param {Object} connector - The active loc connector.
  * @param {Object} lang - The dependent language to submit; mutated in
  *  place (`translation.status`, and `waitingFor` is deleted). Both are
- *  restored if the connector reports an error or throws without moving the
- *  language past `not started` or setting `submissionFailed`.
+ *  restored if the connector reports an error or throws and leaves the
+ *  language `not started` or `error` without setting `submissionFailed`.
  * @param {Object[]} originalUrls - The project's full supplied urls.
  * @param {string} [sourceLocation] - The project's default source
  *  location, the fallback prefix when a url is under no configured source.
@@ -401,7 +401,7 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
 
   // Retry a failed submission on the next status check, unless the connector marked it terminal.
   const { status, submissionFailed } = lang.translation;
-  if (failed && status === 'not started' && !submissionFailed) {
+  if (failed && ['not started', 'error'].includes(status) && !submissionFailed) {
     lang.translation.status = 'waiting';
     lang.waitingFor = waitingFor;
   }

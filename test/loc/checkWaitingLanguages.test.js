@@ -87,6 +87,44 @@ describe('checkWaitingLanguages', () => {
     expect(sendMessage.calledWithMatch({ type: 'error', text: 'Unsupported code' })).to.equal(true);
   });
 
+  it('restores waiting when a Lionbridge upload fails', async () => {
+    sessionStorage.clear();
+    const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+    globalThis.fetch = sinon.stub().callsFake(async (url, opts = {}) => {
+      const u = String(url);
+      if (u.includes('/integrations/lionbridge/login')) return json({ access_token: 't', expires_in: 3600 });
+      if (u.includes('/sourcefiles')) return new Response('', { status: 500 });
+      if (u.endsWith('/jobs') && opts.method === 'POST') return json({ jobId: 'job-1' }, 201);
+      if (u.includes('/.da/translate')) return json({ config: { data: [] } });
+      return new Response('<p>hello</p>', { status: 200 });
+    });
+    const { conf, lang, sendMessage } = makeConf();
+    conf.service = {
+      org: 'org', site: 'lb-retry', env: 'prod', apiEndpoint: 'https://lb.example.com/v2', providerId: 'p',
+    };
+    const lionbridge = await import('../../nx/blocks/loc/connectors/lionbridge/index.js');
+
+    await checkWaitingLanguages(conf, lionbridge, URLS, '/en');
+
+    expect(lang.translation.status).to.equal('waiting');
+    expect(lang.waitingFor).to.equal(FRENCH);
+    expect(sendMessage.calledWithMatch({ type: 'error', text: sinon.match('Error uploading') })).to.equal(true);
+  });
+
+  it('does not resubmit a language the connector already created', async () => {
+    const { conf, connector, lang } = makeConf({
+      sendAllLanguages: async ({ langs, actions }) => {
+        langs[0].translation.status = 'created';
+        actions.sendMessage({ text: 'Partial warning', type: 'error' });
+      },
+    });
+
+    await checkWaitingLanguages(conf, connector, URLS, '/en');
+
+    expect(lang.translation.status).to.equal('created');
+    expect(lang.waitingFor).to.equal(undefined);
+  });
+
   it('keeps a terminal connector failure instead of resubmitting it', async () => {
     const { conf, connector, lang } = makeConf({
       sendAllLanguages: async ({ langs, actions }) => {
