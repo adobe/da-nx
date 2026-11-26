@@ -1,3 +1,10 @@
+## [1.68.5](https://github.com/adobe/da-nx/compare/v1.68.4...v1.68.5) (2026-11-26)
+
+
+### Bug Fixes
+
+* **chat-ao:** don't mark empty page evaluation sections as expandable ([#1061](https://github.com/adobe/da-nx/issues/1061)) ([aaeaac0](https://github.com/adobe/da-nx/commit/aaeaac06b050057f05bda21db05792d623a1da4d))
+
 ## [1.68.4](https://github.com/adobe/da-nx/compare/v1.68.3...v1.68.4) (2026-11-26)
 
 
