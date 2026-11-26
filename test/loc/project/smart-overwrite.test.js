@@ -251,7 +251,7 @@ describe('smartOverwriteCopy', () => {
     expect(ungroup(saved)).to.not.include('<p>R</p>');
   });
 
-  it('honors rejections like merge: whole blocks and lists, not block groups or list items', async () => {
+  it('honors rejections like merge: blocks, lists, list items, and block groups', async () => {
     const base = await hashesOf('<p>A</p><p>B</p>');
     const group = '<div class="block-group-start"></div><p>G</p><div class="block-group-end"></div>';
     const rejected = [
@@ -264,8 +264,8 @@ describe('smartOverwriteCopy', () => {
     destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(rejected, `/org/site/apac/page.html|${base.join(',')}`));
     await rollout(smartOverwriteCopy, `<p>A</p><ul><li>X</li><li>Y</li></ul><ol><li>Z</li><li>W</li></ol>${group}<p>B</p>`);
     expect(ungroup(saved)).to.not.include('<li>X</li>');
-    expect(ungroup(saved)).to.include('<ol><li>Z</li><li>W</li></ol>');
-    expect(ungroup(saved)).to.include(group);
+    expect(ungroup(saved)).to.include('<ol><li>W</li></ol>');
+    expect(ungroup(saved)).to.not.include('<p>G</p>');
   });
 
   it('reads a baseline value wrapped in a paragraph or whitespace', async () => {

@@ -148,8 +148,8 @@ Blocks rejected in a merge review (the page's `rejectedhashes`) are treated as i
 the merge they are removed from the upstream page, together with any section that held only rejected blocks, and
 the rest of upstream is merged by the rules above. So the rest of an upstream replacement that holds a rejected block
 is applied, and a block upstream replaced with only rejected blocks is deleted like any upstream deletion.
-- Only single blocks are matched, by the same hash merge uses. Like merge, a rejection never applies to a block group
-  or to one item of a list (a whole list can be rejected).
+- Blocks, whole lists, list items, and whole block groups are matched, by the same review hash merge uses. List
+  items are matched when a list with open items is merged item by item, and on an emptied page.
 - Copies the baseline already holds are not removed: the merge then sees the page's choice as a local change. For
   example, after a merge review where the author rejected an upstream edit and kept their own block, the page keeps
   its block. Extra copies beyond the baseline's are removed.
