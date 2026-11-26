@@ -2,8 +2,8 @@ import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
 import BaseChatController from '../../../../nx2/blocks/chat-ao/base-chat-controller.js';
-import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker-chat-controller.js';
-import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
+import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker/controller.js';
+import CmaChatController from '../../../../nx2/blocks/chat-ao/cma/controller.js';
 import { AO_EVENT, AO_FRAME } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { setMockIms, resetMockIms } from '../../mocks/ims.js';
 import { REQUIRED_SERVICE_CODES } from '../../../../nx2/utils/entitlement.js';
@@ -910,12 +910,16 @@ describe('standalone input and full AO chat sharing', () => {
 
   it('keeps drafts and attachments local until initialization accepts a submission', async () => {
     const pending = deferred();
+    const started = deferred();
     patch(CoworkerChatController.prototype, '_fetchEpisodes', () => {
       episodeLoads += 1;
+      started.resolve();
       return pending.promise;
     });
     patch(BaseChatController.prototype, '_uploadAttachment', async () => 'artifact');
     const [standalone, full] = await pair('coworker');
+    await started.promise;
+    await flush();
     const attachment = { id: 'file', label: 'File', dataBase64: 'ZmlsZQ==' };
     standalone.addItem(attachment);
     pills(full).add({ id: 'other', label: 'Other input' });
@@ -952,6 +956,7 @@ describe('standalone input and full AO chat sharing', () => {
 
   it('rejects an auto-send prompt while a turn is running without sending the existing draft', async () => {
     const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
     input(full).value = 'Unrelated draft';
     submit(standalone, 'From compact');
     await flush();
