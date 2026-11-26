@@ -104,7 +104,9 @@ async function loadDetails(accessToken) {
   const tenantId = getTenantId(profile);
   const getIo = getIoFactory(accessToken);
   const getOrgs = getOrgsFactory(accessToken);
-  return { ...profile, tenantId, accessToken, getIo, getOrgs };
+  return {
+    ...profile, tenantId, accessToken, imsClientId, getIo, getOrgs,
+  };
 }
 
 function settleWithTimeout(resolve, reject) {

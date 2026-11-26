@@ -41,12 +41,11 @@ send is scheduled, and a warning toast asks the user to wait for the response.
 
 `coworker/` owns AO endpoint resolution and the on-demand
 `checkCoworkerAccess()` helper. It checks chat access for the current IMS user
-and organization, returning `{ allowed }` or `{ error, status? }`. ACS uses
-the AO region with a VA7 fallback; only production is supported.
-
-Entitlement enforcement is temporarily bypassed during Coworker startup; no ACS
-request is made. The helper and access handling remain intact. The flow below
-applies when `checkAccess({ enforceEntitlement: true })` is used.
+and organization, returning `{ allowed }` or `{ error, status? }`. It calls
+`GET /api/access` on the same regional/environment AO host as chat, using
+the shared bearer-token and tenant headers plus the active IMS client ID as `x-api-key`.
+AO's boolean `allowed` field determines permission; malformed responses are
+verification errors.
 
 Coworker session startup checks access before loading history or skills and
 opening connections. The standalone input stays hidden until access is permitted,
@@ -62,7 +61,7 @@ Switching org reloads the page and checks access again.
 CMA startup is unchanged. The full panel uses the presentation-only
 `renderChatStatus()` renderer in `shared/chat/status/status.js`. Default status
 mapping and wording live in `shared/chat/access.js` for either harness to reuse;
-the ACS request remains Coworker-specific.
+the access request remains Coworker-specific.
 
 ## Input ownership
 

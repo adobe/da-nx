@@ -1,33 +1,25 @@
-import { loadIms } from '../../../utils/ims.js';
-import { getOrgId } from '../utils/uploads.js';
-import { resolveCoworkerAccessBase } from './endpoints.js';
+import { aoContext } from '../utils/uploads.js';
 
 const pendingChecks = new Map();
 
-async function requestAccess({ base, orgId, token }) {
-  const uri = `/orgs/${orgId}/apps/coworker/chat/*`;
+async function requestAccess({ base, headers, imsClientId }) {
   try {
-    const resp = await fetch(`${base}/enforcement/cx-coworker`, {
-      method: 'POST',
+    const resp = await fetch(`${base}/api/access`, {
+      method: 'GET',
       headers: {
-        authorization: `Bearer ${token}`,
-        'x-gw-ims-org-id': orgId,
-        'content-type': 'application/json',
+        ...headers,
+        'x-api-key': imsClientId,
         accept: 'application/json',
       },
-      body: JSON.stringify({ requests: [{ resource: { uri }, action: 'use' }] }),
       cache: 'no-store',
     });
     if (resp.status !== 200) return { error: 'http', status: resp.status };
 
     const json = await resp.json().catch(() => null);
-    const decision = json?.responses?.[0];
-    if (!Array.isArray(json?.responses) || json.responses.length !== 1
-      || decision?.resource?.uri !== uri || decision?.action !== 'use'
-      || !['permit', 'deny'].includes(decision?.effect)) {
+    if (typeof json?.allowed !== 'boolean') {
       return { error: 'invalid-response', status: resp.status };
     }
-    return { allowed: decision.effect === 'permit' };
+    return { allowed: json.allowed };
   } catch {
     return { error: 'network' };
   }
@@ -35,16 +27,15 @@ async function requestAccess({ base, orgId, token }) {
 
 export async function checkCoworkerAccess() {
   try {
-    const { accessToken, userId, projectedProductContext } = await loadIms();
-    const orgId = getOrgId(projectedProductContext);
-    if (!accessToken?.token || !orgId) return { error: 'identity' };
+    const {
+      base, tenantId: orgId, userId, token, headers, imsClientId,
+    } = await aoContext();
+    if (!token || !orgId) return { error: 'identity' };
+    if (!imsClientId) return { error: 'configuration' };
 
-    const base = resolveCoworkerAccessBase(projectedProductContext);
-    if (!base) return { error: 'configuration' };
-
-    const key = JSON.stringify([userId, orgId, base, accessToken.token]);
+    const key = JSON.stringify([userId, orgId, base, token, imsClientId]);
     if (!pendingChecks.has(key)) {
-      pendingChecks.set(key, requestAccess({ base, orgId, token: accessToken.token })
+      pendingChecks.set(key, requestAccess({ base, headers, imsClientId })
         .finally(() => pendingChecks.delete(key)));
     }
     return await pendingChecks.get(key);

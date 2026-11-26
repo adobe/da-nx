@@ -9,13 +9,17 @@ export function getOrgId(projectedProductContext) {
 
 // Shared IMS -> {base, headers} composition every AO REST call needs.
 export async function aoContext() {
-  const { accessToken, userId, projectedProductContext } = await loadIms();
+  const {
+    accessToken, userId, projectedProductContext, imsClientId,
+  } = await loadIms();
   const tenantId = getOrgId(projectedProductContext);
   return {
     base: resolveAoHttpBase(projectedProductContext),
     projectedProductContext,
     tenantId,
     userId,
+    token: accessToken?.token,
+    imsClientId,
     headers: {
       authorization: `Bearer ${accessToken?.token}`,
       'x-tenant-id': tenantId,

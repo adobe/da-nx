@@ -14,6 +14,7 @@ describe('lazy AO session controllers', () => {
         const { controller } = session;
         if (!controller || controllers.has(controller)) return;
         controllers.add(controller);
+        if (controller.checkAccess) controller.checkAccess = async () => true;
         controller.loadEpisodes = async () => {
           episodeLoads += 1;
           controller._update();
@@ -58,7 +59,7 @@ describe('lazy AO session controllers', () => {
     expect(requests.some((href) => href.includes('/chat-ao/coworker/controller.js'))).to.equal(false);
   });
 
-  it('loads Coworker by default and retains the entitlement bypass', async () => {
+  it('loads Coworker by default', async () => {
     const owner = document.createElement('nx-chat-ao');
     const session = getAoSession({ context, owner });
     subscribe(session, owner);
