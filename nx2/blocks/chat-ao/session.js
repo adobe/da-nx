@@ -1,5 +1,3 @@
-import CoworkerChatController from './coworker-chat-controller.js';
-import CmaChatController from './cma-chat-controller.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 
 const sessions = new Map();
@@ -31,6 +29,7 @@ export function getAoSession({
   let startupFailed = false;
   let destroyed = false;
   let sending = false;
+  let controller;
   const notify = () => subscribers.forEach(({ onUpdate }) => onUpdate(state));
   const publish = (next) => {
     if (destroyed) return;
@@ -38,14 +37,6 @@ export function getAoSession({
     if (!state.thinking) sending = false;
     notify();
   };
-  const Controller = harness === 'cma' ? CmaChatController : CoworkerChatController;
-  const controller = new Controller({
-    onUpdate: publish,
-    onTurnCompleted: (detail) => {
-      subscribers.forEach(({ onTurnCompleted }) => onTurnCompleted?.(detail));
-    },
-    isolated: isolated || matching.length > 0,
-  });
   const onVisibilityChange = () => {
     if (document.visibilityState === 'visible' && initialized) controller.reattachIfIdle?.();
   };
@@ -55,6 +46,20 @@ export function getAoSession({
     if (destroyed || initialized || initializing) return;
     initializing = true;
     try {
+      if (!controller) {
+        const { default: Controller } = await (harness === 'cma'
+          ? import('./cma/controller.js') : import('./coworker/controller.js'));
+        if (destroyed) return;
+        controller = new Controller({
+          onUpdate: publish,
+          onTurnCompleted: (detail) => {
+            subscribers.forEach(({ onTurnCompleted }) => onTurnCompleted?.(detail));
+          },
+          isolated: isolated || matching.length > 0,
+        });
+        notify();
+      }
+      if (destroyed) return;
       controller.setContext(context);
       if (controller.checkAccess) {
         const allowed = await controller.checkAccess();
@@ -84,7 +89,7 @@ export function getAoSession({
   const session = {
     scope,
     isolated,
-    controller,
+    get controller() { return controller; },
     ready: Promise.resolve().then(initialize),
     retryAccess() {
       if (destroyed || initializing || initialized || state.access?.status !== 'error') return session.ready;
@@ -100,7 +105,7 @@ export function getAoSession({
         destroyed = true;
         sessions.delete(session);
         document.removeEventListener('visibilitychange', onVisibilityChange);
-        controller.destroy();
+        controller?.destroy();
       };
     },
     canSend() {

@@ -10,13 +10,13 @@
  * governing permissions and limitations under the License.
  */
 
-import BaseChatController from './base-chat-controller.js';
-import { AO_COMPONENT_CATALOG_URL } from './coworker/constants.js';
-import { checkCoworkerAccess } from './coworker/access.js';
-import { CHECKING_CHAT_ACCESS, getChatAccessState } from '../shared/chat/access.js';
+import BaseChatController from '../base-chat-controller.js';
+import { AO_COMPONENT_CATALOG_URL } from './constants.js';
+import { checkCoworkerAccess } from './access.js';
+import { CHECKING_CHAT_ACCESS, getChatAccessState } from '../../shared/chat/access.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
-} from './utils/episodes.js';
+} from '../utils/episodes.js';
 
 const EPISODE_LIST_LIMIT = 10;
 

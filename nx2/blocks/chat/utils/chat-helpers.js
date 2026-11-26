@@ -1,5 +1,5 @@
 // Shared shape for "what the user had selected/attached", reused by nx-chat-ao's
-// ao-controller.js. da-agent's own chat-controller.js keeps its own inline copy.
+// base-chat-controller.js. da-agent's own chat-controller.js keeps its own inline copy.
 export function buildSelectionContext(context) {
   return context
     .filter((item) => {
