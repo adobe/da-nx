@@ -147,3 +147,34 @@ describe('page evaluation suggestion actions', () => {
     });
   });
 });
+
+describe('page evaluation sections', () => {
+  let host;
+
+  afterEach(() => { host?.remove(); });
+
+  it('hides the chevron and expand cursor only for sections without items', async () => {
+    host = document.createElement('div');
+    document.body.append(host);
+    render(renderUiArtifact({
+      components: [{
+        type: 'PageEvaluationWithIcons',
+        props: {
+          sections: [
+            { label: 'Failed', tone: 'negative', items: [item] },
+            { label: 'Passed', tone: 'positive', items: [] },
+          ],
+        },
+      }],
+    }), host);
+    const card = host.querySelector('nx-page-eval');
+    await card.updateComplete;
+    const [full, empty] = card.shadowRoot.querySelectorAll('.ui-artifact-pe-section-header');
+    const chevronDisplay = (header) => getComputedStyle(header.querySelector('.ui-artifact-pe-chevron')).display;
+
+    expect(chevronDisplay(full)).to.not.equal('none');
+    expect(getComputedStyle(full).cursor).to.equal('pointer');
+    expect(chevronDisplay(empty)).to.equal('none');
+    expect(getComputedStyle(empty).cursor).to.equal('default');
+  });
+});
