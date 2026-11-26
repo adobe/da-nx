@@ -37,6 +37,10 @@
   }
 }
 
+nx-tooltip:not(:defined) {
+  display: none;
+}
+
 .nav-link {
   &.chat.is-restoring {
     visibility: hidden;

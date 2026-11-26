@@ -204,4 +204,43 @@ describe('nx-tooltip', () => {
     expect(rect.right).to.be.at.most(window.innerWidth);
     expect(rect.bottom).to.be.at.most(window.innerHeight);
   });
+
+  it('positions against a separate anchor while keeping the full control as its trigger', async () => {
+    const host = document.createElement('div');
+    host.className = 'tooltip-shadow-fixture';
+    document.body.append(host);
+    const { trigger, tooltip } = await fixture(host.attachShadow({ mode: 'open' }));
+    trigger.style.width = '200px';
+    const anchor = document.createElement('span');
+    anchor.id = `anchor-${crypto.randomUUID()}`;
+    anchor.style.cssText = 'display:block;width:32px;height:32px';
+    anchor.textContent = 'Save';
+    trigger.replaceChildren(anchor);
+    tooltip.anchor = anchor.id;
+    tooltip.placement = 'right';
+    await tooltip.updateComplete;
+    pointer(trigger, 'pointerenter');
+    await clock.tickAsync(500);
+    const rect = tooltip.getBoundingClientRect();
+    expect(tooltip.open).to.be.true;
+    expect(rect.left).to.be.at.least(anchor.getBoundingClientRect().right);
+    expect(rect.left).to.be.lessThan(trigger.getBoundingClientRect().right);
+    expect(tooltip.dataset.side).to.equal('right');
+    expect(trigger.getAttribute('aria-describedby')).to.equal(tooltip.id);
+    expect(anchor.hasAttribute('aria-describedby')).to.be.false;
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+    expect(tooltip.open).to.be.false;
+  });
+
+  it('falls back to positioning against the trigger when the anchor is missing', async () => {
+    const { trigger, tooltip } = await fixture();
+    tooltip.anchor = 'missing-anchor';
+    tooltip.placement = 'right';
+    await tooltip.updateComplete;
+    pointer(trigger, 'pointerenter');
+    await clock.tickAsync(500);
+    expect(tooltip.open).to.be.true;
+    expect(tooltip.getBoundingClientRect().left)
+      .to.be.at.least(trigger.getBoundingClientRect().right);
+  });
 });

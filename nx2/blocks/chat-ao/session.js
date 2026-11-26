@@ -1,5 +1,3 @@
-import CoworkerChatController from './coworker-chat-controller.js';
-import CmaChatController from './cma-chat-controller.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 
 const sessions = new Map();
@@ -27,8 +25,11 @@ export function getAoSession({
   const subscribers = new Map();
   let state = { messages: [], loadingEpisode: true };
   let initialized = false;
+  let initializing = false;
+  let startupFailed = false;
   let destroyed = false;
   let sending = false;
+  let controller;
   const notify = () => subscribers.forEach(({ onUpdate }) => onUpdate(state));
   const publish = (next) => {
     if (destroyed) return;
@@ -36,39 +37,65 @@ export function getAoSession({
     if (!state.thinking) sending = false;
     notify();
   };
-  const Controller = harness === 'cma' ? CmaChatController : CoworkerChatController;
-  const controller = new Controller({
-    onUpdate: publish,
-    onTurnCompleted: (detail) => {
-      subscribers.forEach(({ onTurnCompleted }) => onTurnCompleted?.(detail));
-    },
-    isolated: isolated || matching.length > 0,
-  });
   const onVisibilityChange = () => {
     if (document.visibilityState === 'visible' && initialized) controller.reattachIfIdle?.();
   };
   document.addEventListener('visibilitychange', onVisibilityChange);
 
+  const initialize = async () => {
+    if (destroyed || initialized || initializing) return;
+    initializing = true;
+    try {
+      if (!controller) {
+        const { default: Controller } = await (harness === 'cma'
+          ? import('./cma/controller.js') : import('./coworker/controller.js'));
+        if (destroyed) return;
+        controller = new Controller({
+          onUpdate: publish,
+          onTurnCompleted: (detail) => {
+            subscribers.forEach(({ onTurnCompleted }) => onTurnCompleted?.(detail));
+          },
+          isolated: isolated || matching.length > 0,
+        });
+        notify();
+      }
+      if (destroyed) return;
+      controller.setContext(context);
+      if (controller.checkAccess) {
+        const allowed = await controller.checkAccess();
+        if (!allowed) {
+          startupFailed = true;
+          publish({ ...state, loadingEpisode: false });
+          return;
+        }
+      }
+      if (destroyed) return;
+      await Promise.all([controller.loadEpisodes(), controller.loadSkills()]);
+      if (destroyed) return;
+      initialized = true;
+      notify();
+    } catch (error) {
+      startupFailed = true;
+      publish({
+        messages: [{ role: 'assistant', content: `Error: ${error.message}` }],
+        thinking: false,
+        loadingEpisode: false,
+      });
+    } finally {
+      initializing = false;
+    }
+  };
+
   const session = {
     scope,
     isolated,
-    controller,
-    ready: Promise.resolve().then(async () => {
-      if (destroyed) return;
-      try {
-        controller.setContext(context);
-        await Promise.all([controller.loadEpisodes(), controller.loadSkills()]);
-        if (destroyed) return;
-        initialized = true;
-        notify();
-      } catch (error) {
-        publish({
-          messages: [{ role: 'assistant', content: `Error: ${error.message}` }],
-          thinking: false,
-          loadingEpisode: false,
-        });
-      }
-    }),
+    get controller() { return controller; },
+    ready: Promise.resolve().then(initialize),
+    retryAccess() {
+      if (destroyed || initializing || initialized || state.access?.status !== 'error') return session.ready;
+      session.ready = initialize();
+      return session.ready;
+    },
     subscribe(view, callbacks) {
       subscribers.set(view, callbacks);
       notify();
@@ -78,12 +105,16 @@ export function getAoSession({
         destroyed = true;
         sessions.delete(session);
         document.removeEventListener('visibilitychange', onVisibilityChange);
-        controller.destroy();
+        controller?.destroy();
       };
     },
     canSend() {
       return !destroyed && initialized && !sending && !state.loadingEpisode
         && !(state.thinking && !state.pendingPlanApproval);
+    },
+    canQueueAutoSend({ includeReady = false } = {}) {
+      return !destroyed && (!initialized || includeReady) && !startupFailed
+        && !['denied', 'error'].includes(state.access?.status);
     },
     send({ context: currentContext, args }) {
       if (!session.canSend()) return false;

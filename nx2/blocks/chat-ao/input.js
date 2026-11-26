@@ -18,6 +18,7 @@ import '../shared/chat/prompts/prompts.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+const spinnerStyle = await loadStyle(new URL('../../styles/spinner.css', import.meta.url).href);
 const { codeBase } = getConfig();
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
@@ -26,6 +27,7 @@ const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
 export default class NxAoInput extends LitElement {
   static properties = {
     blocked: { type: Boolean },
+    disabled: { type: Boolean },
     harness: { type: String },
     prompts: { type: Array },
     menuItems: { type: Array },
@@ -37,6 +39,7 @@ export default class NxAoInput extends LitElement {
     onMenuSelect: { attribute: false },
     _dragging: { state: true },
     _voiceListening: { state: true },
+    _access: { state: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -69,6 +72,10 @@ export default class NxAoInput extends LitElement {
 
   _syncSession() {
     if (!this.isConnected) return;
+    if (this._pendingAutoSend && this._pendingAutoSend.documentKey !== this._documentKey) {
+      this._pendingAutoSend = undefined;
+      this._promptRequest = undefined;
+    }
     const { org, site } = this._context ?? {};
     const identity = JSON.stringify([
       org, site, !!this.onSubmit, this.isolated, this._harnessConfig,
@@ -82,6 +89,8 @@ export default class NxAoInput extends LitElement {
     this._releaseSession?.();
     this._releaseSession = undefined;
     this._session = undefined;
+    this._access = undefined;
+    this._pendingAutoSend = undefined;
     this._unsubscribeEvents?.();
     this._unsubscribeEvents = undefined;
     if (!this._standalone) return;
@@ -106,8 +115,23 @@ export default class NxAoInput extends LitElement {
       this._session = getAoSession({
         context, owner: this, isolated: this.isolated, harness,
       });
+      if (this._pendingAutoSend && !this._session.canQueueAutoSend({ includeReady: true })) {
+        this._pendingAutoSend = undefined;
+        this._promptRequest = undefined;
+      }
       this._releaseSession = this._session.subscribe(this, {
-        onUpdate: (state) => { this.blocked = !!state.thinking && !state.pendingPlanApproval; },
+        onUpdate: (state) => {
+          this.blocked = !!state.thinking && !state.pendingPlanApproval;
+          this._access = state.access;
+          if (this._pendingAutoSend && ['denied', 'error'].includes(state.access?.status)) {
+            this._pendingAutoSend = undefined;
+            this._promptRequest = undefined;
+          }
+          if (this._pendingAutoSend && this._session.canSend()) {
+            this._submitWhenReady(this._pendingAutoSend)
+              .catch((error) => showToast({ text: error.message, variant: 'error' }));
+          }
+        },
       });
       this._unsubscribeEvents = subscribeChatEvents(this, {
         getContext: () => this._context,
@@ -144,10 +168,13 @@ export default class NxAoInput extends LitElement {
   async setPrompt(text, { autoSend = false } = {}) {
     const request = {};
     const sessionRequest = this._sessionRequest;
+    const documentKey = this._documentKey;
     this._promptRequest = request;
+    this._pendingAutoSend = undefined;
     await this.updateComplete;
     if (!this.isConnected || this._promptRequest !== request
-      || this._sessionRequest !== sessionRequest || !text) return false;
+      || this._sessionRequest !== sessionRequest
+      || this._documentKey !== documentKey || !text) return false;
     if (this.blocked) {
       showToast({ text: 'Wait for the current response to finish', variant: 'warning' });
       return false;
@@ -159,8 +186,16 @@ export default class NxAoInput extends LitElement {
       return true;
     }
     if (this._standalone) {
-      this._submitWhenReady({ request, sessionRequest })
-        .catch((error) => showToast({ text: error.message, variant: 'error' }));
+      if (this._session?.canSend()) {
+        this._promptRequest = undefined;
+        this.shadowRoot.querySelector('form').requestSubmit();
+      } else if (!this._session || this._session.canQueueAutoSend()) {
+        this._pendingAutoSend = { request, sessionRequest, documentKey };
+        this._submitWhenReady(this._pendingAutoSend)
+          .catch((error) => showToast({ text: error.message, variant: 'error' }));
+      } else {
+        this._promptRequest = undefined;
+      }
     } else {
       this._promptRequest = undefined;
       this.shadowRoot.querySelector('form').requestSubmit();
@@ -168,15 +203,26 @@ export default class NxAoInput extends LitElement {
     return true;
   }
 
-  async _submitWhenReady({ request, sessionRequest }) {
+  async _submitWhenReady({ request, sessionRequest, documentKey }) {
     await this._sessionReady;
     const session = this._session;
     await session?.ready;
     if (!this.isConnected || this._promptRequest !== request
       || this._sessionRequest !== sessionRequest || this._session !== session
+      || this._documentKey !== documentKey
       || !session?.canSend() || this.blocked) return;
     this._promptRequest = undefined;
+    this._pendingAutoSend = undefined;
     this.shadowRoot.querySelector('form').requestSubmit();
+  }
+
+  get _disabled() {
+    return this.disabled || !!this._access;
+  }
+
+  get _documentKey() {
+    const { org, site, path } = this._context ?? {};
+    return JSON.stringify([org, site, path]);
   }
 
   openPrompts() {
@@ -190,7 +236,7 @@ export default class NxAoInput extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEvent ??= `nx-ao-input-${crypto.randomUUID()}`;
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle];
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
@@ -217,6 +263,7 @@ export default class NxAoInput extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._promptRequest = undefined;
+    this._pendingAutoSend = undefined;
     this._voice?.stop();
     this._slashMenu.close();
     this._unsubscribeHash?.();
@@ -228,6 +275,11 @@ export default class NxAoInput extends LitElement {
     this._session = undefined;
     this._sessionIdentity = undefined;
     this._sessionRequest = undefined;
+  }
+
+  willUpdate() {
+    this.toggleAttribute('data-access-unavailable', this._standalone
+      && (!this._session || !!this._access));
   }
 
   updated(changed) {
@@ -256,7 +308,7 @@ export default class NxAoInput extends LitElement {
 
   _getSlashItems(filter) {
     const skills = this._standalone
-      ? this._session?.controller.getSkills() : this.getSkills?.();
+      ? this._session?.controller?.getSkills() : this.getSkills?.();
     return toSlashMenuItems({ skills: skills ?? [], filter });
   }
 
@@ -266,6 +318,7 @@ export default class NxAoInput extends LitElement {
   }
 
   _send(text) {
+    if (this._disabled) return;
     const context = this.items.filter((item) => !item.dataBase64);
     const attachments = this.items.filter((item) => item.dataBase64);
     if (this._standalone) {
@@ -279,7 +332,7 @@ export default class NxAoInput extends LitElement {
 
   _submit(e) {
     e?.preventDefault();
-    if (this.blocked) return;
+    if (this.blocked || this._disabled) return;
     const text = this.draft.trim();
     if (!text) return;
     const { harness } = this;
@@ -289,13 +342,14 @@ export default class NxAoInput extends LitElement {
   }
 
   _handleInput(e) {
+    if (this._disabled) return;
     this._slashMenu.onInput(e);
-    if (this._standalone) this._session?.controller.warmSession();
+    if (this._standalone) this._session?.controller?.warmSession();
     else this.onInput?.();
   }
 
   _stop() {
-    if (this._standalone) this._session?.controller.stop();
+    if (this._standalone) this._session?.controller?.stop();
     else this.onStop?.();
     this.focusInput();
   }
@@ -366,7 +420,7 @@ export default class NxAoInput extends LitElement {
           <textarea
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."
-            ?disabled=${this.blocked}
+            ?disabled=${this.blocked || this._disabled}
             @input=${this._handleInput}
             @keydown=${this._handleKeydown}
             @blur=${this._slashMenu.onBlur}
@@ -374,7 +428,7 @@ export default class NxAoInput extends LitElement {
         </div>
         <div class="chat-actions" ?data-thinking=${this.blocked} ?data-voice-listening=${this._voiceListening}>
           <nx-menu size="m" .items=${this.menuItems ?? ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-            <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
+            <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" ?disabled=${this._disabled} @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>
             </button>
@@ -385,7 +439,7 @@ export default class NxAoInput extends LitElement {
                 type="button"
                 class="chat-voice nx-action-btn-icon nx-btn-sm"
                 ?data-listening=${this._voiceListening}
-                ?disabled=${this.blocked}
+                ?disabled=${this.blocked || this._disabled}
                 aria-pressed=${this._voiceListening}
                 aria-label=${this._voiceListening ? 'Stop recording' : 'Use voice input'}
                 @click=${this._toggleVoiceInput}
@@ -397,7 +451,7 @@ export default class NxAoInput extends LitElement {
               ?hidden=${!this.blocked}
               @click=${this._stop}
             > ${icon('stop')}</button>
-            <button type="submit" class="chat-send harness-${this.harness} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
+            <button type="submit" class="chat-send harness-${this.harness} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} ?disabled=${this._disabled} aria-label="Send">
               ${icon('send')}
             </button>
           </div>

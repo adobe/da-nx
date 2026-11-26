@@ -12,19 +12,7 @@
 
 import { MENU_OPTIONS } from '../shared/chat/constants.js';
 
-export const AO_WS_BASE = 'wss://agent-orchestrator-prod-va7.adobe.io';
-
-export const AO_HTTP_BASE = 'https://agent-orchestrator-prod-va7.adobe.io';
-
-// The CMA bridge (aem-sites-claudebridge) hosts the WebSocket data plane and
-// the skills REST plane for the alternate harness. See docs/chat-ao-alt-harness.md.
-export const CMA_BRIDGE_WS_BASE = 'wss://aem-sites-claudebridge-va6.adobe.io';
-
-export const CMA_BRIDGE_HTTP_BASE = 'https://aem-sites-claudebridge-va6.adobe.io';
-
 export const AO_MANIFEST_ID = 'experience-workspace';
-
-export const AO_COMPONENT_CATALOG_URL = 'https://experience.adobe.com/solutions/Adobe-dxue-coworker-ui-experience/assets/component-catalog.9d298bd1fdec9715.json';
 
 // Mirrors AO's own server-side allowlist
 export const AO_UPLOAD_EXTENSIONS = [
@@ -113,6 +101,6 @@ export const IGNORED_WHILE_INTERRUPTING = new Set([
   AO_EVENT.PERMISSION_REQUEST,
 ]);
 
-// Tools with their own dedicated card on the live path (see ao-controller.js's
+// Tools with their own dedicated card on the live path (see base-chat-controller.js's
 // tool-call handlers) instead of a generic tool-call entry.
 export const DEDICATED_SUMMARY_TOOLS = new Set(['ask_user_question']);
