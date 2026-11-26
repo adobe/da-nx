@@ -1,3 +1,10 @@
+## [1.68.2](https://github.com/adobe/da-nx/compare/v1.68.1...v1.68.2) (2026-11-26)
+
+
+### Bug Fixes
+
+* **bulk:** route helix 6 preview and publish requests ([#1059](https://github.com/adobe/da-nx/issues/1059)) ([5477d85](https://github.com/adobe/da-nx/commit/5477d8544e04e96f2da321b35e8a44f81199ed8d))
+
 ## [1.68.1](https://github.com/adobe/da-nx/compare/v1.68.0...v1.68.1) (2026-11-25)
 
 
