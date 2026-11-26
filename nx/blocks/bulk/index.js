@@ -1,8 +1,7 @@
 import { getExt } from '../../../nx2/public/utils/getExt.js';
-import { daFetch } from '../../../nx2/utils/api.js';
+import { daFetch, isHlx6, AEM_API } from '../../../nx2/utils/api.js';
 import { DA_ORIGIN } from '../../../nx2/public/utils/constants.js';
-
-const AEM_ORIGIN = 'https://admin.hlx.page';
+import { HLX_ADMIN } from '../../../nx2/utils/utils.js';
 
 function isBulkDa(action) {
   return action === 'versionsource';
@@ -29,23 +28,26 @@ export function formatUrls(urls, action, hasDelete) {
 }
 
 export async function sendAction(url, label) {
+  const {
+    action, org, repo, ref, pathname, hasDelete, href,
+  } = url;
   let resp;
   try {
-    const method = url.hasDelete ? 'DELETE' : 'POST';
+    const method = hasDelete ? 'DELETE' : 'POST';
     const opts = { method };
-    if (label && isBulkDa(url.action)) opts.body = JSON.stringify({ label });
-    const origin = isBulkDa(url.action) ? DA_ORIGIN : AEM_ORIGIN;
-    const ext = getExt(url.pathname);
-    const path = !ext && isBulkDa(url.action) ? `${url.pathname}.html` : url.pathname;
-    const ref = isBulkDa(url.action) ? '' : `/${url.ref}`;
-    const aemUrl = `${origin}/${url.action}/${url.org}/${url.repo}${ref}${path}`;
-    resp = await daFetch({ url: aemUrl, opts });
+    const isDa = isBulkDa(action);
+    if (label && isDa) opts.body = JSON.stringify({ label });
+    const hlx6 = (action === 'preview' || action === 'live')
+      && await isHlx6(org, repo).catch(() => false);
+    const path = isDa && !getExt(pathname) ? `${pathname}.html` : pathname;
+    const legacyHref = isDa ? `${DA_ORIGIN}/${action}/${org}/${repo}${path}` : `${HLX_ADMIN}/${action}/${org}/${repo}/${ref}${path}`;
+    const apiHref = hlx6 ? `${AEM_API}/${org}/sites/${repo}/${action}${path}` : legacyHref;
+    resp = await daFetch({ url: apiHref, opts });
   } catch {
     // eslint-disable-next-line no-console
-    console.log(`Error sending ${url.action} for ${url.href}`);
-  } finally {
-    url.ok = resp.ok;
-    url.status = resp.status;
+    console.log(`Error sending ${action} for ${href}`);
   }
+  url.ok = resp?.ok ?? false;
+  url.status = resp?.status ?? 0;
   return url;
 }
