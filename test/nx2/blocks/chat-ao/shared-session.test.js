@@ -117,9 +117,6 @@ describe('standalone input and full AO chat sharing', () => {
     accessEffect = 'permit';
     accessStatus = 200;
     accessWait = undefined;
-    patch(CoworkerChatController.prototype, 'checkAccess', function enforceAccess() {
-      return checkAccess.call(this, { enforceEntitlement: true });
-    });
     setMockIms({
       projectedProductContext: [{ prodCtx: { owningEntity: org } }],
     });
@@ -129,12 +126,12 @@ describe('standalone input and full AO chat sharing', () => {
       if (href.startsWith('/') || href.startsWith(window.location.origin)) {
         return originalFetch(resource, options);
       }
-      if (href.includes('/enforcement/cx-coworker')) {
+      if (href.endsWith('/api/access')) {
         accessChecks += 1;
         await accessWait?.promise;
-        const responses = JSON.parse(options.body).requests
-          .map((request) => ({ ...request, effect: accessEffect }));
-        return new Response(JSON.stringify({ responses }), {
+        return new Response(JSON.stringify({
+          allowed: accessEffect === 'permit', reason: null, message: null,
+        }), {
           status: accessStatus, headers: { 'Content-Type': 'application/json' },
         });
       }
@@ -218,8 +215,10 @@ describe('standalone input and full AO chat sharing', () => {
     resetMockIms();
   });
 
-  it('initializes both Coworker views without calling entitlement enforcement by default', async () => {
-    patch(CoworkerChatController.prototype, 'checkAccess', checkAccess);
+  it('supports explicitly bypassing the Coworker access check for both views', async () => {
+    patch(CoworkerChatController.prototype, 'checkAccess', function skipAccess() {
+      return checkAccess.call(this, { enforceEntitlement: false });
+    });
     accessEffect = 'deny';
     accessStatus = 503;
     const [standalone, full] = await pair('coworker');

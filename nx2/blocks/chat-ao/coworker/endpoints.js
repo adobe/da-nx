@@ -1,4 +1,4 @@
-import { DEFAULT_AO_LOCATION, AO_HTTP_BASE, AO_WS_BASE } from './constants.js';
+import { AO_HTTP_BASE, AO_WS_BASE } from './constants.js';
 
 export function resolveAoLocation(projectedProductContext) {
   const found = projectedProductContext?.find(({ prodCtx } = {}) => prodCtx?.statusCode === 'ACTIVE'
@@ -20,10 +20,4 @@ export function resolveAoHttpBase(projectedProductContext) {
 export function resolveAoWsBase(projectedProductContext) {
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `wss://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_WS_BASE;
-}
-
-export function resolveCoworkerAccessBase(projectedProductContext) {
-  const loc = resolveAoLocation(projectedProductContext) ?? DEFAULT_AO_LOCATION;
-  if (loc.environment !== 'prod') return undefined;
-  return `https://cx-accesscontrol-${loc.region}.adobe.io`;
 }

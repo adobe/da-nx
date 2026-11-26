@@ -1,6 +1,7 @@
 let _accessToken = { token: 'test-token' };
 let _anonymous = false;
 let _userId = 'test-user@AdobeID';
+let _imsClientId = 'test-client';
 let _displayName = 'Test User';
 let _email = 'test-user@adobe.com';
 let _io = { user: { avatar: 'https://example.com/avatar.png' } };
@@ -13,11 +14,12 @@ export const IMS_ORIGIN = 'https://ims-na1.adobelogin.com';
 
 export function setMockIms({
   token, anonymous, userId, displayName, email, io, orgs,
-  ownerOrg, tenantId, projectedProductContext,
+  ownerOrg, tenantId, projectedProductContext, imsClientId,
 } = {}) {
   if (token !== undefined) _accessToken = token;
   if (anonymous !== undefined) _anonymous = anonymous;
   if (userId !== undefined) _userId = userId;
+  if (imsClientId !== undefined) _imsClientId = imsClientId;
   if (displayName !== undefined) _displayName = displayName;
   if (email !== undefined) _email = email;
   if (io !== undefined) _io = io;
@@ -31,6 +33,7 @@ export function resetMockIms() {
   _accessToken = { token: 'test-token' };
   _anonymous = false;
   _userId = 'test-user@AdobeID';
+  _imsClientId = 'test-client';
   _displayName = 'Test User';
   _email = 'test-user@adobe.com';
   _io = { user: { avatar: 'https://example.com/avatar.png' } };
@@ -46,6 +49,7 @@ export const loadIms = async () => {
     anonymous: false,
     accessToken: _accessToken,
     userId: _userId,
+    imsClientId: _imsClientId,
     displayName: _displayName,
     email: _email,
     ownerOrg: _ownerOrg,

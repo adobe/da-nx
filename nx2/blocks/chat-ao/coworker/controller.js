@@ -27,7 +27,7 @@ const STALE_EPISODE_MS = 24 * 60 * 60 * 1000;
 // AO-direct / CX Coworker harness: episode history comes from the orchestrator
 // REST API (list + messages + warm session). See docs/chat-ao-controller-decoupling.md.
 export default class CoworkerChatController extends BaseChatController {
-  async checkAccess({ enforceEntitlement = false } = {}) {
+  async checkAccess({ enforceEntitlement = true } = {}) {
     this._access = CHECKING_CHAT_ACCESS;
     this._update();
     const result = enforceEntitlement ? await checkCoworkerAccess() : { allowed: true };
