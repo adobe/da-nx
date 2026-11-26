@@ -2,7 +2,9 @@ import getElementMetadata from '../../../nx2/utils/getElementMetadata.js';
 import {
   regionalDiff, removeLocTags, LOC_MARKERS, isSnapshotPath,
 } from './regional-diff.js';
-import { ROLLOUT_BASE_KEY, ROLLOUT_ORDER_KEY } from './hashes.js';
+import {
+  ACCEPTED_KEY, REJECTED_KEY, ROLLOUT_BASE_KEY, ROLLOUT_ORDER_KEY, restoreReviewKeys,
+} from './hashes.js';
 
 const DEFAULT_TIMEOUT = 20000;
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
@@ -246,15 +248,17 @@ export function createCopy({
     const reviewed = !regional.querySelector(LOC_MARKERS);
     removeLocTags(regional);
     removeLocTags(source);
-    const metadata = getElementMetadata(regional.querySelector(DA_METADATA_SELECTOR));
+    const metadataEl = regional.querySelector(DA_METADATA_SELECTOR);
+    const metadata = getElementMetadata(metadataEl);
     // Whitespace-insensitive, like a merge without a baseline, so local spacing survives.
     const mainOf = (doc) => doc.querySelector('body > main')?.innerHTML.replace(/\s+/g, ' ');
     const sameBody = source.body.outerHTML === regional.body.outerHTML;
     if (sameBody && !sameMain) return { same: true, metadata };
     const sameContent = mainOf(source) === mainOf(regional);
     if (sameMain && reviewed && sameContent) return { same: true, metadata };
-    const acceptedHashes = metadata.acceptedhashes?.text?.split(',') || [];
-    const rejectedHashes = metadata.rejectedhashes?.text?.split(',') || [];
+    restoreReviewKeys(metadata, metadataEl);
+    const acceptedHashes = metadata[ACCEPTED_KEY]?.split(',') || [];
+    const rejectedHashes = metadata[REJECTED_KEY]?.split(',') || [];
     const [, org, site] = url.destination.split('/');
     const config = await loadConfig({ org, site });
     if (config?.error) throw new Error(config.error);
