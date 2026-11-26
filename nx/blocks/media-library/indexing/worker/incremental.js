@@ -274,7 +274,8 @@ export async function buildIncrementalIndex(
   const startsWithPrefix = (p) => p && p.startsWith(pathPrefix);
   const isUnderPath = (path) => !pathPrefix || path === contentPath || startsWithPrefix(path);
 
-  let validEntries = auditlogDeduped.filter((e) => e && e.path && e.route === 'preview');
+  let validEntries = auditlogDeduped.filter((e) => e && e.path && e.route === 'preview'
+    && (e.status == null || (e.status >= 200 && e.status < 300)));
   if (pathPrefix) {
     validEntries = validEntries.filter((e) => isUnderPath(e.path));
   }
@@ -285,7 +286,8 @@ export async function buildIncrementalIndex(
     );
   }
 
-  const pagesFiltered = validEntries.filter((e) => isPage(e.path));
+  const pagesFiltered = validEntries.filter((e) => isPage(e.path))
+    .sort((a, b) => a.timestamp - b.timestamp);
   const pagesByPath = new Map();
   const deletedPages = new Set();
   pagesFiltered.forEach((e) => {
@@ -322,7 +324,7 @@ export async function buildIncrementalIndex(
   perf.medialog.resourcePathCount = medialogResourcePathCount;
   perf.medialog.standalone = medialogStandaloneCount;
 
-  if (pages.length === 0 && medialogScoped.length === 0) {
+  if (validEntries.length === 0 && medialogScoped.length === 0) {
     perf.indexEntries = existingIndex.length;
     perf.totalDurationMs = Date.now() - t0;
     perf.collectedAt = new Date().toISOString();
@@ -385,7 +387,7 @@ export async function buildIncrementalIndex(
   deletedPages.forEach((doc) => {
     const toRemove = updatedIndex.filter((e) => e.doc === doc);
     toRemove.forEach((entry) => {
-      removed += removeOrOrphanMedia(updatedIndex, entry, doc, cleanedMedialog);
+      removed += removeOrOrphanMedia(updatedIndex, entry, doc);
     });
   });
 
@@ -460,7 +462,7 @@ export async function buildIncrementalIndex(
       linkedPages.forEach((page) => imageToPages.get(normalized).add(page));
     });
 
-    const parsedPages = new Set(pages.map((p) => normalizePath(p.path)));
+    const parsedPages = linkedResults.usageMap.successfulPages;
 
     let orphanedCount = 0;
     let truthedCount = 0;

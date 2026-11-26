@@ -1,7 +1,61 @@
 import { expect } from '@esm-bundle/chai';
-import { sortMediaData, deduplicateMediaByHash } from '../../../nx/blocks/media-library/core/utils.js';
+import sinon from 'sinon';
+import { checkSiteAuthRequired, sortMediaData, deduplicateMediaByHash } from '../../../nx/blocks/media-library/core/utils.js';
 
 describe('utils', () => {
+  describe('checkSiteAuthRequired', () => {
+    const cacheKey = 'auth-test-site-auth-status';
+    let originalCache;
+    let fetchStub;
+
+    beforeEach(() => {
+      originalCache = localStorage.getItem(cacheKey);
+      fetchStub = sinon.stub(window, 'fetch');
+    });
+
+    afterEach(() => {
+      fetchStub.restore();
+      if (originalCache === null) localStorage.removeItem(cacheKey);
+      else localStorage.setItem(cacheKey, originalCache);
+    });
+
+    it('rechecks protection on each opening despite persisted auth results', async () => {
+      localStorage.setItem(cacheKey, JSON.stringify({ requiresAuth: false, status: 200 }));
+      fetchStub.onFirstCall().resolves(new Response(null, { status: 401 }));
+      fetchStub.onSecondCall().resolves(new Response(null, { status: 200 }));
+
+      expect(await checkSiteAuthRequired('auth-test', 'site')).to.deep.equal({
+        requiresAuth: true, status: 401,
+      });
+      localStorage.setItem(cacheKey, JSON.stringify({ requiresAuth: true, status: 401 }));
+      expect(await checkSiteAuthRequired('auth-test', 'site')).to.deep.equal({
+        requiresAuth: false, status: 200,
+      });
+      expect(fetchStub.callCount).to.equal(2);
+      expect(fetchStub.firstCall.args[1]).to.include({ method: 'HEAD', cache: 'no-store' });
+    });
+
+    it('reports inconclusive checks without classifying the site as public and can recover', async () => {
+      localStorage.removeItem(cacheKey);
+      fetchStub.onFirstCall().rejects(new TypeError('Network unavailable'));
+      fetchStub.onSecondCall().resolves(new Response(null, { status: 503 }));
+      fetchStub.onThirdCall().resolves(new Response(null, { status: 200 }));
+
+      const networkResult = await checkSiteAuthRequired('auth-test', 'site');
+      expect(networkResult.error).to.be.a('string').and.not.equal('');
+      expect(networkResult.status).to.equal(0);
+      expect(networkResult.requiresAuth).to.equal(undefined);
+      const serverResult = await checkSiteAuthRequired('auth-test', 'site');
+      expect(serverResult.error).to.be.a('string').and.not.equal('');
+      expect(serverResult.status).to.equal(503);
+      expect(serverResult.requiresAuth).to.equal(undefined);
+      expect(await checkSiteAuthRequired('auth-test', 'site')).to.deep.equal({
+        requiresAuth: false, status: 200,
+      });
+      expect(localStorage.getItem(cacheKey)).to.equal(null);
+    });
+  });
+
   describe('sortMediaData', () => {
     it('sorts by modifiedTimestamp descending (newest first)', () => {
       const data = [

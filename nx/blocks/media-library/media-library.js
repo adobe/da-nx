@@ -621,18 +621,22 @@ class NxMediaLibrary extends LitElement {
         this.siteAuthInfo.authFailed = !authSuccess;
       }
 
+      const previewLoginWarning = this.siteAuthInfo?.authFailed
+        ? {
+          message: getMessage('PROTECTED_SITE_IMAGES_WARNING'),
+          link: `https://main--${repo}--${org}.aem.page/`,
+          linkText: 'Home Page',
+          suffix: 'and reopen the plugin',
+        }
+        : null;
+
       updateAppState({
         sitePathValid: true,
         validationError: null,
         validationSuggestion: null,
-        persistentError: this.siteAuthInfo?.authFailed
-          ? {
-            message: getMessage('PROTECTED_SITE_IMAGES_WARNING'),
-            link: `https://main--${repo}--${org}.aem.page/`,
-            linkText: 'Home Page',
-            suffix: 'and reopen the plugin',
-          }
-          : null,
+        persistentError: this.siteAuthInfo?.error
+          ? { message: this.siteAuthInfo.error }
+          : previewLoginWarning,
         isValidating: false,
       });
 

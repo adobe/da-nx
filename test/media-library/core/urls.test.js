@@ -69,6 +69,18 @@ describe('urls', () => {
   });
 
   describe('getDedupeKey', () => {
+    it('groups authenticated preview aliases with delivery URLs without merging external assets', () => {
+      const paths = ['/media/logo.svg', '/media_abc123.png'];
+      paths.forEach((path) => {
+        const key = getDedupeKey(`https://main--blog--adobe.aem.page${path}`);
+        expect(getDedupeKey(`https://main--blog--adobe.preview.da.live${path}#width=1200&height=300`)).to.equal(key);
+        expect(getDedupeKey(`https://main--blog--adobe.aem.live${path}?width=600`)).to.equal(key);
+      });
+      expect(getDedupeKey('https://example.com/logo.svg')).to.not.equal(
+        getDedupeKey('https://other.example/logo.svg'),
+      );
+    });
+
     it('returns media hash basename for hashed media URL', () => {
       const url = 'https://main--blog--adobe.aem.live/media/media_123abc456def.png';
       const key = getDedupeKey(url);

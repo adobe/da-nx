@@ -43,7 +43,7 @@ export const Domains = Object.freeze({
   AEM_PAGE,
   AEM_LIVE,
   PREVIEW_DA_LIVE,
-  SAME_ORIGIN: [AEM_PAGE, AEM_LIVE],
+  SAME_ORIGIN: [AEM_PAGE, AEM_LIVE, PREVIEW_DA_LIVE],
 });
 
 export const Paths = Object.freeze({

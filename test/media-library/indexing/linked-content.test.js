@@ -1,6 +1,124 @@
 import { expect } from '@esm-bundle/chai';
-import { toExternalMediaEntry } from '../../../nx/blocks/media-library/indexing/parse.js';
+import sinon from 'sinon';
+import { toExternalMediaEntry, toLinkedContentEntry } from '../../../nx/blocks/media-library/indexing/parse.js';
 import { processLinkedContent } from '../../../nx/blocks/media-library/indexing/worker/linked-content.js';
+import { processLinkedContent as processMainLinkedContent } from '../../../nx/blocks/media-library/indexing/linked-content.js';
+
+describe('verified linked references', () => {
+  [['worker', processLinkedContent], ['main', processMainLinkedContent]].forEach(([mode, process]) => {
+    it(`${mode}: reconciles reused media from verified pages and retains unreferenced assets`, async () => {
+      const index = [
+        { hash: 'abc', url: 'https://main--blog--adobe.aem.live/media_abc.png', doc: '/docs/a.md', type: 'image', operation: 'reuse' },
+        { hash: 'def', url: 'https://main--blog--adobe.aem.page/media_def.jpg', doc: '', type: 'image', operation: 'upload' },
+      ];
+      const usage = {
+        images: new Map([
+          ['/media_abc.png', ['/docs/b', '/docs/b.md', '/docs/failed.md']],
+          ['/media_def.jpg', ['/docs/b.md']],
+        ]),
+        videos: new Map(),
+        svgs: new Map(),
+        pdfs: new Map(),
+        fragments: new Map(),
+        externalMedia: new Map(),
+        successfulPages: new Set(['/docs/b.md']),
+      };
+      const fetchStub = sinon.stub(window, 'fetch').resolves(new Response(null, { status: 200 }));
+      const reconcile = () => process(index, [], [], 'adobe', 'blog', 'main', () => {}, () => {}, usage);
+      try {
+        await reconcile();
+        await reconcile();
+        expect(index.filter((row) => row.hash === 'abc').map((row) => row.doc))
+          .to.have.members(['/docs/a.md', '/docs/b.md']);
+        expect(index.filter((row) => row.hash === 'def' && row.doc).map((row) => row.doc))
+          .to.deep.equal(['/docs/b.md']);
+        usage.images.clear();
+        usage.videos.clear();
+        await reconcile();
+        expect(index.filter((row) => row.doc).map((row) => row.doc)).to.deep.equal(['/docs/a.md']);
+        usage.successfulPages = new Set(['/docs/a.md']);
+        await reconcile();
+        expect(index).to.have.lengthOf(2);
+        expect(index.every((row) => row.doc === '')).to.equal(true);
+      } finally {
+        fetchStub.restore();
+      }
+    });
+
+    it(`${mode}: uses the latest named preview event without removing hashed media`, async () => {
+      const index = [
+        toLinkedContentEntry('/media/logo.svg', '', { timestamp: 0 }, 'adobe', 'blog'),
+        { hash: 'named-png', url: 'https://main--blog--adobe.aem.page/media/logo.png', doc: '', type: 'image', operation: 'upload' },
+        { hash: 'abc', url: 'https://main--blog--adobe.aem.page/media_abc.svg', doc: '/docs/a.md', type: 'image', operation: 'reuse' },
+      ];
+      const files = [
+        { path: '/media/logo.svg', method: 'POST', timestamp: 1 },
+        { path: '/media/logo.svg', method: 'DELETE', timestamp: 2 },
+        { path: '/media/logo.svg', method: 'POST', timestamp: 3 },
+        { path: '/media/logo.png', method: 'POST', timestamp: 1 },
+        { path: '/media/logo.png', method: 'DELETE', timestamp: 2 },
+        { path: '/media/logo.png', method: 'POST', timestamp: 3 },
+        { path: '/media/logo.svg', method: 'DELETE', timestamp: 5, status: 500 },
+        { path: '/media/logo.png', method: 'DELETE', timestamp: 5, status: 500 },
+      ];
+      const usage = {
+        images: new Map(),
+        videos: new Map(),
+        svgs: new Map(),
+        pdfs: new Map(),
+        fragments: new Map(),
+        externalMedia: new Map(),
+        successfulPages: new Set(),
+      };
+      const fetchStub = sinon.stub(window, 'fetch').resolves(new Response(null, { status: 200 }));
+      try {
+        await process(index, files, [], 'adobe', 'blog', 'main', () => {}, () => {}, usage);
+        expect(index).to.have.lengthOf(3);
+        files.push({ path: '/media/logo.svg', method: 'DELETE', timestamp: 4 });
+        files.push({ path: '/media/logo.png', method: 'DELETE', timestamp: 4 });
+        await process(index, files, [], 'adobe', 'blog', 'main', () => {}, () => {}, usage);
+        expect(index).to.have.lengthOf(1);
+        expect(index[0].doc).to.equal('/docs/a.md');
+      } finally {
+        fetchStub.restore();
+      }
+    });
+
+    it(`${mode}: preserves failed/unparsed references and removes a successfully verified empty page`, async () => {
+      const updatedIndex = ['/media/logo.svg', '/media_abc123.svg'].flatMap((path) => (
+        ['failed', 'empty', 'unchanged'].map((name) => toLinkedContentEntry(path, `/docs/${name}.md`, { timestamp: 0 }, 'adobe', 'blog'))
+      ));
+      updatedIndex.push(toLinkedContentEntry('/media_def456.svg', '/docs/used.md', { timestamp: 0 }, 'adobe', 'blog'));
+      const usageMap = {
+        pdfs: new Map(),
+        svgs: new Map([['/media_def456.svg', ['/docs/used.md']]]),
+        videos: new Map(),
+        fragments: new Map(),
+        externalMedia: new Map(),
+        successfulPages: new Set(['/docs/empty.md', '/docs/used.md']),
+      };
+      const fetchStub = sinon.stub(window, 'fetch').resolves(new Response(null, { status: 200 }));
+      try {
+        await process(
+          updatedIndex,
+          [],
+          [{ path: '/docs/failed.md' }, { path: '/docs/empty.md' }],
+          'adobe',
+          'blog',
+          'main',
+          () => {},
+          () => {},
+          usageMap,
+        );
+        expect(updatedIndex.map((row) => row.doc)).to.have.members([
+          '/docs/failed.md', '/docs/unchanged.md', '/docs/failed.md', '/docs/unchanged.md', '/docs/used.md',
+        ]);
+      } finally {
+        fetchStub.restore();
+      }
+    });
+  });
+});
 
 describe('external media deduplication', () => {
   describe('toExternalMediaEntry', () => {
@@ -155,6 +273,7 @@ describe('external media deduplication', () => {
       ];
 
       const usageMap = {
+        successfulPages: new Set(['/docs/page1.md', '/docs/page2.md', '/docs/old-page.md']),
         pdfs: new Map(),
         svgs: new Map(),
         videos: new Map(),
@@ -226,6 +345,7 @@ describe('external media deduplication', () => {
       // page1 no longer has the video reference
       // page2 was NOT parsed (unchanged)
       const usageMap = {
+        successfulPages: new Set(['/docs/page1.md']),
         pdfs: new Map(),
         svgs: new Map(),
         videos: new Map(),

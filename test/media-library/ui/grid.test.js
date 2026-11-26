@@ -1,11 +1,27 @@
 import { expect } from '@esm-bundle/chai';
 import { sendKeys } from '@web/test-runner-commands';
+import { buildMediaIndexStructures } from '../../../nx/blocks/media-library/ui/data.js';
 import '../../../nx/blocks/media-library/ui/views/grid/grid.js';
 
 const MEDIA = [
   { url: 'https://main--site--org.aem.page/media_1.png', name: 'one.png', type: 'img > png', usageCount: 2 },
   { url: 'https://main--site--org.aem.page/media_2.png', name: 'two.png', type: 'img > png', usageCount: 1 },
 ];
+
+describe('media reference counts', () => {
+  it('counts distinct documents across URL variants and ignores standalone rows', () => {
+    const rows = [
+      { url: 'https://main--site--org.aem.live/media_abc.svg#width=1200&height=300', doc: '/a.md', timestamp: 1 },
+      { url: 'https://main--site--org.preview.da.live/media_abc.svg', doc: '/a.md', timestamp: 2 },
+      { url: 'https://main--site--org.aem.page/media_abc.svg', doc: '/b.md', timestamp: 3 },
+      { url: 'https://main--site--org.aem.page/media_abc.svg', doc: '', timestamp: 4 },
+    ];
+    const { uniqueItems, usageIndex } = buildMediaIndexStructures(rows);
+    expect(uniqueItems).to.have.length(1);
+    expect(usageIndex.get('media_abc.svg').map((row) => row.doc)).to.deep.equal(['/a.md', '/b.md']);
+    expect(usageIndex.get('media_abc.svg')[0].timestamp).to.equal(2);
+  });
+});
 
 async function waitForCards(el) {
   for (let i = 0; i < 50; i += 1) {

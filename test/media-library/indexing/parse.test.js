@@ -1,11 +1,49 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
+import { buildUsageMap } from '../../../nx/blocks/media-library/indexing/worker/parse.js';
 import {
   extractExternalMediaUrls,
   extractFragmentReferences,
+  extractImageUrls,
   extractLinks,
 } from '../../../nx/blocks/media-library/indexing/parse-utils.js';
 
 describe('parse', () => {
+  it('extracts authenticated SVG preview references as internal media', () => {
+    const md = '![Logo][image0]\n\n[image0]: https://main--blog--adobe.preview.da.live/media/logo.svg#width=1200\\&height=300';
+    expect(extractLinks(md, /\.svg$/)).to.deep.equal(['/media/logo.svg']);
+    expect(extractImageUrls(md)).to.deep.equal(['/media/logo.svg']);
+    expect(extractExternalMediaUrls(md)).to.be.empty;
+  });
+
+  it('tracks successful empty pages and recovered retries, but not failed reads', async () => {
+    let attempts = 0;
+    const fetchStub = sinon.stub(window, 'fetch').callsFake(async (href) => {
+      const path = new URL(new URL(href).searchParams.get('url')).pathname;
+      if (path === '/failed.md') return new Response(null, { status: 403 });
+      if (path === '/recovered.md') {
+        attempts += 1;
+        if (attempts === 1) return new Response(null, { status: 503 });
+      }
+      return new Response(path === '/empty.md' ? '' : '![Logo](/media/logo.svg)', { status: 200 });
+    });
+    try {
+      const usage = await buildUsageMap(
+        ['failed', 'empty', 'recovered'].map((path) => ({ path: `/${path}.md` })),
+        'adobe',
+        'blog',
+        'main',
+        null,
+        null,
+        { daEtcOrigin: 'https://proxy.example' },
+      );
+      expect([...usage.successfulPages]).to.have.members(['/empty.md', '/recovered.md']);
+      expect(usage.svgs.get('/media/logo.svg')).to.deep.equal(['/recovered.md']);
+    } finally {
+      fetchStub.restore();
+    }
+  });
+
   describe('extractExternalMediaUrls', () => {
     describe('from markdown', () => {
       it('extracts external YouTube URLs', () => {

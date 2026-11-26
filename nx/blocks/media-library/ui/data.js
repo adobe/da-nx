@@ -22,6 +22,7 @@ import { getIndexStatus } from '../indexing/index-status.js';
 import { getCanonicalMediaTimestamp } from '../core/utils.js';
 import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
 import { isIndexedExternalMediaEntry } from '../core/media.js';
+import { normalizePath } from '../indexing/parse-utils.js';
 import {
   IndexFiles,
   SheetNames,
@@ -204,7 +205,7 @@ function shouldReplaceUniqueItem(existingItem, item) {
 
 export function buildMediaIndexStructures(mediaData) {
   const uniqueItemsMap = new Map();
-  const usageIndex = new Map();
+  const usageByDoc = new Map();
 
   mediaData.forEach((item) => {
     const groupingKey = getUsageIndexKey(item);
@@ -226,15 +227,19 @@ export function buildMediaIndexStructures(mediaData) {
     }
 
     if (item.doc) {
-      if (!usageIndex.has(groupingKey)) {
-        usageIndex.set(groupingKey, []);
+      if (!usageByDoc.has(groupingKey)) {
+        usageByDoc.set(groupingKey, new Map());
       }
-      usageIndex.get(groupingKey).push(item);
+      const documents = usageByDoc.get(groupingKey);
+      const doc = normalizePath(item.doc);
+      if (shouldReplaceUniqueItem(documents.get(doc), item)) {
+        documents.set(doc, item);
+      }
     }
   });
 
   return {
     uniqueItems: Array.from(uniqueItemsMap.values()),
-    usageIndex,
+    usageIndex: new Map([...usageByDoc].map(([key, documents]) => [key, [...documents.values()]])),
   };
 }

@@ -8,6 +8,7 @@ import {
   isFragmentDoc,
   buildUsageMap,
   toLinkedContentEntry,
+  getLinkedContentPath,
   toExternalMediaEntry,
 } from './parse.js';
 import { normalizePath } from './parse-utils.js';
@@ -19,6 +20,7 @@ import {
   normalizeExternalVideoUrl,
 } from '../core/media.js';
 import { canonicalizeMediaUrl } from '../core/urls.js';
+import { reconcileMediaReferences, removeWithdrawnNamedMedia } from './medialog.js';
 
 function isHtmlContentType(contentType = '') {
   const normalized = contentType.toLowerCase();
@@ -258,14 +260,15 @@ export async function processLinkedContent(
   prebuiltUsageMap = null,
 ) {
   let added = 0;
-  let removed = 0;
+  let removed = removeWithdrawnNamedMedia({ index: updatedIndex, files });
 
   const filesByPath = new Map();
   files.forEach((e) => {
+    if (e.status != null && (e.status < 200 || e.status >= 300)) return;
     if (!isPdfOrSvg(e.path) && !isFragmentDoc(e.path)) return;
     const p = e.path;
     const existing = filesByPath.get(p);
-    if (!existing || e.timestamp < existing.timestamp) filesByPath.set(p, e);
+    if (!existing || e.timestamp > existing.timestamp) filesByPath.set(p, e);
   });
 
   const deletedPaths = new Set();
@@ -300,12 +303,12 @@ export async function processLinkedContent(
     usageMap[key]?.forEach((_, path) => allLinkedPaths.add(path));
   });
 
-  const parsedPages = new Set(pages.map((p) => normalizePath(p.path)));
+  const parsedPages = usageMap.successfulPages;
   updatedIndex.forEach((e) => {
     const isLinkedContent = e.operation === 'auditlog-parsed' || e.source === 'auditlog-parsed';
     if (!isLinkedContent) return;
-    if (e.doc && parsedPages.has(e.doc)) {
-      allLinkedPaths.add(e.hash);
+    if (e.doc && parsedPages.has(normalizePath(e.doc))) {
+      allLinkedPaths.add(getLinkedContentPath(e));
     }
   });
 
@@ -320,22 +323,29 @@ export async function processLinkedContent(
     const fileEvent = filesByPath.get(filePath) || { timestamp: 0, user: '' };
 
     const isLinkedContent = (e) => (e.operation === 'auditlog-parsed' || e.source === 'auditlog-parsed')
-      && e.hash === filePath;
+      && getLinkedContentPath(e) === filePath;
     const isLinkedForDoc = (doc) => (e) => isLinkedContent(e) && e.doc === doc;
 
     if (linkedPages.length === 0) {
-      const obsolete = updatedIndex.filter((e) => isLinkedContent(e));
+      const obsolete = updatedIndex.filter(
+        (e) => isLinkedContent(e) && e.doc && parsedPages.has(normalizePath(e.doc)),
+      );
       obsolete.forEach((e) => {
         updatedIndex.splice(updatedIndex.indexOf(e), 1);
         removed += 1;
       });
-      const stillHasUnused = updatedIndex.some((e) => isLinkedContent(e) && !e.doc);
-      if (!stillHasUnused) {
+      const stillHasEntry = updatedIndex.some((e) => isLinkedContent(e));
+      if (!stillHasEntry) {
         updatedIndex.push(toLinkedContentEntry(filePath, '', fileEvent, org, repo));
         added += 1;
       }
     } else {
-      const obsolete = updatedIndex.filter((e) => isLinkedContent(e) && (e.doc === '' || !linkedPages.includes(e.doc)));
+      const obsolete = updatedIndex.filter(
+        (e) => isLinkedContent(e)
+          && e.doc
+          && parsedPages.has(normalizePath(e.doc))
+          && !linkedPages.some((doc) => normalizePath(doc) === normalizePath(e.doc)),
+      );
       obsolete.forEach((e) => {
         updatedIndex.splice(updatedIndex.indexOf(e), 1);
         removed += 1;
@@ -353,9 +363,20 @@ export async function processLinkedContent(
     }
   });
 
+  const mediaReferences = reconcileMediaReferences({ index: updatedIndex, usageMap });
+  added += mediaReferences.added;
+  removed += mediaReferences.removed;
+
   removed += purgeInvalidExternalMediaEntries(updatedIndex);
 
-  const externalUrls = usageMap.externalMedia ? [...usageMap.externalMedia.keys()] : [];
+  const allExternalUrls = new Set(usageMap.externalMedia.keys());
+  updatedIndex.forEach((entry) => {
+    if (isIndexedExternalMediaOperation(entry)
+      && entry.doc && parsedPages.has(normalizePath(entry.doc))) {
+      allExternalUrls.add(normalizeExternalVideoUrl(canonicalizeMediaUrl(entry.url, org, repo)));
+    }
+  });
+  const externalUrls = [...allExternalUrls];
   externalUrls.forEach((url) => {
     const data = usageMap.externalMedia.get(url) || {
       pages: [],
@@ -380,15 +401,18 @@ export async function processLinkedContent(
       ) && e.hash === entryHash;
     };
 
-    // Only process if we have linkedPages from parsed pages
-    // If linkedPages is empty, keep existing entries unchanged (pages weren't parsed in this build)
-    if (linkedPages.length > 0) {
-      const obsolete = updatedIndex.filter((e) => isExtlinksEntry(e) && (e.doc === '' || !linkedPages.includes(e.doc)));
-      obsolete.forEach((e) => {
-        updatedIndex.splice(updatedIndex.indexOf(e), 1);
-        removed += 1;
-      });
+    const obsolete = updatedIndex.filter(
+      (e) => isExtlinksEntry(e)
+        && e.doc
+        && parsedPages.has(normalizePath(e.doc))
+        && !linkedPages.some((doc) => normalizePath(doc) === normalizePath(e.doc)),
+    );
+    obsolete.forEach((e) => {
+      updatedIndex.splice(updatedIndex.indexOf(e), 1);
+      removed += 1;
+    });
 
+    if (linkedPages.length > 0) {
       linkedPages.forEach((doc) => {
         const existingIdx = updatedIndex.findIndex(isExtlinksForDoc(doc));
         const freshEntry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp, org, repo);

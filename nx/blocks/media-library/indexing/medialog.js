@@ -8,6 +8,7 @@ import {
 } from './parse.js';
 import { normalizePath } from './parse-utils.js';
 import { canonicalizeMediaUrl } from '../core/urls.js';
+import { isIndexedExternalMediaOperation } from '../core/media.js';
 
 /**
  * Copies canonical display/timestamp metadata from source to target.
@@ -259,15 +260,14 @@ export function pageMediaToEntryMap(pageMediaMap) {
  * Removes page-media entry from index, orphaning to unused if no other references exist.
  * Returns 1 if an entry was removed, 0 otherwise.
  */
-export function removeOrOrphanMedia(idx, entry, path, medialog) {
+export function removeOrOrphanMedia(idx, entry, path) {
   const i = idx.findIndex((e) => e.hash === entry.hash && e.doc === path);
   if (i === -1) return 0;
   const { hash } = entry;
-  const hasUnlink = medialog.some((m) => m.mediaHash === hash && (m.operation === 'unlink' || m.operation === 'delete'));
   idx.splice(i, 1);
   const stillHasEntry = idx.some((e) => e.hash === hash);
   const alreadyOrphan = idx.some((e) => e.hash === hash && !e.doc);
-  if (!stillHasEntry && !hasUnlink && !alreadyOrphan) {
+  if (!stillHasEntry && !alreadyOrphan) {
     const orphan = {
       hash,
       url: entry.url,
@@ -286,7 +286,7 @@ export function removeOrOrphanMedia(idx, entry, path, medialog) {
 
 /**
  * Merges page-based medialog into index for incremental builds.
- * Adds/removes entries per page based on diff between old and new medialog.
+ * Adds entries per page; reference removals require verified page content.
  */
 export function processPageMediaUpdates(
   updatedIndex,
@@ -308,7 +308,6 @@ export function processPageMediaUpdates(
   );
   const allPages = new Set([...pagesByPath.keys(), ...pageMediaMap.keys()]);
   let added = 0;
-  let removed = 0;
 
   allPages.forEach((normalizedPath) => {
     const oldHashes = usageMap.get(normalizedPath) || new Set();
@@ -334,24 +333,11 @@ export function processPageMediaUpdates(
     onLog(`  Old (bypage): ${oldMedialogHashes.size}, New (page-based): ${newEntries.length}`);
 
     const newHashes = new Set(newEntries.map((e) => e.hash));
-    const toRemove = [...oldMedialogHashes].filter((h) => !newHashes.has(h));
     const toAdd = [...newHashes].filter((h) => !oldMedialogHashes.has(h));
 
-    if (toRemove.length || toAdd.length) {
-      onLog(`  Diff: remove ${toRemove.length}, add ${toAdd.length}`);
+    if (toAdd.length) {
+      onLog(`  Diff: add ${toAdd.length}`);
     }
-
-    toRemove.forEach((hash) => {
-      const oldEntry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
-      if (oldEntry) {
-        removed += removeOrOrphanMedia(
-          updatedIndex,
-          oldEntry,
-          normalizedPath,
-          medialogEntries,
-        );
-      }
-    });
 
     toAdd.forEach((hash) => {
       const entry = newEntries.find((e) => e.hash === hash);
@@ -381,7 +367,70 @@ export function processPageMediaUpdates(
     });
   });
 
+  return { added, removed: 0 };
+}
+
+export function reconcileMediaReferences({ index, usageMap }) {
+  const assets = new Map();
+  index.forEach((entry) => {
+    if (entry.type !== 'image' || isIndexedExternalMediaOperation(entry)
+      || entry.operation === 'auditlog-parsed' || entry.source === 'auditlog-parsed') return;
+    const key = getDedupeKey(entry.url);
+    if (!key.startsWith('media_')) return;
+    if (!assets.has(key)) assets.set(key, { entries: [], pages: new Set() });
+    assets.get(key).entries.push(entry);
+  });
+
+  usageMap.images?.forEach((pages, path) => {
+    const asset = assets.get(getDedupeKey(path).replace(/^\/(?=media_)/, ''));
+    if (!asset) return;
+    pages.forEach((page) => {
+      const doc = normalizePath(page);
+      if (usageMap.successfulPages.has(doc)) asset.pages.add(doc);
+    });
+  });
+
+  let added = 0;
+  let removed = 0;
+  assets.forEach(({ entries, pages }) => {
+    const retainedDocs = new Set();
+    entries.forEach((entry) => {
+      if (!entry.doc) return;
+      const doc = normalizePath(entry.doc);
+      if (usageMap.successfulPages.has(doc) && !pages.has(doc)) {
+        removed += removeOrOrphanMedia(index, entry, entry.doc);
+      } else {
+        retainedDocs.add(doc);
+      }
+    });
+    pages.forEach((doc) => {
+      if (!retainedDocs.has(doc)) {
+        index.push({ ...entries[0], doc });
+        retainedDocs.add(doc);
+        added += 1;
+      }
+    });
+  });
   return { added, removed };
+}
+
+export function removeWithdrawnNamedMedia({ index, files }) {
+  const latest = new Map();
+  files.forEach((event) => {
+    if (event.status != null && (event.status < 200 || event.status >= 300)) return;
+    const previous = latest.get(event.path);
+    if (!previous || event.timestamp > previous.timestamp) latest.set(event.path, event);
+  });
+  let removed = 0;
+  for (let i = index.length - 1; i >= 0; i -= 1) {
+    const path = getDedupeKey(index[i].url);
+    if (path.startsWith('/') && !path.startsWith('/media_')
+      && latest.get(path)?.method === 'DELETE') {
+      index.splice(i, 1);
+      removed += 1;
+    }
+  }
+  return removed;
 }
 
 /**

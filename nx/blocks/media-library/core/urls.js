@@ -7,6 +7,7 @@ const previewPreferredMediaKeys = new Set();
 function toAemRuntimeHostname(hostname) {
   if (!hostname) return hostname;
   return hostname
+    .replace(Domains.PREVIEW_DA_LIVE, Domains.AEM_PAGE)
     .replace('.hlx.page', Domains.AEM_PAGE)
     .replace('.hlx.live', Domains.AEM_LIVE);
 }

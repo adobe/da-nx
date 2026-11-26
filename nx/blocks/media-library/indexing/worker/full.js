@@ -425,7 +425,7 @@ export async function buildFullIndex(
   deletedPages.forEach((doc) => {
     const toRemove = index.filter((e) => e.doc === doc);
     toRemove.forEach((entry) => {
-      removeOrOrphanMedia(index, entry, doc, medialogEntries);
+      removeOrOrphanMedia(index, entry, doc);
     });
   });
 
@@ -528,12 +528,13 @@ export async function buildFullIndex(
       const pagesWithImage = imageToPages.get(normalizedPath);
 
       // Check if this specific doc reference is valid
-      if (!pagesWithImage || !pagesWithImage.has(entry.doc)) {
+      if ((!pagesWithImage || !pagesWithImage.has(entry.doc))
+        && usageMap.successfulPages.has(normalizePath(entry.doc))) {
         // Stale reference - image exists but not on this page anymore
         // Orphan it by setting doc='' (don't remove from index)
         entry.doc = '';
         orphanedCount += 1;
-      } else {
+      } else if (pagesWithImage?.has(entry.doc)) {
         truthedCount += 1;
       }
     }

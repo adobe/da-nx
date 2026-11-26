@@ -1,5 +1,7 @@
 import { Domains } from './constants.js';
 import { etcFetch, getLivePreviewUrl } from './urls.js';
+import { ErrorCodes, logMediaLibraryError } from './errors.js';
+import { getMessage } from './messages.js';
 import {
   getCanonicalMediaTimestamp as _getCanonicalMediaTimestamp,
   sortMediaData as _sortMediaData,
@@ -89,58 +91,27 @@ export function debugLog(message, data) {
   }
 }
 
-function saveSiteAuthCache(cacheKey, result) {
-  try {
-    localStorage.setItem(cacheKey, JSON.stringify(result));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function parseCachedAuth(raw) {
-  if (!raw) return undefined;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return undefined;
-  }
-}
-
 export async function checkSiteAuthRequired(org, repo) {
-  const cacheKey = `${org}-${repo}-auth-status`;
-
-  let raw = null;
-  try {
-    raw = localStorage.getItem(cacheKey);
-  } catch {
-    raw = null;
-  }
-
-  const cached = parseCachedAuth(raw);
-  if (cached !== undefined) {
-    debugLog('Using cached auth check result', { org, repo });
-    return cached;
-  }
-
   const indexUrl = `https://main--${repo}--${org}${Domains.AEM_PAGE}/index.md`;
 
   debugLog('Checking site auth requirement', { org, repo, indexUrl });
 
   try {
-    const response = await etcFetch(indexUrl, 'cors', { method: 'HEAD' });
+    const response = await etcFetch(indexUrl, 'cors', { method: 'HEAD', cache: 'no-store' });
     const requiresAuth = response.status === 401
       || response.status === 403;
+    if (!response.ok && !requiresAuth) {
+      logMediaLibraryError(ErrorCodes.AUTH_CHECK_FAILED, { org, repo, status: response.status });
+      return { error: getMessage('NOTIFY_VERIFY_AUTH'), status: response.status };
+    }
     const result = { requiresAuth, status: response.status };
 
     debugLog('Site auth check result', result);
-    saveSiteAuthCache(cacheKey, result);
     return result;
   } catch (error) {
     debugLog('Site auth check error', error);
-    const result = { requiresAuth: false, status: 0 };
-    saveSiteAuthCache(cacheKey, result);
-    return result;
+    logMediaLibraryError(ErrorCodes.AUTH_CHECK_FAILED, { org, repo, status: 0 });
+    return { error: getMessage('NOTIFY_VERIFY_AUTH'), status: 0 };
   }
 }
 

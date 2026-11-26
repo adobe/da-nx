@@ -6,6 +6,7 @@ import {
 } from '../core/constants.js';
 import { normalizeExternalVideoUrl } from '../core/media.js';
 import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
+import { ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import {
   normalizePath,
   isHiddenPath,
@@ -294,6 +295,7 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
     videos: new Map(), // Videos from markdown links
     images: new Map(), // Regular images from markdown
     externalMedia: new Map(),
+    successfulPages: new Set(),
   };
 
   const pagesByPath = new Map();
@@ -324,7 +326,11 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
   const failureReasons = new Map(); // reason -> count
   const failedPathsByReason = new Map(); // reason -> path[]
 
-  const processResultIntoUsageMap = ({ normalizedPath, md, isHtml = false }) => {
+  const processResultIntoUsageMap = ({
+    normalizedPath, md, isHtml = false, wasSuccessful,
+  }) => {
+    if (!wasSuccessful) return;
+    usageMap.successfulPages.add(normalizedPath);
     if (!md) return;
     const fragments = extractFragmentReferences(md, isHtml);
     const pdfs = extractLinks(md, /\.pdf$/, isHtml);
@@ -372,14 +378,9 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
         const html = result?.html || null;
         const wasSuccessful = result?.status === 200;
 
-        if (md !== null) {
+        if (wasSuccessful) {
           counters.success += 1;
-        } else if (html) {
-          counters.success += 1;
-          counters.htmlFallback += 1;
-        } else if (wasSuccessful) {
-          // HTTP 200 but no markdown/html (empty page or unexpected format)
-          counters.success += 1;
+          if (html) counters.htmlFallback += 1;
         } else {
           counters.fail += 1;
           const reason = result?.reason || `HTTP ${result?.status || 'unknown'}`;
@@ -389,7 +390,9 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
           failedPathsByReason.get(reason).push(normalizedPath);
         }
         counters.parsed += 1;
-        return { normalizedPath, md: md || html || '', isHtml: !!html };
+        return {
+          normalizedPath, md: md || html || '', isHtml: !!html, wasSuccessful,
+        };
       },
       IndexConfig.MAX_CONCURRENT_PAGE_FETCHES,
     );
@@ -419,15 +422,15 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
       retryConcurrency,
     );
     retryResults.forEach(processResultIntoUsageMap);
-    retryResults.forEach(({ md, wasSuccessful }) => {
-      if (md || wasSuccessful) {
+    retryResults.forEach(({ wasSuccessful }) => {
+      if (wasSuccessful) {
         counters.success += 1;
         counters.fail -= 1;
       }
     });
     /* Remove recovered paths from failedPathsByReason and failureReasons */
     const recovered = new Set(
-      retryResults.filter((r) => r.md || r.wasSuccessful).map((r) => r.normalizedPath),
+      retryResults.filter((r) => r.wasSuccessful).map((r) => r.normalizedPath),
     );
     if (recovered.size > 0) {
       failedPathsByReason.forEach((paths, reason) => {
@@ -441,6 +444,11 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
         }
       });
     }
+  }
+
+  if (counters.fail > 0) {
+    logMediaLibraryError(ErrorCodes.MARKDOWN_FETCH_PARTIAL, { org, repo, pages: counters.fail });
+    onProgress?.({ message: `Unable to verify ${counters.fail} pages; retaining their indexed references.` });
   }
 
   const durationMs = Date.now() - usageMapStartTime;
@@ -501,6 +509,10 @@ export function toExternalMediaEntry(
     displayName,
     modifiedTimestamp,
   };
+}
+
+export function getLinkedContentPath({ hash, url }) {
+  return typeof hash === 'string' && hash.startsWith('/') ? hash : new URL(url).pathname;
 }
 
 export function toLinkedContentEntry(
