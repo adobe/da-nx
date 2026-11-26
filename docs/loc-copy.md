@@ -64,7 +64,7 @@ A version-save failure can follow a successful content write. Don't automaticall
 
 ## Internal modules
 
-The merge engine is the `@adobe/da-merge` package ([da-tools](https://github.com/adobe/da-tools/tree/main/da-merge)), bundled with `@adobe/da-parser` and `yjs` in `nx/deps/da-merge` (`npm run build:da-merge`). `nx/public/loc/da-merge.js` creates the one shared engine with the browser DOM and the editor's canonicalizer; `copy.js` loads it only when a copy runs.
+The merge engine is the `@adobe/da-merge` package ([da-tools](https://github.com/adobe/da-tools/tree/main/da-merge)), bundled with `@adobe/da-parser` and `yjs` in `nx/deps/da-merge` (`npm run build:da-merge`). `nx/public/loc/da-merge.js` creates the one shared engine with the browser DOM and the editor's canonicalizer. `copy.js` alone loads it only when a copy runs. The public index and the re-export modules below import it statically, so importing them loads the bundle.
 
 The public index exports only `mergeCopy`, `overwriteCopy`, and the hash helpers. `copy.js` (`createCopy`, `createConfigLoader`) is Nexter-internal and may change. `regional-diff.js`, `smart-merge.js`, `hashes.js` and `object_hash.js` only re-export da-merge's functions under their old names, for callers that import them by URL; new code should not use them.
 
