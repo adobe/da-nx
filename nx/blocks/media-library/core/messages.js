@@ -51,6 +51,8 @@ const MESSAGES = {
   NOTIFY_PLUGIN_FALLBACK_IMAGE_MSG: 'Image copied (direct insert unavailable). Press Ctrl+V or ⌘V.',
   NOTIFY_PLUGIN_FALLBACK_PLAIN_MSG: 'URL copied (direct insert unavailable). Press Ctrl+V or ⌘V.',
   NOTIFY_COPY_ERROR: 'Failed to copy Resource.',
+  NOTIFY_IMAGE_SOURCE_CHECK_FAILED: "Couldn't verify the image source ({status}). Try again.",
+  NOTIFY_IMAGE_SOURCE_INVALID: "The source file isn't an image. Refresh the Media Library and try again.",
   NOTIFY_EXPORT_NO_DATA: 'No data to export.',
   NOTIFY_EXPORT_SUCCESS: 'Export complete.',
   NOTIFY_EXPORT_ERROR: 'Failed to export.',

@@ -1,4 +1,7 @@
-import { etcFetch, resolveMediaUrl } from './urls.js';
+import {
+  etcFetch, resolveMediaUrl, isDeliveryStandaloneUrl, convertToAemPage,
+} from './urls.js';
+import { MEDIA_UNDERSCORE_PREFIX } from './constants.js';
 import { getMediaType, getSubtype } from './media.js';
 import { decodeDisplayName, getFileName } from './files.js';
 import { getMessage } from './messages.js';
@@ -96,6 +99,34 @@ async function copyNonImageLinkRichClipboard(media) {
   ]);
 }
 
+async function resolveImageAuthoringUrl({ media, org, repo }) {
+  const mediaUrl = media.url;
+  if (getMediaType(media) !== 'image'
+    || !isDeliveryStandaloneUrl(convertToAemPage(mediaUrl), org, repo)) return mediaUrl;
+
+  const url = new URL(mediaUrl, `https://main--${repo}--${org}.aem.page`);
+  if (getFileName(url.href).startsWith(MEDIA_UNDERSCORE_PREFIX)) return mediaUrl;
+
+  const [{ daFetch }, { DA_ADMIN, DA_CONTENT }] = await Promise.all([
+    import('./ims-adapter.js'),
+    import('../../../utils/utils.js'),
+  ]);
+  const sourcePath = `/${org}/${repo}${url.pathname}`;
+  const response = await daFetch(`${DA_ADMIN}/source${sourcePath}`, {
+    method: 'HEAD',
+    cache: 'no-store',
+    signal: AbortSignal.timeout(5000),
+  });
+  if (response.status === 404) return mediaUrl;
+  if (!response.ok) {
+    throw new Error(getMessage('NOTIFY_IMAGE_SOURCE_CHECK_FAILED', { status: response.status }));
+  }
+  if (!response.headers.get('content-type')?.toLowerCase().startsWith('image/')) {
+    throw new Error(getMessage('NOTIFY_IMAGE_SOURCE_INVALID'));
+  }
+  return `${DA_CONTENT}${sourcePath}${url.search}${url.hash}`;
+}
+
 async function insertMediaViaPluginSdk(media) {
   const mediaUrl = media.url;
   const mediaType = getMediaType(media);
@@ -190,32 +221,32 @@ async function copyImageToClipboard(imageUrl, org, repo, usePreviewDaLive = fals
 }
 
 export async function copyMediaToClipboard(media, org, repo, usePreviewDaLive = false) {
-  const mediaUrl = media.url;
   const mediaType = getMediaType(media);
   const plugin = isMediaLibraryPluginMode();
 
-  if (plugin) {
-    try {
-      await insertMediaViaPluginSdk(media);
-      return { silent: true };
-    } catch (pluginErr) {
-      // eslint-disable-next-line no-console
-      console.warn('[media-library] Plugin insert unavailable, falling back to clipboard:', pluginErr?.message || pluginErr);
-      if (mediaType !== 'image') {
-        try {
-          await copyNonImageLinkRichClipboard(media);
-          return {
-            heading: getMessage('NOTIFY_PLUGIN_FALLBACK_HEADING'),
-            message: getMessage('NOTIFY_PLUGIN_FALLBACK_LINK_MSG'),
-          };
-        } catch {
-          /* fall through to plain writeText */
+  try {
+    const mediaUrl = await resolveImageAuthoringUrl({ media, org, repo });
+    if (plugin) {
+      try {
+        await insertMediaViaPluginSdk({ ...media, url: mediaUrl });
+        return { silent: true };
+      } catch (pluginErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[media-library] Plugin insert unavailable, falling back to clipboard:', pluginErr?.message || pluginErr);
+        if (mediaType !== 'image') {
+          try {
+            await copyNonImageLinkRichClipboard(media);
+            return {
+              heading: getMessage('NOTIFY_PLUGIN_FALLBACK_HEADING'),
+              message: getMessage('NOTIFY_PLUGIN_FALLBACK_LINK_MSG'),
+            };
+          } catch {
+            /* fall through to plain writeText */
+          }
         }
       }
     }
-  }
 
-  try {
     if (mediaType === 'image') {
       await copyImageToClipboard(mediaUrl, org, repo, usePreviewDaLive);
       if (plugin) {
