@@ -10,3 +10,5 @@ helix-importer-ui
 .claude/settings.local.json
 PR-throwaways/
 .scout/
+docs/superpowers/
+.superpowers/
