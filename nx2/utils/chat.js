@@ -4,6 +4,8 @@ import { resolveHarness } from './ewFlags.js';
 export const CHAT_EVENT = {
   // Chat -> document: notifications chat dispatches when something happened.
   AGENT_CHANGE: 'nx-agent-change',
+  TURN_STARTED: 'nx-chat-turn-started',
+  TURN_PROGRESS: 'nx-chat-turn-progress',
   TURN_COMPLETED: 'nx-chat-turn-completed',
   HIGHLIGHT_SELECTION: 'nx-highlight-selection',
 

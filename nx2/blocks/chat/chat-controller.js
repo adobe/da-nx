@@ -4,6 +4,16 @@ import {
 } from './constants.js';
 import { readStream } from './utils/stream.js';
 import { loadMessages, saveMessages, resetSession, getRoomKey } from './utils/persistence.js';
+import { PAGE_STATUS, summarizePages, traceChat } from '../shared/chat/turn-activity.js';
+
+const TOOL_PAGE_STATUS = {
+  [TOOL_STATE.INPUT_AVAILABLE]: PAGE_STATUS.WORKING,
+  [TOOL_STATE.AWAITING_APPROVAL]: PAGE_STATUS.NEEDS_APPROVAL,
+  [TOOL_STATE.APPROVED]: PAGE_STATUS.WORKING,
+  [TOOL_STATE.REJECTED]: PAGE_STATUS.REJECTED,
+  [TOOL_STATE.OUTPUT_AVAILABLE]: PAGE_STATUS.DONE,
+  [TOOL_STATE.OUTPUT_ERROR]: PAGE_STATUS.FAILED,
+};
 
 function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
@@ -87,9 +97,14 @@ export function migrateHistory(messages) {
 }
 
 export default class ChatController {
-  constructor({ onUpdate, onToolDone, onTurnCompleted }) {
+  constructor({
+    onUpdate, onToolDone, onTurnStarted, onTurnProgress, onTurnCompleted,
+  }) {
+    traceChat('chat-controller.js.constructor: storing callbacks and creating session identifiers');
     this._onUpdate = onUpdate;
     this._onToolDone = onToolDone;
+    this._onTurnStarted = onTurnStarted;
+    this._onTurnProgress = onTurnProgress;
     this._onTurnCompleted = onTurnCompleted;
     this._sessionId = crypto.randomUUID();
     this._currentTurnId = crypto.randomUUID();
@@ -99,6 +114,7 @@ export default class ChatController {
   }
 
   setContext(context) {
+    traceChat('chat-controller.js.setContext: storing page context', { view: context?.view });
     this._context = context;
     this._room = null;
   }
@@ -125,10 +141,14 @@ export default class ChatController {
   }
 
   async loadInitialMessages() {
+    traceChat('chat-controller.js.loadInitialMessages: loading saved conversation');
     this._messages = [];
     const room = await this._getRoom();
     const { messages: cached, sessionId } = await loadMessages(room);
     this._sessionId = sessionId ?? this._sessionId;
+    traceChat('chat-controller.js.loadInitialMessages: saved conversation loaded', {
+      messageCount: cached.length, sessionId: this._sessionId,
+    });
     if (!cached.length) return;
     this._messages = migrateHistory(cached);
     // Anything decided-but-unexecuted was already submitted in a prior session;
@@ -162,6 +182,9 @@ export default class ChatController {
   }
 
   _update() {
+    traceChat('chat-controller.js._update: calling onUpdate before checking progress', {
+      active: !!this._turnActive, messageCount: this._messages?.length ?? 0,
+    });
     this._onUpdate({
       messages: this._messages,
       thinking: this._thinking,
@@ -169,9 +192,43 @@ export default class ChatController {
       connected: this._connected,
       toolCards: this._deriveToolCards(),
     });
+    this._reportTurnProgress();
+  }
+
+  _turnIds() {
+    const { org, site, path } = this._context ?? {};
+    return {
+      org, site, path, sessionId: this._sessionId, turnId: this._currentTurnId,
+    };
+  }
+
+  // Only during a live turn: restoring history also calls _update().
+  _reportTurnProgress() {
+    if (!this._turnActive) {
+      traceChat('chat-controller.js._reportTurnProgress: skipped; no active turn');
+      return;
+    }
+    traceChat('chat-controller.js._reportTurnProgress: selecting current-turn tool calls');
+    const calls = (this._messages ?? [])
+      .filter((msg) => msg.role === ROLE.ASSISTANT && msg.turnId === this._currentTurnId
+        && Array.isArray(msg.content))
+      .flatMap((msg) => msg.content.filter(isToolPart))
+      .map((p) => ({ toolName: p.toolName, input: p.input, status: TOOL_PAGE_STATUS[p.state] }));
+    const pages = summarizePages(calls);
+    const key = JSON.stringify(pages);
+    if (key === this._turnProgressKey) {
+      traceChat('chat-controller.js._reportTurnProgress: skipped unchanged summary');
+      return;
+    }
+    this._turnProgressKey = key;
+    traceChat('chat-controller.js._reportTurnProgress: calling onTurnProgress', {
+      ...this._turnIds(), pages,
+    });
+    this._onTurnProgress?.({ ...this._turnIds(), pages });
   }
 
   async connect(attempt = 0) {
+    traceChat('chat-controller.js.connect: checking agent availability', { attempt });
     try {
       await fetch(AGENT_URL, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
       this._connected = true;
@@ -180,23 +237,29 @@ export default class ChatController {
       const delay = 1000 * 2 ** attempt;
       if (delay < 30000) this._retryTimeout = setTimeout(() => this.connect(attempt + 1), delay);
     } finally {
+      traceChat('chat-controller.js.connect: availability result', { connected: this._connected });
       this._update();
     }
   }
 
   _done(status = 'completed') {
+    traceChat('chat-controller.js._done: ending request round', { status });
     this._abortController = null;
     this._thinking = false;
     this._streamingText = undefined;
     this._update();
-    if (status === 'completed' && this._awaitingParts().length) return;
-    const { org, site, path } = this._context ?? {};
-    this._onTurnCompleted?.({
-      org, site, path, sessionId: this._sessionId, turnId: this._currentTurnId, status,
-    });
+    console.log(`Turn completed with status: ${status} ${JSON.stringify(this._turnIds())}`);
+    if (status === 'completed' && this._awaitingParts().length) {
+      traceChat('chat-controller.js._done: turn stays active while awaiting approval');
+      return;
+    }
+    this._turnActive = false;
+    traceChat('chat-controller.js._done: calling onTurnCompleted', { ...this._turnIds(), status });
+    this._onTurnCompleted?.({ ...this._turnIds(), status });
   }
 
   stop() {
+    traceChat('chat-controller.js.stop: aborting request');
     this._abortController?.abort();
     this._done('aborted');
   }
@@ -267,6 +330,7 @@ export default class ChatController {
   _onToolEvent = ({
     type, toolCallId, toolName, input, output, errorText, isError, scope,
   }) => {
+    traceChat('chat-controller.js._onToolEvent: received tool event', { type, toolCallId, toolName });
     if (type === AGENT_EVENT.TOOL_INPUT_AVAILABLE) {
       if (this._findToolPart(toolCallId)) return; // duplicate
       const part = {
@@ -337,6 +401,9 @@ export default class ChatController {
   // --- approvals (client → agent), batched ---
 
   approveToolCall = async (toolCallId, approved, always = false) => {
+    traceChat('chat-controller.js.approveToolCall: processing approval decision', {
+      toolCallId, approved, always,
+    });
     const part = this._findToolPart(toolCallId);
     if (!part || part.state !== TOOL_STATE.AWAITING_APPROVAL) return;
 
@@ -397,9 +464,11 @@ export default class ChatController {
   }
 
   async _stream(pageContext) {
+    traceChat('chat-controller.js._stream: preparing HTTP request');
     const [{ accessToken }, room] = await Promise.all([loadIms(), this._getRoom()]);
     this._abortController = new AbortController();
 
+    traceChat('chat-controller.js._stream: sending HTTP POST', this._turnIds());
     const resp = await fetch(AGENT_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -416,13 +485,19 @@ export default class ChatController {
       signal: this._abortController.signal,
     });
 
+    traceChat('chat-controller.js._stream: HTTP response received', { status: resp.status });
     if (!resp.ok) {
       throw new Error(`Agent responded with ${resp.status}: ${await resp.text()}`);
     }
 
     await readStream(resp.body, {
-      onDelta: (next) => { this._streamingText = next; this._update(); },
+      onDelta: (next) => {
+        traceChat('chat-controller.js.onDelta: updating partial assistant text');
+        this._streamingText = next;
+        this._update();
+      },
       onText: (text) => {
+        traceChat('chat-controller.js.onText: committing completed assistant text');
         this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: text }];
         this._streamingText = '';
         this._update();
@@ -432,6 +507,7 @@ export default class ChatController {
     });
 
     // Persist tool-part state (approvals/results) as well as text.
+    traceChat('chat-controller.js._stream: stream finished; saving conversation');
     saveMessages(room, this._messages, this._sessionId);
 
     // Chain rounds: pause for the user if approvals are pending; otherwise, if a
@@ -440,10 +516,14 @@ export default class ChatController {
   }
 
   async _maybeContinue(pageContext) {
+    traceChat('chat-controller.js._maybeContinue: checking approval or continuation', {
+      awaitingApproval: this._awaitingParts().length,
+    });
     if (this._awaitingParts().length) return; // wait for the user's decisions
     const batch = this._pendingUnsent();
     if (!batch.length) return;
     batch.forEach((p) => this._sentToolCallIds.add(p.toolCallId));
+    traceChat('chat-controller.js._maybeContinue: starting another request in the same turn');
     await this._stream(pageContext); // execute the auto-approved batch
   }
 
@@ -462,10 +542,20 @@ export default class ChatController {
   }
 
   async sendMessage(message, context = [], { requestedSkills = [], attachments = [] } = {}) {
-    if (this._thinking || !this._connected) return;
+    traceChat('chat-controller.js.sendMessage: checking readiness', {
+      thinking: !!this._thinking, connected: !!this._connected,
+    });
+    if (this._thinking || !this._connected) {
+      traceChat('chat-controller.js.sendMessage: skipped; busy or unavailable');
+      return;
+    }
 
     this._currentTurnId = crypto.randomUUID();
     this._requestedSkills = requestedSkills;
+    this._turnActive = true;
+    this._turnProgressKey = undefined;
+    traceChat('chat-controller.js.sendMessage: calling onTurnStarted', this._turnIds());
+    this._onTurnStarted?.(this._turnIds());
     const selectionContext = context
       .filter((item) => {
         const t = item.type ?? (item.blockName ? 'block' : null);
@@ -514,6 +604,7 @@ export default class ChatController {
     try {
       await this._stream(this._pageContextForAgent());
     } catch (err) {
+      traceChat('chat-controller.js.sendMessage: request failed', { aborted: err.name === 'AbortError' });
       if (err.name !== 'AbortError') {
         this._messages = [
           ...this._messages,

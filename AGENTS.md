@@ -2,6 +2,12 @@
 
 A shell/framework for Adobe AEM Edge Delivery Services. Provides shared blocks, styles, scripts, and utilities consumed by Adobe sites like da.live.
 
+## Beginner-friendly explanations for every request
+
+- For every user prompt in this repository, load and follow the [new-joiner-guide skill](.github/skills/new-joiner-guide/SKILL.md) before answering or starting work. If skill invocation is unavailable, read that file directly and apply it.
+- Assume no prior repository or JavaScript knowledge. Explain the relevant context, terminology, underlying programming principles, and reasoning in plain language, with a small concrete example when helpful.
+- Apply this teaching style while completing the requested work; it does not turn implementation requests into explanation-only tasks.
+
 ## Decisions & rationale
 
 - **Lazy load everything possible**

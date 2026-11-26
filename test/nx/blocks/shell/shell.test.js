@@ -546,7 +546,7 @@ describe('nx2 fullscreen shell', () => {
   });
 
   it('allows browser EW opt-in for a hash site without site EW enablement', async () => {
-    history.replaceState(null, '', '/app/adobe/demo/tools/app#/opted-in-org/site');
+    history.replaceState(null, '', '/app/adobe/demo/tools/app?nxver=2&ref=local#/opted-in-org/site');
     localStorage.setItem('nx2:ew-user-enabled', 'true');
     const { port, message } = await connectApp();
     expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1 });

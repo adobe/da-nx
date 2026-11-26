@@ -93,6 +93,104 @@ describe('chat turn notifications across AO harnesses', () => {
   });
 });
 
+describe('chat turn activity across AO harnesses', () => {
+  function setup(Controller = CoworkerChatController) {
+    const started = [];
+    const progress = [];
+    const completed = [];
+    const controller = new Controller({
+      onUpdate() {},
+      onTurnStarted: (detail) => started.push(detail),
+      onTurnProgress: (detail) => progress.push(detail),
+      onTurnCompleted: (detail) => completed.push(detail),
+    });
+    controller.setContext({ org: 'org', site: 'site', path: 'page' });
+    controller._episodeId = 'episode';
+    controller._resolveManifest = async () => ({ manifestId: 'test' });
+    controller._ensureSocket = async () => {};
+    controller._ws = { readyState: WebSocket.OPEN, send() {} };
+    return {
+      controller, started, progress, completed,
+    };
+  }
+
+  const tool = (controller, type, data) => controller._handleServerEvent({ type, data });
+
+  [CoworkerChatController, CmaChatController].forEach((Controller) => {
+    it(`${Controller.name} traces WebSocket sending and server tool events without their content`, async () => {
+      const originalHref = window.location.href;
+      const originalLog = console.log;
+      const logs = [];
+      const secret = 'private-ao-prompt-and-tool-content';
+      const url = new URL(originalHref);
+      url.searchParams.set('chat-trace', 'true');
+      window.history.replaceState(window.history.state, '', url.href);
+      console.log = (...args) => logs.push(args);
+      try {
+        const { controller } = setup(Controller);
+        await controller.sendMessage(secret);
+        tool(controller, 'tool_call_start', {
+          tool_call_id: 'trace', tool_name: 'edit', arguments: { path: '/a', content: secret },
+        });
+        tool(controller, 'tool_call_end', { tool_call_id: 'trace', success: true, result: secret });
+        controller._handleServerEvent({ type: 'turn_completed', turn_id: 'trace-turn' });
+        const labels = logs.map(([label]) => label);
+        const steps = [
+          'base-chat-controller.js.sendMessage: calling onTurnStarted',
+          'base-chat-controller.js.sendMessage: sending USER_INPUT',
+          'base-chat-controller.js._handleServerEvent: routing',
+          'base-chat-controller.js._onToolCallStart',
+          'base-chat-controller.js._onToolCallEnd',
+          'base-chat-controller.js._onTurnCompleted: calling onTurnCompleted',
+        ].map((step) => labels.findIndex((label) => label.includes(step)));
+        expect(steps.every((position) => position >= 0)).to.equal(true);
+        expect(steps).to.deep.equal([...steps].sort((a, b) => a - b));
+        expect(JSON.stringify(logs)).not.to.include(secret);
+      } finally {
+        console.log = originalLog;
+        window.history.replaceState(window.history.state, '', originalHref);
+      }
+    });
+
+    it(`${Controller.name} announces the turn and reports pages from tool calls`, async () => {
+      const { controller, started, progress } = setup(Controller);
+      await controller.sendMessage('update pages');
+      expect(started).to.deep.equal([{
+        org: 'org', site: 'site', path: 'page', sessionId: 'episode', turnId: undefined,
+      }]);
+      tool(controller, 'tool_call_start', { tool_call_id: '1', tool_name: 'edit', arguments: '{"path":"/a"}' });
+      tool(controller, 'tool_call_start', { tool_call_id: '2', tool_name: 'edit', arguments: { path: '/b' } });
+      tool(controller, 'tool_call_end', { tool_call_id: '1', success: true });
+      tool(controller, 'tool_call_end', { tool_call_id: '2', success: false });
+      expect(progress.at(-1).pages).to.deep.equal([
+        { path: '/a', status: 'done' },
+        { path: '/b', status: 'failed' },
+      ]);
+    });
+  });
+
+  it('stops reporting after the turn ends and ignores earlier turns', async () => {
+    const { controller, progress } = setup();
+    await controller.sendMessage('first');
+    tool(controller, 'tool_call_start', { tool_call_id: '1', tool_name: 'edit', arguments: { path: '/a' } });
+    controller._handleServerEvent({ type: 'turn_completed', turn_id: 'turn' });
+    const reported = progress.length;
+    controller._update();
+    expect(progress).to.have.lengthOf(reported);
+    await controller.sendMessage('second');
+    expect(progress.at(-1).pages).to.deep.equal([]);
+  });
+
+  it('ends an active turn with an error status when sending fails', async () => {
+    const { controller, completed } = setup();
+    controller._ensureSocket = async () => { throw new Error('offline'); };
+    await controller.sendMessage('hello');
+    expect(completed.map(({ status }) => status)).to.deep.equal(['error']);
+    controller._pushError(new Error('later'));
+    expect(completed).to.have.lengthOf(1);
+  });
+});
+
 describe('BaseChatController — shared attach primitive', () => {
   it('defines _attach and reattachIfIdle so Base reconnect never depends on a subclass', () => {
     expect(BaseChatController.prototype._attach).to.be.a('function');

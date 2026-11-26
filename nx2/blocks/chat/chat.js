@@ -20,6 +20,7 @@ import { createSlashMenu } from '../shared/chat/slash-menu.js';
 import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { ADD_MENU_ITEMS, ROLE } from './constants.js';
 import { sampleRUM } from '../../deps/rum.js';
+import { traceChat } from '../shared/chat/turn-activity.js';
 
 const styles = await loadStyle(import.meta.url);
 const closeIcon = await loadHrefSvg(new URL('../../img/icons/S2_Icon_Close_20_N.svg', import.meta.url).href);
@@ -55,6 +56,7 @@ class NxChat extends LitElement {
   }
 
   setPrompt(text, { autoSend = false } = {}) {
+    traceChat('chat.js.setPrompt: received external prompt', { connected: !!this.connected, autoSend });
     if (this.connected) {
       this._sendPrompt(text, { autoSend });
     } else {
@@ -71,6 +73,7 @@ class NxChat extends LitElement {
   }
 
   _applyContext(value) {
+    traceChat('chat.js._applyContext: applying page context', { view: value?.view });
     this._context = value;
     if (this._controller) {
       this._controller.setContext(value);
@@ -110,6 +113,7 @@ class NxChat extends LitElement {
   }
 
   _onSlashSelect(skillId) {
+    traceChat('chat.js._onSlashSelect: sending selected skill');
     const { message, input } = this._slashMenu.resolveSelection(skillId);
     if (input) input.value = '';
     const pills = this.shadowRoot.querySelector('nx-pills');
@@ -123,6 +127,7 @@ class NxChat extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
+    traceChat('chat.js.connectedCallback: component attached to document');
     this.shadowRoot.adoptedStyleSheets = [styles];
 
     if (this._context) this._ensureController(this._context);
@@ -144,17 +149,34 @@ class NxChat extends LitElement {
   }
 
   async _ensureController(context) {
-    if (this._controller) return;
+    traceChat('chat.js._ensureController: checking controller');
+    if (this._controller) {
+      traceChat('chat.js._ensureController: reusing existing controller');
+      return;
+    }
     const { org, site } = context ?? {};
-    if (!org || !site) return;
+    if (!org || !site) {
+      traceChat('chat.js._ensureController: waiting for organization and site');
+      return;
+    }
 
+    const relay = (type) => (detail) => {
+      traceChat('chat.js.relay: dispatching browser event', {
+        event: type,
+        sessionId: detail?.sessionId,
+        turnId: detail?.turnId,
+        status: detail?.status,
+        pages: detail?.pages,
+      });
+      this.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail }));
+    };
+    traceChat('chat.js._ensureController: creating ChatBackend and registering callbacks');
     this._controller = new ChatBackend({
-      onTurnCompleted: (detail) => {
-        this.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
-          bubbles: true, composed: true, detail,
-        }));
-      },
+      onTurnStarted: relay(CHAT_EVENT.TURN_STARTED),
+      onTurnProgress: relay(CHAT_EVENT.TURN_PROGRESS),
+      onTurnCompleted: relay(CHAT_EVENT.TURN_COMPLETED),
       onToolDone: (scope, paths) => {
+        traceChat('chat.js.onToolDone: dispatching AGENT_CHANGE', { scope, paths });
         this.dispatchEvent(new CustomEvent(CHAT_EVENT.AGENT_CHANGE, {
           bubbles: true,
           composed: true,
@@ -164,6 +186,12 @@ class NxChat extends LitElement {
       onUpdate: ({
         messages, thinking, streamingText, connected, toolCards, pendingInteraction,
       }) => {
+        traceChat('chat.js.onUpdate: received controller state', {
+          messageCount: messages?.length ?? 0,
+          thinking: !!thinking,
+          streaming: !!streamingText,
+          connected: !!connected,
+        });
         const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
           : messages;
@@ -173,6 +201,7 @@ class NxChat extends LitElement {
         this.pendingInteraction = pendingInteraction;
         cancelAnimationFrame(this._updateRaf);
         this._updateRaf = requestAnimationFrame(() => {
+          traceChat('chat.js.onUpdate: animation frame applying message state');
           this.messages = newMessages;
           this.thinking = thinking;
           this.connected = connected;
@@ -183,13 +212,18 @@ class NxChat extends LitElement {
     });
     this._controller.setContext(this._context ?? context);
     // History restoration resets messages, so finish it before flushing queued prompts.
+    traceChat('chat.js._ensureController: awaiting history restoration');
     await this._controller.loadInitialMessages();
+    traceChat('chat.js._ensureController: history restored', { destroyed: !!this._destroyed });
     if (this._destroyed) return;
+    traceChat('chat.js._ensureController: awaiting agent availability check');
     await this._controller.connect();
+    traceChat('chat.js._ensureController: availability check finished');
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    traceChat('chat.js.disconnectedCallback: cleaning up component');
     this._destroyed = true;
     cancelAnimationFrame(this._updateRaf);
     this._unsubscribeHash?.();
@@ -247,6 +281,7 @@ class NxChat extends LitElement {
 
   _submit(e) {
     e?.preventDefault();
+    traceChat('chat.js._submit: handling submit or stop', { thinking: !!this.thinking });
     if (this.thinking) {
       this._controller.stop();
       return;
@@ -255,13 +290,19 @@ class NxChat extends LitElement {
     const text = input.value.trim();
     const pills = this.shadowRoot.querySelector('nx-pills');
     const items = pills?.items ?? [];
-    if (!text && !items.length) return;
+    if (!text && !items.length) {
+      traceChat('chat.js._submit: skipped empty submission');
+      return;
+    }
     const fileItems = items.filter((i) => i.dataBase64);
     const contextItems = items.filter((i) => !i.dataBase64);
     const message = text || (fileItems.length > 1 ? 'Attached files' : 'Attached file');
     const attachments = buildAttachmentPayload(items);
     sampleRUM('click', { source: 'chat-submit', target: 'button.chat-send.harness-da-agent' });
     this._slashMenu.close();
+    traceChat('chat.js._submit: calling ChatBackend.sendMessage', {
+      contextCount: contextItems.length, attachmentCount: attachments.length,
+    });
     this._controller.sendMessage(message, contextItems, { attachments });
     input.value = '';
     pills?.clear();

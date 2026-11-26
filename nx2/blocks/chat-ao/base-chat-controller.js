@@ -23,6 +23,14 @@ import {
 } from './utils/episodes.js';
 import { fetchSkills, loadCachedSkills } from './utils/skills.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
+import { PAGE_STATUS, summarizePages, traceChat } from '../shared/chat/turn-activity.js';
+
+const AO_PAGE_STATUS = {
+  detected: PAGE_STATUS.WORKING,
+  running: PAGE_STATUS.WORKING,
+  success: PAGE_STATUS.DONE,
+  error: PAGE_STATUS.FAILED,
+};
 
 // Maps each server event to the chat-controller method that handles it —
 // looked up by name (not a bound function reference) so handlers stay plain
@@ -53,9 +61,14 @@ const EVENT_HANDLERS = new Map([
 // override the hook methods (loadEpisodes, _onSessionReady, _onSessionError,
 // startNewEpisode). See docs/chat-ao-controller-decoupling.md.
 export default class BaseChatController {
-  constructor({ onUpdate, onTurnCompleted, isolated = false }) {
+  constructor({
+    onUpdate, onTurnStarted, onTurnProgress, onTurnCompleted, isolated = false,
+  }) {
+    traceChat('base-chat-controller.js.constructor: storing shared-session callbacks');
     this._onUpdate = onUpdate;
     this._isolated = isolated;
+    this._onTurnStartedCallback = onTurnStarted;
+    this._onTurnProgressCallback = onTurnProgress;
     this._onTurnCompletedCallback = onTurnCompleted;
     this._messages = [];
     this._streaming = '';
@@ -64,10 +77,14 @@ export default class BaseChatController {
   }
 
   setContext(context) {
+    traceChat('base-chat-controller.js.setContext: storing page context', { view: context?.view });
     this._context = context;
   }
 
   _update() {
+    traceChat('base-chat-controller.js._update: publishing state before checking progress', {
+      active: !!this._turnActive, messageCount: this._messages.length,
+    });
     this._onUpdate({
       messages: this._messages,
       thinking: this._thinking,
@@ -81,6 +98,42 @@ export default class BaseChatController {
       staleEpisode: this._staleEpisode,
       access: this._access,
     });
+    this._reportTurnProgress();
+  }
+
+  _turnIds(turnId) {
+    const { org, site, path } = this._context ?? {};
+    return {
+      org, site, path, sessionId: this._episodeId, turnId,
+    };
+  }
+
+  // Only during a live turn: loading an episode also calls _update().
+  _reportTurnProgress() {
+    if (!this._turnActive) {
+      traceChat('base-chat-controller.js._reportTurnProgress: skipped; no active turn');
+      return;
+    }
+    traceChat('base-chat-controller.js._reportTurnProgress: selecting tool calls after latest user message');
+    const lastUser = this._messages.findLastIndex((m) => m.role === 'user');
+    const calls = this._messages.slice(lastUser + 1)
+      .filter((m) => m.toolCall)
+      .map(({ toolCall }) => ({
+        toolName: toolCall.toolName,
+        input: toolCall.arguments,
+        status: AO_PAGE_STATUS[toolCall.status] ?? PAGE_STATUS.WORKING,
+      }));
+    const pages = summarizePages(calls);
+    const key = JSON.stringify(pages);
+    if (key === this._turnProgressKey) {
+      traceChat('base-chat-controller.js._reportTurnProgress: skipped unchanged summary');
+      return;
+    }
+    this._turnProgressKey = key;
+    traceChat('base-chat-controller.js._reportTurnProgress: calling onTurnProgress', {
+      ...this._turnIds(), pages,
+    });
+    this._onTurnProgressCallback?.({ ...this._turnIds(), pages });
   }
 
   _fetchSkills() { return fetchSkills(this._context ?? {}); }
@@ -214,6 +267,9 @@ export default class BaseChatController {
 
   // Coalesces concurrent callers onto one in-flight connection attempt.
   async _ensureSocket() {
+    traceChat('base-chat-controller.js._ensureSocket: checking WebSocket', {
+      open: this._ws?.readyState === WebSocket.OPEN, connecting: !!this._connecting,
+    });
     if (this._destroyed) throw new DOMException('Session closed', 'AbortError');
     if (this._ws?.readyState === WebSocket.OPEN) return;
     if (this._connecting) {
@@ -230,6 +286,7 @@ export default class BaseChatController {
   }
 
   async _connect() {
+    traceChat('base-chat-controller.js._connect: preparing WebSocket connection');
     const { authFrame, wsBase } = await this._connectionInfo();
     if (this._destroyed) throw new DOMException('Session closed', 'AbortError');
 
@@ -243,6 +300,7 @@ export default class BaseChatController {
 
       ws.addEventListener('open', () => {
         if (!isCurrent()) return;
+        traceChat('base-chat-controller.js._connect: WebSocket opened; sending authentication frame');
         opened = true;
         ws.send(JSON.stringify(authFrame));
         resolve();
@@ -260,6 +318,7 @@ export default class BaseChatController {
       });
 
       ws.addEventListener('close', () => {
+        traceChat('base-chat-controller.js._connect: WebSocket closed');
         if (!opened) reject(new Error('AO WebSocket closed'));
         if (!isCurrent()) return;
         this._ws = null;
@@ -267,6 +326,7 @@ export default class BaseChatController {
       });
 
       ws.addEventListener('error', () => {
+        traceChat('base-chat-controller.js._connect: WebSocket connection error');
         if (!isCurrent()) return;
         reject(new Error('AO WebSocket error'));
       });
@@ -310,12 +370,14 @@ export default class BaseChatController {
   }
 
   _handleServerEvent(evt) {
+    traceChat('base-chat-controller.js._handleServerEvent: routing server event', { type: evt.type });
     if (this._interrupting && IGNORED_WHILE_INTERRUPTING.has(evt.type)) return;
     const handlerName = EVENT_HANDLERS.get(evt.type);
     if (handlerName) this[handlerName](evt);
   }
 
   _onSessionReady(evt) {
+    traceChat('base-chat-controller.js._onSessionReady: server assigned session', { sessionId: evt.episode_id });
     const isNewEpisode = evt.episode_id && evt.episode_id !== this._episodeId;
     this._episodeId = evt.episode_id ?? this._episodeId;
     if (isNewEpisode) this._refreshEpisodeList().catch(() => { });
@@ -332,6 +394,7 @@ export default class BaseChatController {
   }
 
   _onTextDelta(evt) {
+    traceChat('base-chat-controller.js._onTextDelta: updating partial assistant text');
     // See docs/chat-ao-component.md#plan-approval — clears a stale card left
     // over from a conversational (non-button) resolution.
     this._pendingPlanApproval = undefined;
@@ -341,6 +404,7 @@ export default class BaseChatController {
   }
 
   _onTextDone(evt) {
+    traceChat('base-chat-controller.js._onTextDone: committing completed assistant text');
     this._messages = [...this._messages, {
       role: 'assistant',
       content: evt.data?.content ?? this._streaming,
@@ -360,6 +424,7 @@ export default class BaseChatController {
   // See docs/chat-ao-component.md#tool-call-activity for the detected/start/end patching.
   _onToolCallDetected(evt) {
     const { tool_call_id: toolCallId, tool_name: toolName } = evt.data ?? {};
+    traceChat('base-chat-controller.js._onToolCallDetected: tool detected', { toolCallId, toolName });
     if (DEDICATED_SUMMARY_TOOLS.has(toolName)) return;
     this._messages = [...this._messages, {
       role: 'assistant', toolCall: { toolCallId, toolName, status: 'detected' },
@@ -371,6 +436,7 @@ export default class BaseChatController {
     const {
       tool_call_id: toolCallId, tool_name: toolName, arguments: args, metadata,
     } = evt.data ?? {};
+    traceChat('base-chat-controller.js._onToolCallStart: tool started', { toolCallId, toolName });
     if (DEDICATED_SUMMARY_TOOLS.has(toolName)) return;
     const title = metadata?.skill_title;
     const patch = { toolName, status: 'running', arguments: args, ...(title && { title }) };
@@ -387,6 +453,7 @@ export default class BaseChatController {
       tool_call_id: toolCallId, result, success, duration_s: durationS, metadata,
     } = evt.data ?? {};
     const status = success ? 'success' : 'error';
+    traceChat('base-chat-controller.js._onToolCallEnd: tool ended', { toolCallId, status });
     this._messages = this._messages.map((m) => {
       if (m.toolCall?.toolCallId !== toolCallId) return m;
       const title = m.toolCall.title ?? metadata?.skill_title;
@@ -401,15 +468,16 @@ export default class BaseChatController {
   }
 
   _onTurnCompleted(evt = {}) {
+    traceChat('base-chat-controller.js._onTurnCompleted: server confirmed terminal event', {
+      type: evt.type, turnId: evt.turn_id ?? evt.data?.turn_id,
+    });
     this._interrupting = false;
     this._done();
-    const { org, site, path } = this._context ?? {};
+    this._turnActive = false;
+    traceChat('base-chat-controller.js._onTurnCompleted: calling onTurnCompleted');
     this._onTurnCompletedCallback?.({
-      org,
-      site,
-      path,
+      ...this._turnIds(evt.turn_id ?? evt.data?.turn_id),
       sessionId: evt.episode_id ?? this._episodeId,
-      turnId: evt.turn_id ?? evt.data?.turn_id,
       status: evt.type === AO_EVENT.TURN_ABORTED ? 'aborted' : 'completed',
     });
   }
@@ -464,6 +532,7 @@ export default class BaseChatController {
   }
 
   _onPlanApprovalRequest(evt) {
+    traceChat('base-chat-controller.js._onPlanApprovalRequest: waiting for plan decision');
     this._pendingPlanApproval = {
       turnId: evt.data?.turn_id ?? evt.turn_id,
       planContent: evt.data?.plan_content ?? '',
@@ -474,6 +543,7 @@ export default class BaseChatController {
 
   // See docs/chat-ao-component.md#permission-requests for the wire shapes.
   _onPermissionRequest(evt) {
+    traceChat('base-chat-controller.js._onPermissionRequest: waiting for tool permissions');
     this._pendingPermission = {
       turnId: evt.data?.turn_id ?? evt.turn_id,
       calls: (evt.data?.pending_calls ?? []).map((c) => ({
@@ -485,6 +555,7 @@ export default class BaseChatController {
   }
 
   _onSessionError(evt) {
+    traceChat('base-chat-controller.js._onSessionError: checking whether error affects active generation');
     // See docs/chat-ao-component.md#session-warming for why idle stays silent,
     // and #connection-recovery for why a suspended turn stays silent too — AO
     // legitimately reports the episode as idle while it's waiting on the user,
@@ -494,10 +565,12 @@ export default class BaseChatController {
     const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
     this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
     this._done();
+    this._failTurn();
   }
 
   // See docs/chat-ao-component.md#stop--interrupt for why this also fires on TURN_ABORTED.
   _done() {
+    traceChat('base-chat-controller.js._done: clearing busy state and pending interactions');
     this._thinking = false;
     this._streamingText = undefined;
     this._pendingQuestion = undefined;
@@ -507,11 +580,24 @@ export default class BaseChatController {
   }
 
   _pushError(err) {
+    traceChat('base-chat-controller.js._pushError: displaying error and ending active turn');
     this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
     this._done();
+    this._failTurn();
+  }
+
+  _failTurn() {
+    if (!this._turnActive) {
+      traceChat('base-chat-controller.js._failTurn: skipped; no active turn');
+      return;
+    }
+    this._turnActive = false;
+    traceChat('base-chat-controller.js._failTurn: calling onTurnCompleted with error status');
+    this._onTurnCompletedCallback?.({ ...this._turnIds(), status: 'error' });
   }
 
   stop() {
+    traceChat('base-chat-controller.js.stop: interrupting; server confirmation ends the turn');
     this._operation = undefined;
     this._interrupting = true;
     if (this._ws?.readyState === WebSocket.OPEN) {
@@ -557,6 +643,7 @@ export default class BaseChatController {
 
   // See docs/chat-ao-component.md#plan-approval for why this always uses RESUME.
   async respondToPlanApproval(decision, feedback = '') {
+    traceChat('base-chat-controller.js.respondToPlanApproval: processing plan decision');
     if (!this._pendingPlanApproval) return;
     const operation = {};
     this._operation = operation;
@@ -582,6 +669,7 @@ export default class BaseChatController {
   // See docs/chat-ao-component.md#permission-requests — one-shot, so decisions
   // are collected locally and only sent once every pending call has one.
   async respondToPermission(toolCallId, approved) {
+    traceChat('base-chat-controller.js.respondToPermission: processing permission decision', { toolCallId, approved });
     if (!this._pendingPermission) return;
     const decisions = { ...this._pendingPermission.decisions, [toolCallId]: approved };
     if (!this._pendingPermission.calls.every((c) => c.toolCallId in decisions)) {
@@ -622,7 +710,13 @@ export default class BaseChatController {
   }
 
   async sendMessage(message, items = [], attachments = []) {
-    if (this._destroyed || !message || (this._thinking && !this._pendingPlanApproval)) return;
+    traceChat('base-chat-controller.js.sendMessage: checking readiness', {
+      destroyed: !!this._destroyed, thinking: !!this._thinking,
+    });
+    if (this._destroyed || !message || (this._thinking && !this._pendingPlanApproval)) {
+      traceChat('base-chat-controller.js.sendMessage: skipped; destroyed, empty, or busy');
+      return;
+    }
     const operation = {};
     this._operation = operation;
     this._interrupting = false;
@@ -632,7 +726,10 @@ export default class BaseChatController {
     const attachmentsMeta = buildAttachmentsMeta(attachments);
     // See docs/chat-ao-component.md#connection-recovery for the clientMessageId dedup.
     const clientMessageId = crypto.randomUUID();
-
+    this._turnActive = true;
+    this._turnProgressKey = undefined;
+    traceChat('base-chat-controller.js.sendMessage: calling onTurnStarted', this._turnIds());
+    this._onTurnStartedCallback?.(this._turnIds());
     this._messages = [...this._messages, {
       role: 'user',
       content: message,
@@ -644,6 +741,9 @@ export default class BaseChatController {
     this._update();
 
     try {
+      traceChat('base-chat-controller.js.sendMessage: preparing attachments and manifest', {
+        attachmentCount: attachments.length,
+      });
       const uploaded = await Promise.all(attachments.map(async (a) => (
         { ...a, artifactId: await this._uploadAttachment(a) }
       )));
@@ -657,6 +757,7 @@ export default class BaseChatController {
 
       await this._ensureSocket();
       if (this._destroyed || this._operation !== operation) return;
+      traceChat('base-chat-controller.js.sendMessage: sending USER_INPUT over WebSocket', this._turnIds());
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
         text: `${buildFailedUploadsText(failed)}${message}`,
@@ -673,6 +774,7 @@ export default class BaseChatController {
   }
 
   destroy() {
+    traceChat('base-chat-controller.js.destroy: closing session WebSocket');
     this._destroyed = true;
     this._operation = undefined;
     const ws = this._ws;
