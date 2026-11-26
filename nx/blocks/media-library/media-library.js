@@ -961,6 +961,7 @@ class NxMediaLibrary extends LitElement {
         .org=${this.org}
         .repo=${this.repo}
         .usePreviewDaLive=${this.siteAuthInfo?.requiresAuth || false}
+        .previewAuthFailed=${this.siteAuthInfo?.authFailed || false}
         .resultsBusy=${resultsBusy}
         .pluginMode=${pluginMode}
         @mediaClick=${this.handleMediaClick}

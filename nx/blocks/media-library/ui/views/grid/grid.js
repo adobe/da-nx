@@ -17,6 +17,8 @@ import {
   resolveMediaUrl,
   preferPreviewForMediaUrl,
   isPreviewPreferredForMediaUrl,
+  isDeliveryStandaloneUrl,
+  convertToAemPage,
 } from '../../../core/urls.js';
 import { optimizeImageUrls, CARD_IMAGE_SIZES } from '../../../core/files.js';
 import '../../../../../public/sl/components.js';
@@ -48,6 +50,7 @@ class NxMediaGrid extends LitElement {
     org: { type: String },
     repo: { type: String },
     usePreviewDaLive: { type: Boolean },
+    previewAuthFailed: { type: Boolean },
     resultsBusy: { type: Boolean },
     pluginMode: { type: Boolean, reflect: true },
   };
@@ -224,6 +227,17 @@ class NxMediaGrid extends LitElement {
 
   renderMediaPreview(media) {
     const resolvedUrl = resolveMediaUrl(media?.url, this.org, this.repo, this.usePreviewDaLive);
+
+    if (this.previewAuthFailed
+      && isDeliveryStandaloneUrl(convertToAemPage(resolvedUrl), this.org, this.repo)
+      && (isImage(resolvedUrl) || isVideo(resolvedUrl))) {
+      return html`
+        <div class="placeholder-full auth-placeholder">
+          <span class="placeholder-label">${getMediaCardLabel(media)}</span>
+          <span class="placeholder-label">${getMessage('UI_SIGN_IN_TO_PREVIEW')}</span>
+        </div>
+      `;
+    }
 
     if (isExternalVideoUrl(resolvedUrl)) {
       const thumbnailUrl = getVideoThumbnail(resolvedUrl);

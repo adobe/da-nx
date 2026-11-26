@@ -81,6 +81,7 @@ const MESSAGES = {
   UI_DISMISS: 'Dismiss',
   UI_EXTERNAL_RESOURCE: 'External resource',
   UI_UNABLE_TO_FETCH: 'Unable to load file',
+  UI_SIGN_IN_TO_PREVIEW: 'Sign in to preview',
   UI_UNABLE_TO_FETCH_HTTP: 'Unable to load file',
   UI_PDF_OPEN_IN_NEW_TAB: 'Open in new tab',
   UI_PDF_NETWORK: 'Unable to load this PDF',

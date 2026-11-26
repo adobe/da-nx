@@ -23,10 +23,9 @@ describe('media reference counts', () => {
   });
 });
 
-async function waitForCards(el) {
+async function waitForCards(el, count = MEDIA.length) {
   for (let i = 0; i < 50; i += 1) {
-    const btn = el.shadowRoot.querySelector('.media-open');
-    if (btn) return;
+    if (i > 0 && el.shadowRoot.querySelectorAll('.media-open').length === count) return;
     // eslint-disable-next-line no-await-in-loop
     await new Promise((resolve) => { requestAnimationFrame(resolve); });
   }
@@ -77,5 +76,61 @@ describe('nx-media-grid', () => {
     el.addEventListener('mediaClick', (e) => opened.push(e.detail.media));
     el.shadowRoot.querySelector('.media-open').click();
     expect(opened).to.deep.equal([MEDIA[0]]);
+  });
+
+  it('replaces protected thumbnails with sign-in placeholders while keeping names and actions', async () => {
+    el.previewAuthFailed = true;
+    el.usePreviewDaLive = true;
+    el.mediaData = [
+      MEDIA[0],
+      { url: 'https://main--site--org.aem.page/media/logo.svg', name: 'logo.svg' },
+      { url: 'https://main--site--org.aem.page/media_clip.mp4', name: 'clip.mp4' },
+    ];
+    await el.updateComplete;
+    await waitForCards(el, 3);
+
+    const cards = el.shadowRoot.querySelectorAll('.media-card');
+    expect(cards.length).to.equal(3);
+    cards.forEach((card, index) => {
+      expect(!!card.querySelector('img, video, source')).to.equal(false);
+      expect(card.textContent).to.include('Sign in to preview');
+      expect(card.textContent).to.include(el.mediaData[index].name);
+    });
+
+    const opened = [];
+    const copied = [];
+    el.addEventListener('mediaClick', (e) => opened.push(e.detail.media));
+    el.addEventListener('mediaCopy', (e) => copied.push(e.detail.media));
+    cards[0].querySelector('.media-open').click();
+    cards[0].querySelector('.share-button').click();
+    expect(opened).to.deep.equal([el.mediaData[0]]);
+    expect(copied).to.deep.equal([el.mediaData[0]]);
+  });
+
+  it('keeps external thumbnails when site preview authentication fails', async () => {
+    el.previewAuthFailed = true;
+    el.usePreviewDaLive = true;
+    el.mediaData = [{ url: 'https://example.com/image.jpg', name: 'external.jpg' }];
+    await el.updateComplete;
+    await waitForCards(el, 1);
+
+    const card = el.shadowRoot.querySelector('.media-card');
+    expect(!!card.querySelector('img')).to.equal(true);
+    expect(card.textContent).not.to.include('Sign in to preview');
+  });
+
+  it('restores thumbnails after authentication recovers', async () => {
+    el.previewAuthFailed = true;
+    el.usePreviewDaLive = true;
+    await el.updateComplete;
+    await waitForCards(el);
+    expect(!!el.shadowRoot.querySelector('.media-card img')).to.equal(false);
+
+    el.previewAuthFailed = false;
+    await el.updateComplete;
+    await waitForCards(el);
+    const card = el.shadowRoot.querySelector('.media-card');
+    expect(!!card.querySelector('img')).to.equal(true);
+    expect(card.textContent).not.to.include('Sign in to preview');
   });
 });
