@@ -1,3 +1,10 @@
+## [1.68.3](https://github.com/adobe/da-nx/compare/v1.68.2...v1.68.3) (2026-11-26)
+
+
+### Bug Fixes
+
+* **deps:** bump @adobe/da-sc-sdk to 0.6.1 ([#1060](https://github.com/adobe/da-nx/issues/1060)) ([fcc9fe2](https://github.com/adobe/da-nx/commit/fcc9fe223a1a6260cec3c357817147f4fe514131))
+
 ## [1.68.2](https://github.com/adobe/da-nx/compare/v1.68.1...v1.68.2) (2026-11-26)
 
 
