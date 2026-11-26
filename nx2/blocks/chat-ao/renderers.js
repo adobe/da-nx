@@ -13,7 +13,8 @@
 import { html, nothing } from 'da-lit';
 import { renderMarkdown } from './utils/markdown.js';
 import { renderUiArtifact } from './artifacts/index.js';
-import { renderCopyButton } from '../shared/chat/copy-button.js';
+import { getResponseCopies, renderCopyButton } from '../shared/chat/copy-button.js';
+import { renderSelectionPills } from '../shared/chat/selection-pills.js';
 
 // See docs/chat-ao-component.md#tool-call-activity for why this isn't truncated.
 function formatToolCallDetail(value) {
@@ -93,8 +94,22 @@ export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
   if (msg.questionResponse) return renderQuestionResponseCard(msg.questionResponse);
   return html`
     <div class="message-content">${renderMarkdown(msg.content)}</div>
-    ${renderCopyButton(msg.content, { streaming: msg.streaming })}
   `;
+}
+
+export function renderMessages({ messages = [], thinking, onExpandToolCall } = {}) {
+  const copies = getResponseCopies({ messages, thinking });
+  return messages.map((msg, index) => (msg.role === 'assistant' ? html`
+    <div class="message message-assistant">
+      ${renderAssistantMessageBody(msg, { onExpandToolCall })}
+      ${copies.has(index) ? renderCopyButton(copies.get(index)) : nothing}
+    </div>
+  ` : html`
+    <div class="message message-user">
+      ${renderSelectionPills(msg)}
+      <div class="message-content">${msg.content}</div>
+    </div>
+  `));
 }
 
 // See docs/chat-ao-component.md#permission-requests for the nx-chat visual-parity rationale.

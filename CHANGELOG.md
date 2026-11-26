@@ -1,3 +1,80 @@
+## [1.68.4](https://github.com/adobe/da-nx/compare/v1.68.3...v1.68.4) (2026-11-26)
+
+
+### Bug Fixes
+
+* support separate logo and title in nav ([#1057](https://github.com/adobe/da-nx/issues/1057)) ([82168c3](https://github.com/adobe/da-nx/commit/82168c32e7e3f5de750fe25bf67b8fd1b6362487))
+
+## [1.68.3](https://github.com/adobe/da-nx/compare/v1.68.2...v1.68.3) (2026-11-26)
+
+
+### Bug Fixes
+
+* **deps:** bump @adobe/da-sc-sdk to 0.6.1 ([#1060](https://github.com/adobe/da-nx/issues/1060)) ([fcc9fe2](https://github.com/adobe/da-nx/commit/fcc9fe223a1a6260cec3c357817147f4fe514131))
+
+## [1.68.2](https://github.com/adobe/da-nx/compare/v1.68.1...v1.68.2) (2026-11-26)
+
+
+### Bug Fixes
+
+* **bulk:** route helix 6 preview and publish requests ([#1059](https://github.com/adobe/da-nx/issues/1059)) ([5477d85](https://github.com/adobe/da-nx/commit/5477d8544e04e96f2da321b35e8a44f81199ed8d))
+
+## [1.68.1](https://github.com/adobe/da-nx/compare/v1.68.0...v1.68.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* rollback access check for co ([#1058](https://github.com/adobe/da-nx/issues/1058)) ([045311e](https://github.com/adobe/da-nx/commit/045311ef6aea9580be5d734f67175eee2f19d73b))
+
+# [1.68.0](https://github.com/adobe/da-nx/compare/v1.67.0...v1.68.0) (2026-11-25)
+
+
+### Features
+
+* **pills:** let hosts change the pill width cap via --nx-pill-max-width ([#1053](https://github.com/adobe/da-nx/issues/1053)) ([2ba66c8](https://github.com/adobe/da-nx/commit/2ba66c8b92b9539c11ec47e7819af8921999e77f))
+
+# [1.67.0](https://github.com/adobe/da-nx/compare/v1.66.2...v1.67.0) (2026-11-25)
+
+
+### Features
+
+* introduce tooltips for sidenav items ([#1048](https://github.com/adobe/da-nx/issues/1048)) ([bfd76d7](https://github.com/adobe/da-nx/commit/bfd76d76d08734e01f4adfb690b7e17e7a6ee9b2))
+
+## [1.66.2](https://github.com/adobe/da-nx/compare/v1.66.1...v1.66.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* expose copy for complete assistant response ([#1051](https://github.com/adobe/da-nx/issues/1051)) ([e1a6a3b](https://github.com/adobe/da-nx/commit/e1a6a3b54ae64203293c0d7fc97f637b52ff44fb))
+
+## [1.66.1](https://github.com/adobe/da-nx/compare/v1.66.0...v1.66.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **schema-editor:** hlx6 - list, save and delete schemas ([#936](https://github.com/adobe/da-nx/issues/936)) ([ec27644](https://github.com/adobe/da-nx/commit/ec2764498b6c16d5becc315bfd3927726b72ac82))
+
+# [1.66.0](https://github.com/adobe/da-nx/compare/v1.65.0...v1.66.0) (2026-11-25)
+
+
+### Features
+
+* **marketplace:** new marketplace design and featured teaser block ([#953](https://github.com/adobe/da-nx/issues/953)) ([2515769](https://github.com/adobe/da-nx/commit/2515769db1dfda56f4300c84e393c3e67f12f59a))
+
+# [1.65.0](https://github.com/adobe/da-nx/compare/v1.64.0...v1.65.0) (2026-11-24)
+
+
+### Features
+
+* introduce coworker access check ([#1038](https://github.com/adobe/da-nx/issues/1038)) ([bb8e8f4](https://github.com/adobe/da-nx/commit/bb8e8f4c1ae1cba30a184b73e9df31b2b9cf61f7))
+
+# [1.64.0](https://github.com/adobe/da-nx/compare/v1.63.0...v1.64.0) (2026-11-24)
+
+
+### Features
+
+* introduce trailing item support for menu ([#1045](https://github.com/adobe/da-nx/issues/1045)) ([58a83f3](https://github.com/adobe/da-nx/commit/58a83f30914e97d05706d5a0a09918339cf39a9e))
+
 # [1.63.0](https://github.com/adobe/da-nx/compare/v1.62.1...v1.63.0) (2026-11-24)
 
 

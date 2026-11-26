@@ -3,7 +3,7 @@ import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeArtifacts, fetchEpisodeContext, warmSession,
   toUiArtifact, fetchTurnEvents, extractToolCalls, extractSelectionContext,
 } from '../../../../../nx2/blocks/chat-ao/utils/episodes.js';
-import { AO_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { AO_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/coworker/constants.js';
 
 const imsPath = '../../../../../nx2/utils/ims.js';
 const { resetMockIms } = await import(imsPath);

@@ -311,6 +311,8 @@
 menu.items = [
   { id: 'edit', label: 'Edit' },
   { id: 'delete', label: 'Delete' },
+  { id: 'ideas', label: 'Ideas', trailing: { type: 'badge', label: 'New' } },
+  { id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'var(--s2-green-700)' } },
 ];
 menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));
 
@@ -319,7 +321,7 @@ menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));
 // on hover, and caps width at --nx-menu-max-width
 menu.items = [
   { section: 'Skills' },
-  { id: 'summarize', label: '/summarize', description: 'Summarize the current page' },
+  { id: 'summarize', label: '/summarize', description: 'Summarize the current page', trailing: { type: 'badge', label: 'New' } },
 ];</code></pre>
       </article>
 
@@ -339,12 +341,19 @@ menu.items = [
           <button type="button" class="nx-action-btn" id="demo-tooltip-long">Longer description</button>
           <nx-tooltip for="demo-tooltip-long">Save a draft without publishing. You can continue editing
             later.</nx-tooltip>
+          <button type="button" class="nx-action-btn" id="demo-tooltip-wide" aria-label="Help" style="width:160px">
+            <span id="demo-tooltip-icon" style="display:inline-block;width:32px">?</span>
+          </button>
+          <nx-tooltip for="demo-tooltip-wide" anchor="demo-tooltip-icon" placement="right">Help</nx-tooltip>
         </div>
         <pre><code>&lt;button id="save" type="button"&gt;Save&lt;/button&gt;
 &lt;nx-tooltip for="save"&gt;Save your changes&lt;/nx-tooltip&gt;
 
 &lt;button id="save-bottom" type="button"&gt;Save&lt;/button&gt;
 &lt;nx-tooltip for="save-bottom" placement="bottom"&gt;Save your changes&lt;/nx-tooltip&gt;
+
+&lt;button id="help" aria-label="Help"&gt;&lt;span id="help-icon"&gt;?&lt;/span&gt;&lt;/button&gt;
+&lt;nx-tooltip for="help" anchor="help-icon" placement="right"&gt;Help&lt;/nx-tooltip&gt;
 </code></pre>
       </article>
 
@@ -928,6 +937,8 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
     const menuItems = [
       { id: 'edit', label: 'Edit' },
       { id: 'delete', label: 'Delete' },
+      { id: 'ideas', label: 'Ideas', trailing: { type: 'badge', label: 'New' } },
+      { id: 'publish', label: 'Publish', trailing: { type: 'dot', color: 'var(--s2-green-700)' } },
     ];
     [document.querySelector('#demo-menu'), document.querySelector('#demo-menu-m')].forEach((menu) => {
       menu.items = menuItems;
@@ -936,7 +947,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
     const descMenu = document.querySelector('#demo-menu-desc');
     descMenu.items = [
       { section: 'Skills' },
-      { id: 'summarize', label: '/summarize', description: 'Summarize the current page' },
+      { id: 'summarize', label: '/summarize', description: 'Summarize the current page', trailing: { type: 'badge', label: 'New' } },
       {
         id: 'evaluate-page',
         label: '/evaluate-page',

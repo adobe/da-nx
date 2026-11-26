@@ -1,8 +1,9 @@
 import { expect } from '@esm-bundle/chai';
-import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
+import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker/controller.js';
 import {
-  AO_MANIFEST_ID, AO_HTTP_BASE, AO_COMPONENT_CATALOG_URL,
-} from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+  AO_HTTP_BASE, AO_COMPONENT_CATALOG_URL,
+} from '../../../../nx2/blocks/chat-ao/coworker/constants.js';
+import { AO_MANIFEST_ID } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { setMockIms, resetMockIms } from '../../mocks/ims.js';
 
 const APPLICATION = {
@@ -15,7 +16,7 @@ const APPLICATION = {
 function makeController() {
   const updates = [];
   const sent = [];
-  const controller = new AoChatController({ onUpdate: (u) => updates.push(u) });
+  const controller = new CoworkerChatController({ onUpdate: (u) => updates.push(u) });
   controller._ensureSocket = async () => { };
   controller._fetchEpisodeContext = async () => null;
   controller._resolveManifest = async () => ({ manifestId: AO_MANIFEST_ID, debugMode: false });
