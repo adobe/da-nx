@@ -143,6 +143,46 @@ describe('auth', () => {
     });
   });
 
+  describe('checkConnection', () => {
+    function statusResponse(connected) {
+      return new Response(JSON.stringify({ connected }), { status: 200 });
+    }
+
+    it('resolves true when da-etc reports a working key', async () => {
+      installFetch(async () => statusResponse(true));
+
+      const connected = await checkConnection('example', 'acme', 'site11', 'prod');
+
+      expect(connected).to.equal(true);
+      expect(calls[0].url).to.equal(`${LOGIN_ORIGIN}/acme/sites/site11/integrations/example/status?env=prod`);
+      expect(calls[0].method).to.equal('GET');
+    });
+
+    it('resolves false when da-etc reports no working key', async () => {
+      installFetch(async () => statusResponse(false));
+
+      expect(await checkConnection('example', 'acme', 'site12', 'prod')).to.equal(false);
+    });
+
+    it('resolves false when the status request fails', async () => {
+      installFetch(async () => new Response('', { status: 500 }));
+
+      expect(await checkConnection('example', 'acme', 'site13', 'prod')).to.equal(false);
+    });
+
+    it('resolves false when the response has no connected field', async () => {
+      installFetch(async () => new Response(JSON.stringify({}), { status: 200 }));
+
+      expect(await checkConnection('example', 'acme', 'site14', 'prod')).to.equal(false);
+    });
+
+    it('resolves false when the response body is not JSON', async () => {
+      installFetch(async () => new Response('<html></html>', { status: 200 }));
+
+      expect(await checkConnection('example', 'acme', 'site15', 'prod')).to.equal(false);
+    });
+  });
+
   describe('authReady (default export)', () => {
     it('resolves true when a token is obtained', async () => {
       installFetch(async () => tokenResponse('token-1'));

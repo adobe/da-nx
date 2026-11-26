@@ -8,6 +8,7 @@ let _orgs = { data: [] };
 let _ownerOrg;
 let _tenantId;
 let _projectedProductContext;
+let _signInCount = 0;
 
 export const IMS_ORIGIN = 'https://ims-na1.adobelogin.com';
 
@@ -38,6 +39,7 @@ export function resetMockIms() {
   _ownerOrg = undefined;
   _tenantId = undefined;
   _projectedProductContext = undefined;
+  _signInCount = 0;
 }
 
 export const loadIms = async () => {
@@ -56,6 +58,10 @@ export const loadIms = async () => {
   };
 };
 
-export function handleSignIn() {}
+export const getMockSignInCount = () => _signInCount;
+
+export function handleSignIn() {
+  _signInCount += 1;
+}
 
 export function handleSignOut() {}
