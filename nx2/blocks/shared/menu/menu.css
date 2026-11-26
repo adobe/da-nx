@@ -86,8 +86,24 @@ nx-popover:has(.menu-item-description) {
   flex-shrink: 0;
   width: 8px;
   height: 8px;
-  margin-left: auto;
+  margin-inline-start: auto;
   border-radius: 50%;
+}
+
+.menu-item-badge {
+  flex-shrink: 0;
+  align-self: center;
+  max-width: 12ch;
+  margin-inline-start: auto;
+  padding: var(--s2-spacing-50) var(--s2-spacing-100);
+  overflow: hidden;
+  border-radius: var(--s2-corner-radius-200);
+  background: var(--s2-blue-200);
+  color: var(--s2-gray-800);
+  font-size: var(--s2-component-xs-regular-font-size);
+  line-height: var(--s2-component-xs-regular-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menu-item-text {
