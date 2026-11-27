@@ -1,7 +1,7 @@
 {
   "name": "nexter",
   "private": true,
-  "version": "1.68.0",
+  "version": "1.68.5",
   "description": "Next generation unified shell for Edge Delivery applications.",
   "type": "module",
   "scripts": {
@@ -81,7 +81,7 @@
     "stylelint-config-standard": "41.0.0"
   },
   "dependencies": {
-    "@adobe/da-sc-sdk": "^0.6.0",
+    "@adobe/da-sc-sdk": "^0.6.1",
     "@adobe/helix-markdown-support": "^7.1.18",
     "@adobe/mdast-util-gridtables": "^4.0.6",
     "@adobe/remark-gridtables": "^3.0.6",

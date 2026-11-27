@@ -243,7 +243,10 @@ export default class NxChatAo extends LitElement {
     }
     this._controller = this._session.controller;
     this._releaseSession = this._session.subscribe(this, {
-      onUpdate: (state) => this._onControllerUpdate(state),
+      onUpdate: (state) => {
+        this._controller = this._session.controller;
+        this._onControllerUpdate(state);
+      },
       onTurnCompleted: (detail) => {
         this.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
           bubbles: true, composed: true, detail,

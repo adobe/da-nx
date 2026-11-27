@@ -1,3 +1,38 @@
+## [1.68.5](https://github.com/adobe/da-nx/compare/v1.68.4...v1.68.5) (2026-11-26)
+
+
+### Bug Fixes
+
+* **chat-ao:** don't mark empty page evaluation sections as expandable ([#1061](https://github.com/adobe/da-nx/issues/1061)) ([aaeaac0](https://github.com/adobe/da-nx/commit/aaeaac06b050057f05bda21db05792d623a1da4d))
+
+## [1.68.4](https://github.com/adobe/da-nx/compare/v1.68.3...v1.68.4) (2026-11-26)
+
+
+### Bug Fixes
+
+* support separate logo and title in nav ([#1057](https://github.com/adobe/da-nx/issues/1057)) ([82168c3](https://github.com/adobe/da-nx/commit/82168c32e7e3f5de750fe25bf67b8fd1b6362487))
+
+## [1.68.3](https://github.com/adobe/da-nx/compare/v1.68.2...v1.68.3) (2026-11-26)
+
+
+### Bug Fixes
+
+* **deps:** bump @adobe/da-sc-sdk to 0.6.1 ([#1060](https://github.com/adobe/da-nx/issues/1060)) ([fcc9fe2](https://github.com/adobe/da-nx/commit/fcc9fe223a1a6260cec3c357817147f4fe514131))
+
+## [1.68.2](https://github.com/adobe/da-nx/compare/v1.68.1...v1.68.2) (2026-11-26)
+
+
+### Bug Fixes
+
+* **bulk:** route helix 6 preview and publish requests ([#1059](https://github.com/adobe/da-nx/issues/1059)) ([5477d85](https://github.com/adobe/da-nx/commit/5477d8544e04e96f2da321b35e8a44f81199ed8d))
+
+## [1.68.1](https://github.com/adobe/da-nx/compare/v1.68.0...v1.68.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* rollback access check for co ([#1058](https://github.com/adobe/da-nx/issues/1058)) ([045311e](https://github.com/adobe/da-nx/commit/045311ef6aea9580be5d734f67175eee2f19d73b))
+
 # [1.68.0](https://github.com/adobe/da-nx/compare/v1.67.0...v1.68.0) (2026-11-25)
 
 
