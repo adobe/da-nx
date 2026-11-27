@@ -10,12 +10,12 @@
  * governing permissions and limitations under the License.
  */
 
-import { loadIms } from '../../utils/ims.js';
-import BaseChatController from './base-chat-controller.js';
-import { AO_FRAME } from './ao-constants.js';
-import { getOrgId } from './utils/uploads.js';
-import { resolveChatBases } from './utils/endpoints.js';
-import { fetchSkills } from './utils/skills.js';
+import { loadIms } from '../../../utils/ims.js';
+import BaseChatController from '../base-chat-controller.js';
+import { AO_FRAME } from '../ao-constants.js';
+import { getOrgId } from '../utils/uploads.js';
+import { resolveChatBases } from '../utils/endpoints.js';
+import { fetchSkills } from '../utils/skills.js';
 
 // Maps the CMA bridge's terse AUTH-reject messages to tester-facing copy;
 // leaves any other backend error untouched.

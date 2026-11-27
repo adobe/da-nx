@@ -1,3 +1,83 @@
+## [1.68.7](https://github.com/adobe/da-nx/compare/v1.68.6...v1.68.7) (2026-11-27)
+
+
+### Bug Fixes
+
+* **chat:** align approval disclosure icon and tighten spacing ([5bc9652](https://github.com/adobe/da-nx/commit/5bc9652ec414b5aa6566771b761b083f81f10ba2))
+* **chat:** collapse approval arguments behind details ([0869134](https://github.com/adobe/da-nx/commit/0869134676d63fe890a59077b6eaab7d5dec517f))
+* **chat:** correct approval chevron direction ([655ab9d](https://github.com/adobe/da-nx/commit/655ab9d32066e544109a9c5e27250d9394701b55))
+* **chat:** preserve already formatted approval tool names ([db615cc](https://github.com/adobe/da-nx/commit/db615cc229e3dcf5d1dabbba0d29600cbc6eecff))
+* **chat:** remove excess approval details whitespace ([69e7586](https://github.com/adobe/da-nx/commit/69e758687b0b248b6d5c8ca58f7b9103d4fdc2fa))
+* **chat:** render tool approvals inline with structured details ([7b5c7cc](https://github.com/adobe/da-nx/commit/7b5c7cca0704b2d471caab80b7830bba8b8ec2d5))
+* **chat:** show human-readable tool approval names ([a6c3d1a](https://github.com/adobe/da-nx/commit/a6c3d1ad62c2264ec6d8a188d0de6a5a7eb58944))
+
+## [1.68.6](https://github.com/adobe/da-nx/compare/v1.68.5...v1.68.6) (2026-11-27)
+
+
+### Bug Fixes
+
+* **copy:** replace remaining user-facing DA references with EW ([26fd9fb](https://github.com/adobe/da-nx/commit/26fd9fbf446dacf2b6939fbb9078cbe723631c2d))
+* **copy:** spell out Experience Workspace instead of EW ([6e4e2b6](https://github.com/adobe/da-nx/commit/6e4e2b644b91ee1de3ecd54049e6eede6052177a))
+* **copy:** use EW in importer error and translation provider descriptions ([cb2f5f8](https://github.com/adobe/da-nx/commit/cb2f5f8df8e9849725c3d7db3ea0a5f521552c5f))
+* **titles:** preserve content-authored page titles ([31c4a3e](https://github.com/adobe/da-nx/commit/31c4a3e47451e38f2ea405db568039022e257eda))
+* **ui:** unify document titles as '<page> | Experience Workspace' ([0adf670](https://github.com/adobe/da-nx/commit/0adf67074a8fb2d4bfd3e15311806cd53b267475))
+
+## [1.68.5](https://github.com/adobe/da-nx/compare/v1.68.4...v1.68.5) (2026-11-26)
+
+
+### Bug Fixes
+
+* **chat-ao:** don't mark empty page evaluation sections as expandable ([#1061](https://github.com/adobe/da-nx/issues/1061)) ([aaeaac0](https://github.com/adobe/da-nx/commit/aaeaac06b050057f05bda21db05792d623a1da4d))
+
+## [1.68.4](https://github.com/adobe/da-nx/compare/v1.68.3...v1.68.4) (2026-11-26)
+
+
+### Bug Fixes
+
+* support separate logo and title in nav ([#1057](https://github.com/adobe/da-nx/issues/1057)) ([82168c3](https://github.com/adobe/da-nx/commit/82168c32e7e3f5de750fe25bf67b8fd1b6362487))
+
+## [1.68.3](https://github.com/adobe/da-nx/compare/v1.68.2...v1.68.3) (2026-11-26)
+
+
+### Bug Fixes
+
+* **deps:** bump @adobe/da-sc-sdk to 0.6.1 ([#1060](https://github.com/adobe/da-nx/issues/1060)) ([fcc9fe2](https://github.com/adobe/da-nx/commit/fcc9fe223a1a6260cec3c357817147f4fe514131))
+
+## [1.68.2](https://github.com/adobe/da-nx/compare/v1.68.1...v1.68.2) (2026-11-26)
+
+
+### Bug Fixes
+
+* **bulk:** route helix 6 preview and publish requests ([#1059](https://github.com/adobe/da-nx/issues/1059)) ([5477d85](https://github.com/adobe/da-nx/commit/5477d8544e04e96f2da321b35e8a44f81199ed8d))
+
+## [1.68.1](https://github.com/adobe/da-nx/compare/v1.68.0...v1.68.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* rollback access check for co ([#1058](https://github.com/adobe/da-nx/issues/1058)) ([045311e](https://github.com/adobe/da-nx/commit/045311ef6aea9580be5d734f67175eee2f19d73b))
+
+# [1.68.0](https://github.com/adobe/da-nx/compare/v1.67.0...v1.68.0) (2026-11-25)
+
+
+### Features
+
+* **pills:** let hosts change the pill width cap via --nx-pill-max-width ([#1053](https://github.com/adobe/da-nx/issues/1053)) ([2ba66c8](https://github.com/adobe/da-nx/commit/2ba66c8b92b9539c11ec47e7819af8921999e77f))
+
+# [1.67.0](https://github.com/adobe/da-nx/compare/v1.66.2...v1.67.0) (2026-11-25)
+
+
+### Features
+
+* introduce tooltips for sidenav items ([#1048](https://github.com/adobe/da-nx/issues/1048)) ([bfd76d7](https://github.com/adobe/da-nx/commit/bfd76d76d08734e01f4adfb690b7e17e7a6ee9b2))
+
+## [1.66.2](https://github.com/adobe/da-nx/compare/v1.66.1...v1.66.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* expose copy for complete assistant response ([#1051](https://github.com/adobe/da-nx/issues/1051)) ([e1a6a3b](https://github.com/adobe/da-nx/commit/e1a6a3b54ae64203293c0d7fc97f637b52ff44fb))
+
 ## [1.66.1](https://github.com/adobe/da-nx/compare/v1.66.0...v1.66.1) (2026-11-25)
 
 
