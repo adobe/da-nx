@@ -9,9 +9,12 @@ describe('site apps config routing', () => {
   let section;
   let block;
   let originalHref;
+  let originalTitle;
 
   beforeEach(() => {
     originalHref = window.location.href;
+    originalTitle = document.title;
+    document.title = 'Content-authored tools title';
     section = document.createElement('section');
     section.className = 'section';
     block = document.createElement('div');
@@ -23,6 +26,7 @@ describe('site apps config routing', () => {
     restoreFetch();
     section.remove();
     history.replaceState(null, '', originalHref);
+    document.title = originalTitle;
   });
 
   const apps = [{
@@ -38,6 +42,7 @@ describe('site apps config routing', () => {
     await init(block);
 
     expect(block.querySelector('nx-action-card').heading).to.equal('Test app');
+    expect(document.title).to.equal('Content-authored tools title');
     expect(calls.map((call) => call.url)).to.deep.equal([
       `${HLX_ADMIN}/ping/${org}/${site}`,
       `${DA_ADMIN}/config/${org}/${site}/`,
@@ -53,6 +58,7 @@ describe('site apps config routing', () => {
     await init(block);
 
     expect(block.querySelector('nx-action-card').heading).to.equal('Test app');
+    expect(document.title).to.equal('Content-authored tools title');
     expect(calls.map((call) => call.url)).to.deep.equal([
       `${HLX_ADMIN}/ping/${org}/${site}`,
       `${AEM_API}/${org}/sites/${site}/config/editor/da.json`,
