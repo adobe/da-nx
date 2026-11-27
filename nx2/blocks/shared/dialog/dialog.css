@@ -52,10 +52,47 @@ dialog {
 
 .heading {
   flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2-spacing-200);
   padding-bottom: var(--s2-spacing-200);
 }
 
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-block: calc((var(--s2-component-xl-bold-line-height, 22px) - 32px) / 2);
+  margin-inline: auto calc(-1 * var(--s2-spacing-100));
+  padding: 0;
+  border: none;
+  border-radius: var(--s2-corner-radius-400);
+  background: none;
+  color: var(--s2-gray-800);
+  cursor: pointer;
+  transition: background-color 0.125s ease-out;
+
+  &:hover {
+    background: var(--s2-gray-100);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+  }
+
+  svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+  }
+}
+
 .title {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   padding: 0;
   font-size: var(--s2-component-xl-bold-font-size, 18px);

@@ -78,4 +78,26 @@ describe('nx-dialog sizing', () => {
     expect(actions.hidden).to.be.false;
     expect(getComputedStyle(actions).display).to.equal('flex');
   });
+
+  it('renders no close button by default', async () => {
+    const { dialog } = await openDialog();
+
+    expect(dialog.shadowRoot.querySelector('.close')).to.not.exist;
+  });
+
+  it('closes from the close button when show-close-button is set', async () => {
+    const dialog = document.createElement('nx-dialog');
+    dialog.toggleAttribute('show-close-button', true);
+    document.body.append(dialog);
+    await dialog.updateComplete;
+    let closed = false;
+    dialog.addEventListener('close', () => { closed = true; });
+
+    const button = dialog.shadowRoot.querySelector('.close');
+    expect(button.getAttribute('aria-label')).to.equal('Close');
+    button.click();
+
+    expect(closed).to.be.true;
+    expect(dialog.shadowRoot.querySelector('dialog').open).to.be.false;
+  });
 });

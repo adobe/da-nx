@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { getConfig } from '../../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
 
@@ -7,6 +8,7 @@ class NxDialog extends LitElement {
   static properties = {
     title: { type: String },
     busy: { type: Boolean },
+    showCloseButton: { type: Boolean, attribute: 'show-close-button' },
     _hasActions: { state: true },
   };
 
@@ -58,9 +60,16 @@ class NxDialog extends LitElement {
         @click=${this._onBackdropClick}
       >
         <div class="panel" part="panel" ?inert=${this.busy}>
-          ${titleText ? html`
+          ${titleText || this.showCloseButton ? html`
             <div class="heading">
-              <h2 class="title" id="nx-dialog-title">${titleText}</h2>
+              ${titleText ? html`<h2 class="title" id="nx-dialog-title">${titleText}</h2>` : nothing}
+              ${this.showCloseButton ? html`
+                <button type="button" class="close" aria-label="Close" @click=${this.close}>
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <use href="${getConfig().codeBase ?? ''}/img/icons/s2-icon-close-20-n.svg#icon"></use>
+                  </svg>
+                </button>
+              ` : nothing}
             </div>
           ` : nothing}
           <div class="body"><slot></slot></div>

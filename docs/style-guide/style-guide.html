@@ -362,11 +362,16 @@ menu.items = [
             rel="noopener">docs →</a></h3>
         <div class="sg-demo" id="demo-dialog-container">
           <button class="nx-form-btn-secondary" id="demo-dialog-open">Open dialog</button>
+          <button class="nx-form-btn-secondary" id="demo-dialog-close-open">Open dialog with close button</button>
         </div>
         <pre><code>&lt;nx-dialog title="Delete item" @close=${onClose}&gt;
   &lt;p&gt;This action cannot be undone.&lt;/p&gt;
   &lt;button slot="actions" class="nx-form-btn-secondary"&gt;Cancel&lt;/button&gt;
   &lt;button slot="actions" class="nx-form-btn-primary"&gt;Delete&lt;/button&gt;
+&lt;/nx-dialog&gt;
+
+&lt;nx-dialog title="Published 2 items" show-close-button @close=${onClose}&gt;
+  &lt;p&gt;Both pages are live.&lt;/p&gt;
 &lt;/nx-dialog&gt;</code></pre>
       </article>
 
@@ -971,6 +976,15 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
         dialog.close();
         showToast({ text: 'Item deleted.' });
       });
+      document.querySelector('#demo-dialog-container').append(dialog);
+    });
+
+    document.querySelector('#demo-dialog-close-open').addEventListener('click', () => {
+      const dialog = document.createElement('nx-dialog');
+      dialog.setAttribute('title', 'Published 2 items');
+      dialog.toggleAttribute('show-close-button', true);
+      dialog.innerHTML = '<p>Both pages are live.</p>';
+      dialog.addEventListener('close', () => dialog.remove());
       document.querySelector('#demo-dialog-container').append(dialog);
     });
 

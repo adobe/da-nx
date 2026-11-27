@@ -41,6 +41,16 @@ Omit the `title` attribute for dialogs that need no heading (e.g. a full-form di
 </nx-dialog>
 ```
 
+### Close button
+
+Set `show-close-button` to render an X in the heading row. It calls `close()`, so it fires the same `close` event as Escape and backdrop click. Use it when the dialog has no Cancel action.
+
+```html
+<nx-dialog title="Published 2 items" show-close-button>
+  <p>…</p>
+</nx-dialog>
+```
+
 ### Autofocus
 
 Add `autofocus` to the element that should receive focus when the dialog opens.
@@ -70,6 +80,7 @@ dialog.busy = false;
 | `title`              | `String`  | —       | Heading text rendered above the body. Omit for a headingless dialog. |
 | `persistent`         | `Boolean` | `false` | Prevents closing on backdrop click or Escape.                        |
 | `busy`               | `Boolean` | `false` | Inerts the dialog body. Implicitly enables `persistent` behavior.    |
+| `showCloseButton` / `show-close-button` | `Boolean` | `false` | Renders an X close button in the heading row. |
 
 ### Methods
 
@@ -81,7 +92,7 @@ dialog.busy = false;
 
 | Event   | Description                                                                                    |
 | ------- | ---------------------------------------------------------------------------------------------- |
-| `close` | Fired when the user dismisses the dialog (backdrop click, Escape, or explicit `close()` call). |
+| `close` | Fired when the user dismisses the dialog (backdrop click, Escape, close button, or explicit `close()` call). |
 
 ## Slots
 
