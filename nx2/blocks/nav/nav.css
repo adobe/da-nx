@@ -150,7 +150,7 @@
   li {
     flex-shrink: 0;
 
-    &:has(> nx-siteselector[hidden]) {
+    &:has(> [hidden]) {
       display: none;
     }
   }
