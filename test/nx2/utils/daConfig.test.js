@@ -199,21 +199,36 @@ describe('fetchDaConfigs', () => {
     expect(getFirstSheet(siteConfig)).to.deep.equal(rows);
   });
 
-  it('evicts rejected config promises so a later call retries', async () => {
+  it('evicts failed config requests (invalid JSON) so a later call retries', async () => {
     const org = uniq('retry-org');
     installFetch({ body: '{invalid json' });
-    let error;
-    try {
-      await Promise.all(fetchDaConfigs({ org }));
-    } catch (e) {
-      error = e;
-    }
-    expect(error).to.be.instanceOf(SyntaxError);
+    const [failed] = await Promise.all(fetchDaConfigs({ org }));
+    expect(failed).to.deep.equal({ error: `Error loading /${org}`, status: 200 });
 
     restoreFetch();
     installFetch({ body: JSON.stringify({ data: [{ key: 'retried' }] }) });
     const [retried] = await Promise.all(fetchDaConfigs({ org }));
     expect(getFirstSheet(retried)).to.deep.equal([{ key: 'retried' }]);
+  });
+
+  it('hlx6: a network error on the DA org config does not reject or drop the site config', async () => {
+    const org = uniq('hlx6-org-network');
+    const site = uniq('site');
+    installFetch();
+    window.fetch = async (url) => {
+      const u = url.toString();
+      if (u.includes(`${HLX_ADMIN}/ping/`)) {
+        return new Response('', { status: 200, headers: { 'x-api-upgrade-available': 'true' } });
+      }
+      if (u.startsWith(AEM_API)) {
+        return new Response(JSON.stringify({ config: [{ key: 'a', value: 'site' }] }), { status: 200 });
+      }
+      throw new TypeError('Failed to fetch');
+    };
+
+    const [orgConfig, siteConfig] = await Promise.all(fetchDaConfigs({ org, site }));
+    expect(orgConfig).to.deep.equal({ error: `Error loading /${org}`, status: 0 });
+    expect(getFirstSheet(siteConfig)).to.deep.equal([{ key: 'a', value: 'site' }]);
   });
 });
 
@@ -281,5 +296,23 @@ describe('getConfigValue', () => {
     };
 
     expect(await getConfigValue({ org, site, key: 'a' })).to.equal('org');
+  });
+
+  it('keeps hlx6 site values when the DA org config returns invalid JSON', async () => {
+    const org = uniq('hlx6-org-badjson');
+    const site = uniq('site');
+    installFetch();
+    window.fetch = async (url) => {
+      const u = url.toString();
+      if (u.includes(`${HLX_ADMIN}/ping/`)) {
+        return new Response('', { status: 200, headers: { 'x-api-upgrade-available': 'true' } });
+      }
+      if (u.startsWith(AEM_API)) {
+        return new Response(JSON.stringify({ config: [{ key: 'a', value: 'site' }] }), { status: 200 });
+      }
+      return new Response('{invalid json', { status: 200 });
+    };
+
+    expect(await getConfigValue({ org, site, key: 'a' })).to.equal('site');
   });
 });

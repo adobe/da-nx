@@ -78,6 +78,23 @@ describe('getEWFlags', () => {
     expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.enabled': 'true', 'ew.disableChat': 'true' });
     expect(calls.filter((call) => call.url.startsWith(DA_ADMIN))).to.have.lengthOf(0);
   });
+
+  it('keeps hlx6 site flags when the DA org config request fails with a network error', async () => {
+    const org = 'flag-org-hlx6-network';
+    const site = 'site';
+    installFetch();
+    window.fetch = async (url) => {
+      const u = url.toString();
+      if (u.includes('/ping/')) {
+        return new Response('', { status: 200, headers: { 'x-api-upgrade-available': 'true' } });
+      }
+      if (u.includes('/sites/')) {
+        return new Response(JSON.stringify({ config: [], flags: [{ key: 'ew.enabled', value: 'true' }] }), { status: 200 });
+      }
+      throw new TypeError('Failed to fetch');
+    };
+    expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.enabled': 'true' });
+  });
 });
 
 describe('isEWEnabled', () => {
