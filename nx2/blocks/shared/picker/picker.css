@@ -126,6 +126,7 @@
 
 nx-popover {
   max-width: calc(100vw - 20px);
+  max-height: var(--nx-picker-menu-max-height, 320px);
 }
 
 .picker-item-description {
