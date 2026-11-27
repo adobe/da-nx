@@ -1,3 +1,14 @@
+## [1.68.6](https://github.com/adobe/da-nx/compare/v1.68.5...v1.68.6) (2026-11-27)
+
+
+### Bug Fixes
+
+* **copy:** replace remaining user-facing DA references with EW ([26fd9fb](https://github.com/adobe/da-nx/commit/26fd9fbf446dacf2b6939fbb9078cbe723631c2d))
+* **copy:** spell out Experience Workspace instead of EW ([6e4e2b6](https://github.com/adobe/da-nx/commit/6e4e2b644b91ee1de3ecd54049e6eede6052177a))
+* **copy:** use EW in importer error and translation provider descriptions ([cb2f5f8](https://github.com/adobe/da-nx/commit/cb2f5f8df8e9849725c3d7db3ea0a5f521552c5f))
+* **titles:** preserve content-authored page titles ([31c4a3e](https://github.com/adobe/da-nx/commit/31c4a3e47451e38f2ea405db568039022e257eda))
+* **ui:** unify document titles as '<page> | Experience Workspace' ([0adf670](https://github.com/adobe/da-nx/commit/0adf67074a8fb2d4bfd3e15311806cd53b267475))
+
 ## [1.68.5](https://github.com/adobe/da-nx/compare/v1.68.4...v1.68.5) (2026-11-26)
 
 
