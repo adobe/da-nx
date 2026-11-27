@@ -999,7 +999,9 @@ describe('NxSnapshot', () => {
       const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
       expect(accordion).to.not.be.null;
       const links = accordion.querySelectorAll('a');
-      expect(links.length).to.equal(3); // reviews, aem.live, DA edit (no snapshot edit)
+      // reviews, aem.live, Experience Workspace edit (no snapshot edit)
+      expect(links.length).to.equal(3);
+      expect([...links].map((link) => link.textContent.trim())).to.include('Edit in Experience Workspace');
     });
 
     it('Shows Edit snapshot content when snapshot exists', async () => {
@@ -1011,6 +1013,7 @@ describe('NxSnapshot', () => {
       const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
       const links = accordion.querySelectorAll('a');
       expect(links.length).to.equal(4);
+      expect([...links].map((link) => link.textContent.trim())).to.include('Edit snapshot content');
     });
 
     it('Hides Sync/Promote when hasLaunchPermission is false', async () => {
