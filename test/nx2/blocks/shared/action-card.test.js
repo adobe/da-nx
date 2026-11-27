@@ -106,20 +106,25 @@ describe('nx-action-card tile', () => {
     });
   });
 
-  it('contains a non-square bordered image under the page image styles', async () => {
-    const main = document.createElement('main');
-    document.body.append(main);
-    const card = await make(
-      { tint: '#fff', bordered: true },
-      '<img slot="icon" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2264%22 height=%22128%22%3E%3C/svg%3E" alt="">',
-    );
-    main.append(card);
-    const [img] = slotted(card);
-    await img.decode();
-    const bounds = img.getBoundingClientRect();
-    expect(bounds.width).to.be.at.most(32);
-    expect(bounds.height).to.be.at.most(32);
-    expect(getComputedStyle(img).objectFit).to.equal('contain');
+  it('caps a tinted image at 20px under Edge Delivery page image styles', async () => {
+    const meta = document.createElement('meta');
+    meta.content = 'edge-delivery';
+    document.head.append(meta);
+    try {
+      const main = document.createElement('main');
+      main.style.width = '120px';
+      document.body.append(main);
+      const src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2264%22 height=%2264%22%3E%3C/svg%3E';
+      main.innerHTML = `<img src="${src}" alt="">`;
+      const card = await make({ tint: TINT }, `<img slot="icon" src="${src}" alt="">`);
+      main.append(card);
+      const [img] = slotted(card);
+      await img.decode();
+      expect(getComputedStyle(main.querySelector('img')).width).to.equal('120px');
+      expect(size(img)).to.deep.equal(['20px', '20px']);
+    } finally {
+      meta.remove();
+    }
   });
 
   it('sizes the icon by tint: 20px tinted, 40px untinted', async () => {

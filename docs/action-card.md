@@ -82,8 +82,8 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 
 | Setup           | Result |
 | --------------- | ------ |
-| icon + `tint`   | 20px icon on the tinted 40px tile. |
-| icon only       | Icon fills the whole 40px tile with a transparent background. |
+| icon + `tint`   | Icon capped at 20px on the tinted 40px tile. |
+| icon only       | Icon capped at 40px with a transparent background. |
 | `bordered`      | 56px tile with an inset border and a contained 32px icon; background still follows `tint`. |
 | `tint` only     | Tinted 40px tile without an icon. |
 | nothing         | No tile is rendered. Without a tile and a menu, the card starts with the heading. |
