@@ -28,18 +28,33 @@ export function getUtilHrefs({ doc, origin }) {
     .filter((url) => url.origin === origin);
   const find = (filename) => urls.find(({ pathname }) => pathname.endsWith(`/${filename}`))?.href;
   const scriptsHref = find('scripts.js') ?? `${origin}/scripts/scripts.js`;
-  const aemHref = find('aem.js') ?? new URL('aem.js', scriptsHref).href;
-  return { aemHref, scriptsHref };
+  // Projects from before aem.js load the same library as lib-franklin.js.
+  const headLibHref = find('aem.js') ?? find('lib-franklin.js');
+  if (headLibHref) return { aemHref: headLibHref, fallbackHref: undefined, scriptsHref };
+  return {
+    aemHref: new URL('aem.js', scriptsHref).href,
+    fallbackHref: new URL('lib-franklin.js', scriptsHref).href,
+    scriptsHref,
+  };
+}
+
+export async function importLib({ aemHref, fallbackHref }) {
+  try {
+    return await import(aemHref);
+  } catch (e) {
+    if (!fallbackHref) throw e;
+    return import(fallbackHref);
+  }
 }
 
 async function loadUtilFunctions() {
-  const { aemHref, scriptsHref } = getUtilHrefs({ doc: document, origin: location.origin });
-  const aemPromise = import(aemHref);
-  const scriptsPromise = import(scriptsHref);
+  const hrefs = getUtilHrefs({ doc: document, origin: location.origin });
+  const aemPromise = importLib(hrefs);
+  const scriptsPromise = import(hrefs.scriptsHref);
   return {
     ...await aemPromise.catch((e) => {
       // eslint-disable-next-line no-console
-      console.info('Failed to load aem.js', e);
+      console.info('Failed to load aem.js or lib-franklin.js', e);
       return {};
     }),
     ...await scriptsPromise.catch((e) => {
@@ -52,13 +67,19 @@ async function loadUtilFunctions() {
 
 const asFunction = (fn) => (typeof fn === 'function' ? fn : undefined);
 
-// The page hook replaces both decoration and loading.
-export function getReloadEditable({ reloadEditable, decorateMain, loadSections }) {
+// The page hook replaces both decoration and loading. Libraries from before
+// loadSections (lib-franklin.js, older aem.js) only provide loadBlocks.
+export function getReloadEditable({
+  reloadEditable, decorateMain, loadSections, loadBlocks,
+}) {
   if (asFunction(reloadEditable)) return reloadEditable;
-  if (!asFunction(decorateMain) || !asFunction(loadSections)) return undefined;
+  const load = asFunction(loadSections) ?? asFunction(loadBlocks);
+  if (!asFunction(decorateMain) || !load) return undefined;
   return async (main) => {
     await decorateMain(main);
-    await loadSections(main);
+    const loaded = await load(main);
+    // The earliest loadBlocks returned its block promises instead of awaiting them.
+    if (Array.isArray(loaded)) await Promise.all(loaded);
   };
 }
 
@@ -128,11 +149,11 @@ export function createReload(reloadEditable) {
   const { loadPage } = utils;
   if (asFunction(loadPage)) {
     // eslint-disable-next-line no-console
-    console.warn('[quick-edit] reloadEditable or decorateMain/loadSections not found, falling back to loadPage with full body - including header/footer - reloading.');
+    console.warn('[quick-edit] reloadEditable or decorateMain/loadSections (or loadBlocks) not found, falling back to loadPage with full body - including header/footer - reloading.');
     loadQuickEdit(payload, () => loadPage(), { bootstrap: true });
   } else {
     // eslint-disable-next-line no-console
-    console.warn('[quick-edit] reloadEditable or decorateMain/loadSections not found, edits will not be decorated.');
+    console.warn('[quick-edit] reloadEditable or decorateMain/loadSections (or loadBlocks) not found, edits will not be decorated.');
     loadQuickEdit(payload, () => {}, { bootstrap: true, partialReload: true });
   }
 })();
