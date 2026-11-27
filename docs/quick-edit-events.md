@@ -108,13 +108,17 @@ reloading when present. It covers both decoration and loading, replacing `decora
 It receives an undecorated `main` (live for a whole-main reload, detached for inline,
 section and block reloads), may be async, and modifies that `main` in place (including
 replacing or re-wrapping the nodes inside it); no return value is required. The default
-awaits `decorateMain(main)` then `loadSections(main)`; both exports are required.
+awaits `decorateMain(main)`, then `loadSections(main)`, or `loadBlocks(main)` when
+`loadSections` is missing (`lib-franklin.js`, older `aem.js`). If `loadBlocks` returns an
+array of block promises (early-2022 boilerplate, where it lived in `scripts.js`), those are
+awaited too. `decorateMain` and one of the two loaders are required.
 If neither pipeline is available, `quick-edit-init.js` replaces the whole body and calls the page's
 `loadPage` (so header and footer re-render); without `loadPage` either, edits are shown
 undecorated in `main`.
 `quick-edit-init.js` imports these functions from the same-origin `scripts.js` and `aem.js`
-URLs in the page's head, so neither module runs twice; without those script tags it uses
-`/scripts/scripts.js` and the `aem.js` next to it.
+(or `lib-franklin.js`) URLs in the page's head, so neither module runs twice; without those
+script tags it uses `/scripts/scripts.js` and the `aem.js` next to it, or `lib-franklin.js`
+if `aem.js` fails to load.
 All scopes use the same resolved `reloadEditable` function. `createReload` only handles
 preparing the scope and inserting the reloaded nodes; it does not select any additional
 page hooks or fallbacks.

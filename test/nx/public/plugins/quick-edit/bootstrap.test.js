@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import loadQuickEdit, { claimBootstrap } from '../../../../../nx/public/plugins/quick-edit/quick-edit.js';
 import {
-  prepare, prepareDetached, getReloadEditable, createReload, getUtilHrefs,
+  prepare, prepareDetached, getReloadEditable, createReload, getUtilHrefs, importLib,
 } from '../../../../../nx/public/plugins/quick-edit/quick-edit-init.js';
 import { MESSAGE_TYPES } from '../../../../../nx/utils/message-types.js';
 
@@ -48,14 +48,34 @@ describe('getUtilHrefs', () => {
     const doc = docWith(`${origin}/nx2/scripts/aem.js?v=2`, `${origin}/nx2/scripts/scripts.js?v=2`);
     expect(getUtilHrefs({ doc, origin })).to.deep.equal({
       aemHref: `${origin}/nx2/scripts/aem.js?v=2`,
+      fallbackHref: undefined,
       scriptsHref: `${origin}/nx2/scripts/scripts.js?v=2`,
     });
   });
 
-  it('takes aem.js from next to scripts.js when the page does not load it', () => {
+  it('uses lib-franklin.js from the head of projects from before aem.js', () => {
+    const doc = docWith(`${origin}/scripts/lib-franklin.js`, `${origin}/scripts/scripts.js`);
+    expect(getUtilHrefs({ doc, origin })).to.deep.equal({
+      aemHref: `${origin}/scripts/lib-franklin.js`,
+      fallbackHref: undefined,
+      scriptsHref: `${origin}/scripts/scripts.js`,
+    });
+  });
+
+  it('prefers aem.js when the head loads both libraries', () => {
+    const doc = docWith(
+      `${origin}/scripts/lib-franklin.js`,
+      `${origin}/scripts/aem.js`,
+      `${origin}/scripts/scripts.js`,
+    );
+    expect(getUtilHrefs({ doc, origin }).aemHref).to.equal(`${origin}/scripts/aem.js`);
+  });
+
+  it('tries aem.js, then lib-franklin.js, next to scripts.js when the page loads neither', () => {
     const doc = docWith(`${origin}/org/site/scripts/scripts.js`);
     expect(getUtilHrefs({ doc, origin })).to.deep.equal({
       aemHref: `${origin}/org/site/scripts/aem.js`,
+      fallbackHref: `${origin}/org/site/scripts/lib-franklin.js`,
       scriptsHref: `${origin}/org/site/scripts/scripts.js`,
     });
   });
@@ -68,6 +88,7 @@ describe('getUtilHrefs', () => {
     );
     expect(getUtilHrefs({ doc, origin })).to.deep.equal({
       aemHref: `${origin}/scripts/aem.js`,
+      fallbackHref: `${origin}/scripts/lib-franklin.js`,
       scriptsHref: `${origin}/scripts/scripts.js`,
     });
   });
@@ -95,6 +116,33 @@ describe('getUtilHrefs', () => {
       script.remove();
       form.remove();
     }
+  });
+});
+
+describe('importLib', () => {
+  const moduleHref = (code) => `data:text/javascript,${encodeURIComponent(code)}`;
+  const missingHref = `${window.location.origin}/missing-quick-edit-lib.js`;
+
+  it('uses aem.js without importing the fallback', async () => {
+    const lib = await importLib({
+      aemHref: moduleHref('export const lib = "aem";'),
+      fallbackHref: moduleHref('globalThis.qeFallbackRan = true; export const lib = "franklin";'),
+    });
+    expect(lib.lib).to.equal('aem');
+    expect(globalThis.qeFallbackRan).to.equal(undefined);
+  });
+
+  it('imports lib-franklin.js when aem.js fails to load', async () => {
+    const lib = await importLib({
+      aemHref: missingHref,
+      fallbackHref: moduleHref('export const lib = "franklin";'),
+    });
+    expect(lib.lib).to.equal('franklin');
+  });
+
+  it('rethrows the aem.js error without a fallback', async () => {
+    const error = await importLib({ aemHref: missingHref }).catch((e) => e);
+    expect(error).to.be.instanceOf(TypeError);
   });
 });
 
@@ -142,9 +190,46 @@ describe('getReloadEditable', () => {
     expect(calls).to.deep.equal(['decorate', 'load']);
   });
 
+  it('falls back to loadBlocks for libraries without loadSections', async () => {
+    const calls = [];
+    const reloadEditable = getReloadEditable({
+      decorateMain: () => calls.push('decorate'),
+      loadBlocks: () => calls.push('blocks'),
+    });
+    await reloadEditable(document.createElement('main'));
+    expect(calls).to.deep.equal(['decorate', 'blocks']);
+  });
+
+  it('prefers loadSections over loadBlocks', async () => {
+    const calls = [];
+    const reloadEditable = getReloadEditable({
+      decorateMain: () => {},
+      loadSections: () => calls.push('sections'),
+      loadBlocks: () => calls.push('blocks'),
+    });
+    await reloadEditable(document.createElement('main'));
+    expect(calls).to.deep.equal(['sections']);
+  });
+
+  it('waits for the block promises the earliest loadBlocks returns', async () => {
+    let loaded = false;
+    const reloadEditable = getReloadEditable({
+      decorateMain: () => {},
+      loadBlocks: () => [new Promise((resolve) => {
+        setTimeout(() => {
+          loaded = true;
+          resolve();
+        });
+      })],
+    });
+    await reloadEditable(document.createElement('main'));
+    expect(loaded).to.equal(true);
+  });
+
   it('requires both default exports when there is no hook', () => {
     expect(getReloadEditable({ decorateMain: () => {} })).to.equal(undefined);
     expect(getReloadEditable({ loadSections: () => {} })).to.equal(undefined);
+    expect(getReloadEditable({ loadBlocks: () => {} })).to.equal(undefined);
     expect(getReloadEditable({ reloadEditable: true })).to.equal(undefined);
     expect(getReloadEditable({ loadPage: () => {} })).to.equal(undefined);
   });
