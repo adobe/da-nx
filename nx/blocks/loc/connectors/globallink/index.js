@@ -367,7 +367,7 @@ async function createSubmission({
     dueDate: dueDateMs(dueDateDays),
     projectId: Number(service.projectId) || service.projectId,
     sourceLanguage,
-    instructions: `DA localization project: ${title}`,
+    instructions: `Experience Workspace localization project: ${title}`,
     ...(customAttributes.length ? { customAttributes } : {}),
     batchInfos: [{
       targetLanguageInfos: langs.map((lang) => ({ targetLanguage: lang.code })),
