@@ -177,7 +177,7 @@ async function saveLang({
  * @param {object} conf Translation conf with `langs`, `urls` and `actions`.
  * @param {object} connector Connector implementing `saveItems`.
  * @param {Function} sendMessage Message callback.
- * @returns {Promise<{errors: object[]}|undefined>} Errors when saving concurrently.
+ * @returns {Promise<{errors: object[]}>} Errors from languages that failed to save.
  */
 export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   const behavior = options['translate.conflict.behavior'];
@@ -196,15 +196,6 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   };
 
   const concurrency = connector.saveLangConcurrency ?? 1;
-  if (concurrency === 1) {
-    for (const [langIndex, lang] of conf.langs.entries()) {
-      const wasComplete = lang.translation.status === 'complete';
-      await saveLanguage({ lang, langIndex });
-      if (!wasComplete) await conf.actions?.saveState?.(undefined, { waitForSave: true });
-    }
-    return undefined;
-  }
-
   const errors = [];
   const collectError = (lang, result) => {
     const path = result.suppliedPath ? ` (${result.suppliedPath})` : '';
@@ -222,6 +213,7 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
     } catch (error) {
       collectError(lang, { error });
     }
+    // Persist after each language so an interrupted save resumes where it stopped.
     await conf.actions?.saveState?.(undefined, { waitForSave: true });
   }, concurrency, ({ lang }, error) => collectError(lang, { error }));
 
@@ -337,7 +329,9 @@ export async function sendAllForTranslation(conf, connector) {
  *  are not mutated (this function builds its own `options` override).
  * @param {Object} connector - The active loc connector.
  * @param {Object} lang - The dependent language to submit; mutated in
- *  place (`translation.status`, and `waitingFor` is deleted).
+ *  place (`translation.status`, and `waitingFor` is deleted). Both are
+ *  restored if the connector reports an error or throws and leaves the
+ *  language `not started` or `error` without setting `submissionFailed`.
  * @param {Object[]} originalUrls - The project's full supplied urls.
  * @param {string} [sourceLocation] - The project's default source
  *  location, the fallback prefix when a url is under no configured source.
@@ -370,15 +364,47 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
   lang.translation.status = 'not started';
   delete lang.waitingFor;
 
+  const { sendMessage, saveState } = conf.actions;
+  let failed = false;
+
+  // Connectors persist the options they are given; keep the project's own source language.
+  const originalSource = conf.options['source.language'];
+  const actions = {
+    ...conf.actions,
+    sendMessage: (message) => {
+      if (message?.type === 'error') failed = true;
+      sendMessage(message);
+    },
+    saveState: (props, saveOptions) => {
+      if (!props?.options) return saveState(props, saveOptions);
+      const options = { ...props.options };
+      if (originalSource) options['source.language'] = originalSource;
+      else delete options['source.language'];
+      return saveState({ ...props, options }, saveOptions);
+    },
+  };
+
   // Source is now the dependent language's own source, not the project default.
   const options = { ...conf.options, 'source.language': waitingFor };
 
-  return connector.sendAllLanguages({
-    ...conf,
-    options,
-    langs: [lang],
-    urls,
-  });
+  try {
+    await connector.sendAllLanguages({
+      ...conf,
+      options,
+      langs: [lang],
+      urls,
+      actions,
+    });
+  } catch (error) {
+    actions.sendMessage({ text: `Unable to submit ${lang.name}: ${error.message}`, type: 'error' });
+  }
+
+  // Retry a failed submission on the next status check, unless the connector marked it terminal.
+  const { status, submissionFailed } = lang.translation;
+  if (failed && ['not started', 'error'].includes(status) && !submissionFailed) {
+    lang.translation.status = 'waiting';
+    lang.waitingFor = waitingFor;
+  }
 }
 
 export async function checkWaitingLanguages(conf, connector, originalUrls, originalSourceLocation) {

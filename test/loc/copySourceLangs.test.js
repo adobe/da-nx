@@ -2,6 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { setImsDetails } from '../../nx/utils/daFetch.js';
 import { copySourceLangs } from '../../nx/blocks/loc/views/translate/index.js';
+import { DA_RETRY } from '../../nx/blocks/loc/utils/utils.js';
 
 const OPTIONS = { 'copy.conflict.behavior': 'overwrite', 'source.language': { location: '/' } };
 
@@ -21,6 +22,11 @@ const makeFetchStub = (failPattern) => sinon.stub().callsFake(async (url) => {
 });
 
 describe('copySourceLangs', () => {
+  const retryDefaults = { ...DA_RETRY };
+
+  before(() => Object.assign(DA_RETRY, { baseDelayMs: 0, maxDelayMs: 0, maxRetryAfterMs: 0 }));
+  after(() => Object.assign(DA_RETRY, retryDefaults));
+
   let originalFetch;
 
   beforeEach(() => {
