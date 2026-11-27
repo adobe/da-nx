@@ -18,24 +18,42 @@ export { getFirstSheet };
 export const fetchDaConfigs = (() => {
   const configCache = {};
 
-  // Network/CORS and JSON errors resolve to { error, status } rather than
-  // rejecting, so a failing org config can't drop a valid site config in
-  // callers that Promise.all both.
+  // Network/CORS (TypeError) and JSON (SyntaxError) failures resolve to
+  // { error, status } rather than rejecting, so a failing org config can't drop
+  // a valid site config in callers that Promise.all both. Other errors propagate.
+  const isLoadError = (e) => e instanceof TypeError || e instanceof SyntaxError;
+
   const fetchConfig = async (org, site) => {
     const pathname = site ? `/${org}/${site}` : `/${org}`;
     const error = `Error loading ${pathname}`;
-    const resp = await config.get({ org, site }).catch(() => undefined);
-    if (!resp) return { error, status: 0 };
+    let resp;
+    try {
+      resp = await config.get({ org, site });
+    } catch (e) {
+      if (isLoadError(e)) return { error, status: 0 };
+      throw e;
+    }
     if (!resp.ok) return { error, status: resp.status };
-    return resp.json().catch(() => ({ error, status: resp.status }));
+    try {
+      return await resp.json();
+    } catch (e) {
+      if (isLoadError(e)) return { error, status: resp.status };
+      throw e;
+    }
   };
 
   // Failed responses are evicted so the next call retries.
   const cacheConfig = (key, org, site) => {
-    configCache[key] = fetchConfig(org, site).then((result) => {
-      if (result?.error) delete configCache[key];
-      return result;
-    });
+    configCache[key] = fetchConfig(org, site).then(
+      (result) => {
+        if (result?.error) delete configCache[key];
+        return result;
+      },
+      (e) => {
+        delete configCache[key];
+        throw e;
+      },
+    );
     return configCache[key];
   };
 

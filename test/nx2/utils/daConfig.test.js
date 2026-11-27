@@ -211,6 +211,28 @@ describe('fetchDaConfigs', () => {
     expect(getFirstSheet(retried)).to.deep.equal([{ key: 'retried' }]);
   });
 
+  it('propagates unexpected errors and evicts them so a later call retries', async () => {
+    const org = uniq('unexpected-org');
+    installFetch();
+    window.fetch = async () => {
+      const resp = new Response('{}');
+      resp.json = async () => { throw new Error('boom'); };
+      return resp;
+    };
+    let error;
+    try {
+      await Promise.all(fetchDaConfigs({ org }));
+    } catch (e) {
+      error = e;
+    }
+    expect(error?.message).to.equal('boom');
+
+    restoreFetch();
+    installFetch({ body: JSON.stringify({ data: [{ key: 'retried' }] }) });
+    const [retried] = await Promise.all(fetchDaConfigs({ org }));
+    expect(getFirstSheet(retried)).to.deep.equal([{ key: 'retried' }]);
+  });
+
   it('hlx6: a network error on the DA org config does not reject or drop the site config', async () => {
     const org = uniq('hlx6-org-network');
     const site = uniq('site');
