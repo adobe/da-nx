@@ -1242,11 +1242,11 @@ export async function saveTranslatedImageToDaSource({
       org, site, path: sourcePath, body: data,
     });
     if (!resp.ok) {
-      return { error: 'Error saving translated image to DA.', status: resp.status, glaasName, ...sizeCheck };
+      return { error: 'Error saving translated image to Experience Workspace.', status: resp.status, glaasName, ...sizeCheck };
     }
     return { url: `${CONTENT_DA_LIVE_ORIGIN}/${org}/${site}${sourcePath}`, status: resp.status };
   } catch {
-    return { error: 'Error saving translated image to DA.' };
+    return { error: 'Error saving translated image to Experience Workspace.' };
   }
 }
 
