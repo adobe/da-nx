@@ -1,3 +1,10 @@
+## [1.68.9](https://github.com/adobe/da-nx/compare/v1.68.8...v1.68.9) (2026-11-27)
+
+
+### Bug Fixes
+
+* **quick-edit:** import the page's own scripts.js and aem.js ([1945edf](https://github.com/adobe/da-nx/commit/1945edf54a339c41fd2447b7019bc75de4e612a2))
+
 ## [1.68.8](https://github.com/adobe/da-nx/compare/v1.68.7...v1.68.8) (2026-11-27)
 
 
