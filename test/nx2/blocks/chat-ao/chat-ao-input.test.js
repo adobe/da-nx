@@ -62,6 +62,56 @@ describe('chat AO input', () => {
     expect(chatInput.shadowRoot.activeElement).to.equal(input);
   });
 
+  it('renders tool approval inline like a pending question and delegates decisions', async () => {
+    const decisions = [];
+    chat._controller.respondToPermission = (...args) => decisions.push(args);
+    chat.thinking = true;
+    chat.pendingPermission = {
+      calls: [{
+        toolCallId: 'tc1',
+        toolName: 'governance__bga_create_brand_context_rule',
+        arguments: '{"name":"No green bananas"}',
+      }],
+      decisions: {},
+    };
+    await chat.updateComplete;
+
+    const card = chat.shadowRoot.querySelector('.permission-card');
+    expect(card.closest('.chat-messages-container')).to.not.equal(null);
+    expect(card.closest('.message-assistant')).to.not.equal(null);
+    expect(chat.shadowRoot.querySelector('.chat-form-wrap .permission-card')).to.equal(null);
+    expect(card.nextElementSibling.textContent).to.equal('Waiting for your approval...');
+    expect(chat.shadowRoot.querySelector('.chat-thinking')).to.equal(null);
+    expect(getComputedStyle(card).position).to.equal('static');
+    expect(getComputedStyle(card).boxShadow).to.equal('none');
+    expect(chat.shadowRoot.activeElement).to.equal(card.querySelector('.permission-approve-btn'));
+    card.querySelector('.permission-approve-btn').click();
+    expect(decisions).to.deep.equal([['tc1', true]]);
+
+    chat.pendingPermission = undefined;
+    await chat.updateComplete;
+    expect(chat.shadowRoot.querySelector('.permission-card')).to.equal(null);
+    expect(chat.shadowRoot.querySelector('.chat-thinking')).to.not.equal(null);
+  });
+
+  [false, true].forEach((scrolledUp) => {
+    it(`${scrolledUp ? 'does not follow new approvals while reading history' : 'follows new approvals when already near the bottom'}`, async () => {
+      const log = chat.shadowRoot.querySelector('.chat-scroll-container');
+      Object.defineProperties(log, {
+        scrollHeight: { get: () => (log.querySelector('.permission-card') ? 800 : 400) },
+        clientHeight: { value: 100 },
+        scrollTop: { value: scrolledUp ? 100 : 300, writable: true },
+      });
+      chat.pendingPermission = {
+        calls: [{ toolCallId: 'tc1', toolName: 'some_tool' }],
+        decisions: {},
+      };
+      await chat.updateComplete;
+      await new Promise((resolve) => { requestAnimationFrame(resolve); });
+      expect(log.scrollTop).to.equal(scrolledUp ? 100 : 800);
+    });
+  });
+
   it('delegates public prompts and submits the input payload once', async () => {
     const context = { id: 'selection', type: 'text', label: 'Selection' };
     const attachment = { id: 'file', dataBase64: 'ZmlsZQ==', label: 'File' };
