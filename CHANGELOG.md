@@ -1,3 +1,10 @@
+## [1.68.10](https://github.com/adobe/da-nx/compare/v1.68.9...v1.68.10) (2026-11-27)
+
+
+### Bug Fixes
+
+* extend cards block ([#1066](https://github.com/adobe/da-nx/issues/1066)) ([35f3495](https://github.com/adobe/da-nx/commit/35f349532fa57cca63e2692d7161801d9ebe8a42))
+
 ## [1.68.9](https://github.com/adobe/da-nx/compare/v1.68.8...v1.68.9) (2026-11-27)
 
 
