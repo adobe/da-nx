@@ -66,11 +66,16 @@ On the standalone `/form` page, absent branch state falls back to `main` for bot
 
 On confirm, the control:
 
-1. Flushes pending collab edits via the active editor's `forceSave()`, so AEM reads the latest content.
-2. Runs the AEM action (`runAemPreviewOrPublish`).
-3. Busts the AEM Sidekick disk cache for the resulting URL (`sidekickCacheBust`) and opens the page.
-4. Records an auto-version (`Previewed` / `Published`).
-5. Re-fetches status so the cards and badge reflect the new state.
+1. Saves the active editor through `forceSave()`, so AEM reads the latest content.
+   - `ew-editor-doc` flushes pending collab edits.
+   - `ew-form-editor` saves the structured content form.
+   - Editors without `forceSave()` are skipped.
+   - A failed save stops the action with an error.
+2. Runs Preflight on the saved document when publishing with `editor.enforcePreflight` enabled in the site config. The action stops unless Preflight succeeds.
+3. Runs the AEM action through `runAemPreviewOrPublish`.
+4. Busts the AEM Sidekick disk cache for the resulting URL through `sidekickCacheBust` and opens the page.
+5. Records an auto-version with the comment `Previewed` or `Published`.
+6. Re-fetches the status so the cards and badge reflect the new state.
 
 Errors surface in an [`nx-dialog`](./dialog.md); a `403` offers to request the missing role.
 
