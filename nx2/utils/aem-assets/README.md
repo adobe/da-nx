@@ -21,6 +21,7 @@ aem-assets/
   config.js             Dynamic Media and approved-only rules
   filter-schema.js      Content Advisor filters
   selector-props.js     Asset Selector props and feature set
+  external-brief.js     Content Advisor brief from the page content
   repository-config.js  DA site config resolution into repoConfig
   urls.js               URL builders, rendition resolution, metadata readers
   image-modifiers.js    Site-wide query modifiers for delivery image URLs
@@ -179,6 +180,10 @@ The default export is the base path `/adobe/assets`.
 - `rail: true` renders the selector in rail (side-panel) layout instead of a modal. The caller chooses the mode; it is not a site config key.
 - `dragAndDrop: true` adds `acvConfig` with `dragOptions` (all asset types) and `selectionType: 'multiple'`, so assets can be dragged out of the selector. Drop targets read `JSON.parse(e.dataTransfer.getData(ASSET_DRAG_DATA_TYPE))`, an array of assets, where `ASSET_DRAG_DATA_TYPE` is `'collectionviewdata'`.
 - `rememberAssetFolder(repoConfig, assetPath)` remembers the folder of a selected asset per repository, in memory, so the picker reopens there. Delivery-tier repos have no folder structure and are ignored.
+
+### `external-brief.js`
+
+- `formatExternalBrief(document)` builds the Content Advisor brief from a ProseMirror document. It uses the first `h1` as the title and the plain text of the document as content. It returns an empty string when the document has no text. Pass the result as `externalBrief` to `buildAssetSelectorProps` so the advisor recommends assets that match the page.
 
 ### `repository-config.js`
 
