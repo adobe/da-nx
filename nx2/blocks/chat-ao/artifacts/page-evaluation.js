@@ -71,11 +71,28 @@ function renderContextCard(context) {
 
 const promptLine = (prefix, value) => (value ? [`${prefix}${value}`] : []);
 
-export function buildSuggestionPrompt({ item }) {
+// Maps an evaluated AEM URL (`https://ref--site--org.<host>/path`) to its DA path
+// (`/org/site/path`); undefined when the URL isn't in that shape.
+export function pagePathFromUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+  const [, site, org, ...rest] = parsed.hostname.split('.')[0].split('--');
+  if (!site || !org || rest.length) return undefined;
+  const { pathname } = parsed;
+  const path = pathname.endsWith('/') ? `${pathname}index` : pathname.replace(/\.html$/, '');
+  return `/${org}/${site}${path}`;
+}
+
+export function buildSuggestionPrompt({ item, evaluatedUrl }) {
   const suggestion = item?.suggestion ?? {};
   const reason = suggestion.issue ?? item?.description;
+  const pagePath = evaluatedUrl ? pagePathFromUrl(evaluatedUrl) : undefined;
   return [
-    'Fix this failed preflight page evaluation check on the current page.',
+    `Fix this failed preflight page evaluation check on ${pagePath ? `the page ${pagePath}` : 'the current page'}.`,
     ...promptLine('Check: ', item?.title),
     ...promptLine('Category: ', suggestion.context?.category),
     '',
@@ -89,10 +106,10 @@ export function buildSuggestionPrompt({ item }) {
   ].join('\n');
 }
 
-function renderSuggestionActions(item, { chatEnabled } = {}) {
+function renderSuggestionActions(item, { chatEnabled, evaluatedUrl } = {}) {
   const send = (e, autoSend) => {
     e.currentTarget.closest('nx-dialog')?.close();
-    const text = buildSuggestionPrompt({ item });
+    const text = buildSuggestionPrompt({ item, evaluatedUrl });
     document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, {
       detail: { section: 'chat', options: { text, autoSend } },
     }));
@@ -335,7 +352,9 @@ class NxPageEval extends LitElement {
         @close=${() => { this._modal = undefined; }}
       >
         <div class="ui-artifact-pe-modal-content">
-          ${renderBody(items[index], { tone, chatEnabled: this._chatEnabled })}
+          ${renderBody(items[index], {
+    tone, chatEnabled: this._chatEnabled, evaluatedUrl: this.data?.evaluatedUrl,
+  })}
           <div class="ui-artifact-pe-modal-paging">
             <button
               class="ui-artifact-pe-modal-paging-btn ui-artifact-pe-modal-paging-prev"
