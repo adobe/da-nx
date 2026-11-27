@@ -4,6 +4,19 @@ A card for something the user can act on, e.g. a tool or an app: icon tile, head
 
 Not to be confused with [`nx-card`](card.md), the media-preview card.
 
+## Authored cards block
+
+| Content header | Appearance |
+| --- | --- |
+| `nx-cards` | Standard cards. |
+| `nx-cards (tools)` | Adds the "By Adobe" byline. |
+| `nx-cards (bordered)` | White 56px bordered tiles; icons fit within 32px without distortion. |
+
+Each row has two cells:
+
+- **Left:** `:treeview:` or an icon link, e.g. `[Icon](https://da.live/img/adobe-logo.svg)`. Optional italicized tint in a separate paragraph, e.g. `*#fff*`, overrides the default.
+- **Right:** linked heading, description, optional final bold paragraph for the button label, e.g. `**Get started**`. The button uses the heading's URL and defaults to "Open". An optional bulleted Learn more link supplies the separate "…" menu.
+
 ## Usage
 
 ```js
@@ -46,6 +59,7 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 | `heading`     | `heading`      | `String` | Card title. |
 | `description` | `description`  | `String` | Body text. Optional. |
 | `tint`        | `tint`         | `String` | Tile background color, any CSS color. Invalid colors are ignored. |
+| `bordered`    | `bordered`     | `Boolean` | Opt-in theme-aware border on a 56px tile with an icon contained within 32px. Does not change the tint. |
 | `menu`        | —              | `Array`  | Entries for the "…" menu, same shape as [`nx-menu`](menu.md) `items` (`{ id, label, icon?, description? }`, `{ section }`, `{ divider: true }`). Empty or unset → no "…" button. |
 | `action`      | `action`       | `String` | URL of the action button. Unset → no button. The button is the shared `.nx-btn-primary` (`nx2/styles/buttons.css`), outlined by the card's own CSS. |
 | `actionLabel` | `action-label` | `String` | Text of the action button. Defaults to "Open". |
@@ -69,7 +83,8 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 | Setup           | Result |
 | --------------- | ------ |
 | icon + `tint`   | 20px icon on the tinted 40px tile. |
-| icon only       | Icon fills the whole 40px tile (e.g. a full-color logo or an image). |
+| icon only       | Icon fills the whole 40px tile with a transparent background. |
+| `bordered`      | 56px tile with an inset border and a contained 32px icon; background still follows `tint`. |
 | `tint` only     | Tinted 40px tile without an icon. |
 | nothing         | No tile is rendered. Without a tile and a menu, the card starts with the heading. |
 
