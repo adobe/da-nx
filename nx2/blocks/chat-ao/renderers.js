@@ -15,6 +15,20 @@ import { renderMarkdown } from './utils/markdown.js';
 import { renderUiArtifact } from './artifacts/index.js';
 import { getResponseCopies, renderCopyButton } from '../shared/chat/copy-button.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
+import { getConfig } from '../../scripts/nx.js';
+
+const { codeBase } = getConfig();
+const CHEVRON_HREF = `${codeBase}/img/icons/s2-icon-chevronleft-10-n.svg#icon`;
+const PERMISSION_TOOL_LABELS = {
+  api_request: 'Calling API',
+  read_file: 'Reading file',
+  write_file: 'Writing file',
+  edit_file: 'Editing file',
+  delete_file: 'Deleting file',
+  bash: 'Running command',
+  web_search: 'Searching the web',
+  web_fetch: 'Fetching URL',
+};
 
 // See docs/chat-ao-component.md#tool-call-activity for why this isn't truncated.
 function formatToolCallDetail(value) {
@@ -97,6 +111,30 @@ export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
   `;
 }
 
+function renderPermissionArguments(value) {
+  let args = value;
+  if (typeof args === 'string') {
+    try {
+      args = JSON.parse(args);
+    } catch {
+      return formatToolCallDetail(value);
+    }
+  }
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return formatToolCallDetail(value);
+  }
+  return html`
+    <dl class="permission-arguments">
+      ${Object.entries(args).map(([key, val]) => html`
+        <div class="permission-argument">
+          <dt>${key}</dt>
+          <dd>${typeof val === 'string' ? val : JSON.stringify(val, null, 2)}</dd>
+        </div>
+      `)}
+    </dl>
+  `;
+}
+
 export function renderMessages({ messages = [], thinking, onExpandToolCall } = {}) {
   const copies = getResponseCopies({ messages, thinking });
   return messages.map((msg, index) => (msg.role === 'assistant' ? html`
@@ -114,12 +152,23 @@ export function renderMessages({ messages = [], thinking, onExpandToolCall } = {
 
 // See docs/chat-ao-component.md#permission-requests for the nx-chat visual-parity rationale.
 function renderPermissionRow(call, decisions, onDecide) {
-  const detail = formatToolCallDetail(call.arguments);
+  const detail = renderPermissionArguments(call.arguments);
   const decided = call.toolCallId in decisions;
+  const toolName = /^[^\s]*_[^\s]*$/.test(call.toolName)
+    ? call.toolName.replace(/_+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+    : call.toolName;
+  const label = Object.hasOwn(PERMISSION_TOOL_LABELS, call.toolName)
+    ? PERMISSION_TOOL_LABELS[call.toolName]
+    : toolName;
   return html`
     <div class="permission-row">
-      <span class="permission-row-tool" title=${call.toolName}>${call.toolName}</span>
-      ${detail ? html`<span class="permission-row-detail">${detail}</span>` : nothing}
+      <span class="permission-row-tool" title=${call.toolName}>${label}</span>
+      ${detail ? html`
+        <details class="permission-row-details">
+          <summary><svg class="permission-details-chevron" viewBox="0 0 10 10" aria-hidden="true"><use href=${CHEVRON_HREF}></use></svg>Details</summary>
+          <div class="permission-row-detail">${detail}</div>
+        </details>
+      ` : nothing}
       ${decided ? html`
         <span class="permission-row-status permission-row-${decisions[call.toolCallId] ? 'approved' : 'rejected'}">
           ${decisions[call.toolCallId] ? 'approved' : 'rejected'}
