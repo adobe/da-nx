@@ -3,6 +3,7 @@ import { loadStyle } from '../../../utils/utils.js';
 import { getConfig } from '../../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
+const buttons = await loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href);
 
 class NxDialog extends LitElement {
   static properties = {
@@ -16,7 +17,7 @@ class NxDialog extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [buttons, styles];
   }
 
   firstUpdated() {
@@ -64,7 +65,7 @@ class NxDialog extends LitElement {
             <div class="heading">
               ${titleText ? html`<h2 class="title" id="nx-dialog-title">${titleText}</h2>` : nothing}
               ${this.showCloseButton ? html`
-                <button type="button" class="close" aria-label="Close" @click=${this.close}>
+                <button type="button" class="close nx-action-btn-icon" aria-label="Close" @click=${this.close}>
                   <svg viewBox="0 0 20 20" aria-hidden="true">
                     <use href="${getConfig().codeBase ?? ''}/img/icons/s2-icon-close-20-n.svg#icon"></use>
                   </svg>
