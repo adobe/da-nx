@@ -71,7 +71,8 @@
   width: 32px;
   height: 32px;
 
-  img {
+  img,
+  svg {
     width: 24px;
     height: 24px;
     object-fit: contain;
@@ -79,6 +80,10 @@
 }
 
 .brand-label {
+  display: var(--nx-nav-brand-label-display, inline);
+}
+
+.brand-cluster:has(> .site-nav:not(:empty)) .brand-label {
   display: var(--nx-nav-brand-label-display, none);
 }
 
@@ -88,6 +93,10 @@
   height: 100%;
   flex: 1 1 auto;
   min-width: 0;
+
+  &:empty {
+    display: none;
+  }
 }
 
 .nav-breadcrumb {

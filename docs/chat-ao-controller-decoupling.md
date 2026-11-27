@@ -1,22 +1,17 @@
 # chat-ao controller decoupling — base + 2 subclasses
 
-Design matrix for splitting the single `nx2/blocks/chat-ao/ao-controller.js`
-(which today serves **both** harnesses) into a shared base and two
-harness-specific subclasses, so a change to one path cannot regress the other.
+The shared `base-chat-controller.js` supports two harness-specific subclasses:
+`coworker/controller.js` and `cma/controller.js`.
 
 - **Base** — shared by both harnesses.
 - **Coworker** — AO-direct / CX Coworker (orchestrator REST history).
 - **CMA** — the aem-sites-claudebridge path (WS-only, replay on reconnect).
 - **Base ⟐ override** — an overridable hook defined in Base, specialized per subclass.
 
-Proposed classes: `BaseChatController`, `CoworkerChatController extends Base`,
-`CmaChatController extends Base`. `chat-ao.js` picks the subclass by harness
-(`ew.cma` flag + IMS entitlement). `renderers.js` stays shared.
-
-> **Status:** PR 1 (this change) extracts `BaseChatController` +
-> `CoworkerChatController`, behavior-preserving. `CmaChatController` lands in PR 2.
-> Because Coworker is the only instantiated controller today, every Base method is
-> exercised through it.
+`session.js` dynamically imports only the selected harness during startup.
+Sessions are registered before loading, so compact/full views share an in-flight
+startup. `session.controller` is available after import; `session.ready` includes
+controller loading and initialization. Removing the last owner cancels startup.
 
 ## State
 | Field | Base | Coworker | CMA | Why |
@@ -85,8 +80,7 @@ Proposed classes: `BaseChatController`, `CoworkerChatController extends Base`,
 
 ## Unchanged / outside the split
 - `renderers.js` — pure rendering, stays shared.
-- `chat-ao.js` — picks the subclass by harness (`ew.cma` flag + IMS entitlement);
-  otherwise unchanged.
+- `chat-ao.js` and `input.js` — join the selected harness's shared session.
 - `utils/*` (episodes.js, uploads.js) — shared helpers; Coworker uses the episode
   REST ones, CMA mostly doesn't.
 
