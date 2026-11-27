@@ -1,4 +1,4 @@
-import { config, isHlx6 } from './api.js';
+import { config } from './api.js';
 import { getFirstSheet } from './utils.js';
 
 // Kept here for existing importers; lives in utils.js so callers can use it without api.js.
@@ -12,7 +12,7 @@ export { getFirstSheet };
  * @param {string} params.org - The org to fetch config for.
  * @param {string} [params.site] - The site to also fetch config for.
  * @returns {Promise[]} `[orgConfigPromise]`, or `[orgConfigPromise, siteConfigPromise]`
- *   when `site` is given (the org promise resolves to null for hlx6);
+ *   when `site` is given (org config always comes from DA admin, even for hlx6 sites);
  *   `[Promise.resolve(null)]` when `org` is missing.
  */
 export const fetchDaConfigs = (() => {
@@ -40,8 +40,9 @@ export const fetchDaConfigs = (() => {
     return configCache[key];
   };
 
-  const fetchOrgConfig = async (org, site) => {
-    if (site && await isHlx6(org, site)) return null;
+  // Orgs have no hlx6 migration yet, so org config always comes from DA admin,
+  // even when the site itself is hlx6.
+  const fetchOrgConfig = (org) => {
     configCache[`/${org}`] ??= cacheConfig(`/${org}`, org);
     return configCache[`/${org}`];
   };
@@ -49,7 +50,7 @@ export const fetchDaConfigs = (() => {
   return ({ org, site }) => {
     if (!org) return [Promise.resolve(null)];
 
-    const orgConfig = fetchOrgConfig(org, site);
+    const orgConfig = fetchOrgConfig(org);
 
     if (site) {
       // Set the site config promise if it does not exist
