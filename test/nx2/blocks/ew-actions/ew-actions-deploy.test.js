@@ -3,6 +3,7 @@ import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { status, config } from '../../../../nx2/utils/api.js';
 import { BRANCH_EVENT } from '../../../../nx2/utils/branch-events.js';
+import { AEM_STATUS_EVENT } from '../../../../nx2/utils/aem-status-events.js';
 import { installFetch, restoreFetch } from '../../mocks/fetch.js';
 
 let branchState;
@@ -257,6 +258,97 @@ describe('nx-ew-actions status loading & confirm', () => {
   afterEach(() => {
     document.querySelectorAll('nx-ew-actions').forEach((el) => el.remove());
     config.get = origConfigGet;
+  });
+
+  it('refreshes cached cards and badge when the current document is unpublished', async () => {
+    const el = await mount();
+    const origGet = status.get;
+    const requests = [];
+    let unpublished = false;
+    status.get = async (path) => {
+      requests.push(path);
+      return {
+        ok: true,
+        json: async () => ({
+          preview: { status: unpublished ? 404 : 200 },
+          live: { status: unpublished ? 404 : 200 },
+        }),
+      };
+    };
+    try {
+      el._hashState = { org: 'Org', site: 'Site', path: '/Page.html' };
+      await el._loadStatus();
+      await el.updateComplete;
+      el._status.preview.lastModified = '2026-11-25T10:00:00Z';
+      el._status.live.lastModified = '2026-11-24T10:00:00Z';
+      el.requestUpdate();
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.send-badge')).to.not.equal(null);
+      expect(el._liveInfo.ok).to.equal(true);
+      unpublished = true;
+
+      document.dispatchEvent(new CustomEvent(AEM_STATUS_EVENT.CHANGED, {
+        detail: { path: '/org/site/page' },
+      }));
+      await nextTick();
+      await el.updateComplete;
+      el._toggleSend();
+      await el.updateComplete;
+
+      expect(requests).to.deep.equal(['/org/site/page.html', '/org/site/page.html']);
+      expect(el._previewInfo.ok).to.equal(false);
+      expect(el._liveInfo.ok).to.equal(false);
+      expect(el.shadowRoot.querySelector('.deploy-card-preview').textContent).to.include('Not previewed yet');
+      expect(el.shadowRoot.querySelector('.deploy-card-live').textContent).to.include('Not published yet');
+      expect(el.shadowRoot.querySelector('.send-badge')).to.equal(null);
+    } finally {
+      status.get = origGet;
+    }
+  });
+
+  it('ignores status changes for other documents and removes its listener on disconnect', async () => {
+    const el = await mount();
+    el._hashState = { org: 'o', site: 's', path: '/page' };
+    await el.updateComplete;
+    const requests = [];
+    el._loadStatus = async (opts) => { requests.push(opts); };
+    const notify = (detail) => document.dispatchEvent(
+      new CustomEvent(AEM_STATUS_EVENT.CHANGED, { detail }),
+    );
+    notify({ path: '/o/other/page' });
+    notify({ path: '/o/s/other' });
+    notify({});
+    notify(undefined);
+    expect(requests).to.deep.equal([]);
+    notify({ path: '/o/s/page' });
+    expect(requests).to.deep.equal([{ force: true }]);
+    el.remove();
+    notify({ path: '/o/s/page' });
+    expect(requests).to.have.length(1);
+  });
+
+  it('does not let an older same-document response overwrite refreshed unpublish status', async () => {
+    const el = await mount();
+    const origGet = status.get;
+    let finishOldJson;
+    status.get = async () => ({
+      ok: true,
+      json: () => new Promise((resolve) => { finishOldJson = resolve; }),
+    });
+    try {
+      el._hashState = { org: 'o', site: 's', path: '/page' };
+      const stale = el._loadStatus();
+      await nextTick();
+      const freshStatus = { preview: { status: 404 }, live: { status: 404 } };
+      status.get = async () => new Response(JSON.stringify(freshStatus));
+      await el._loadStatus({ force: true });
+      finishOldJson({ preview: { status: 200 }, live: { status: 200 } });
+      await stale;
+      expect(el._status).to.deep.equal(freshStatus);
+      expect(el._statusLoading).to.equal(false);
+    } finally {
+      status.get = origGet;
+    }
   });
 
   it('drops a stale _loadStatus result when a newer load supersedes it', async () => {

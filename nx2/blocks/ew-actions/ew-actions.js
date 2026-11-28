@@ -10,6 +10,7 @@ import {
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { versions, status as statusApi } from '../../utils/api.js';
+import { AEM_STATUS_EVENT } from '../../utils/aem-status-events.js';
 import { VERSION_EVENT } from '../../utils/version-events.js';
 import { BRANCH_EVENT, requestCanvasBranch } from '../../utils/branch-events.js';
 import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
@@ -143,6 +144,7 @@ class NXEwActions extends LitElement {
     this._target = 'preview';
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
     document.addEventListener(BRANCH_EVENT.STATE, this._onBranchState);
+    document.addEventListener(AEM_STATUS_EVENT.CHANGED, this._onAemStatusChanged);
     this._unsubHash = hashChange.subscribe((state) => {
       const prevPath = this._prepareDetails?.fullpath;
       this._hashState = state;
@@ -161,6 +163,11 @@ class NXEwActions extends LitElement {
     const { path, status } = e.detail || {};
     if (path !== this._prepareDetails?.fullpath) return;
     this._preflightPassed = status === 'success';
+  };
+
+  _onAemStatusChanged = ({ detail }) => {
+    const path = this._prepareDetails?.fullpath.replace(/\.html$/, '').toLowerCase();
+    if (path && detail?.path?.toLowerCase() === path) this._loadStatus({ force: true });
   };
 
   async _checkEnforcePreflight() {
@@ -224,6 +231,7 @@ class NXEwActions extends LitElement {
     document.removeEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
     this._cancelPreflight?.(undefined);
     document.removeEventListener(BRANCH_EVENT.STATE, this._onBranchState);
+    document.removeEventListener(AEM_STATUS_EVENT.CHANGED, this._onAemStatusChanged);
     this._branchAbort?.abort();
     this._branchPromise = undefined;
   }
@@ -236,19 +244,23 @@ class NXEwActions extends LitElement {
     if (!aemPath) {
       this._status = undefined;
       this._statusKey = null;
+      this._statusRequest = null;
+      this._statusLoading = false;
       return;
     }
     if (!force && aemPath === this._statusKey) return;
+    const request = {};
+    this._statusRequest = request;
     this._statusKey = aemPath;
     this._statusLoading = true;
     try {
       const resp = await statusApi.get(aemPath);
-      if (this._statusKey !== aemPath) return; // navigated away mid-flight
-      this._status = resp?.ok ? await resp.json() : undefined;
+      const status = resp?.ok ? await resp.json() : undefined;
+      if (this._statusRequest === request) this._status = status;
     } catch {
-      if (this._statusKey === aemPath) this._status = undefined;
+      if (this._statusRequest === request) this._status = undefined;
     } finally {
-      if (this._statusKey === aemPath) this._statusLoading = false;
+      if (this._statusRequest === request) this._statusLoading = false;
     }
   }
 

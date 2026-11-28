@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import loadQuickEdit, { claimBootstrap } from '../../../../../nx/public/plugins/quick-edit/quick-edit.js';
 import {
-  prepare, prepareDetached, getReloadEditable, createReload,
+  prepare, prepareDetached, getReloadEditable, createReload, getUtilHrefs,
 } from '../../../../../nx/public/plugins/quick-edit/quick-edit-init.js';
 import { MESSAGE_TYPES } from '../../../../../nx/utils/message-types.js';
 
@@ -33,6 +33,68 @@ describe('prepare', () => {
       .to.deep.equal({ config: { a: 1 } });
     expect(payloadOf(query('{"detail":{"config":{"canWrite":true}}}')))
       .to.deep.equal({ config: { canWrite: true } });
+  });
+});
+
+describe('getUtilHrefs', () => {
+  const origin = 'https://main--site--org.aem.page';
+  const docWith = (...srcs) => {
+    const doc = document.implementation.createHTMLDocument();
+    doc.head.innerHTML = srcs.map((src) => `<script type="module" src="${src}"></script>`).join('');
+    return doc;
+  };
+
+  it('reuses the URLs the page loads, including subfolder and query', () => {
+    const doc = docWith(`${origin}/nx2/scripts/aem.js?v=2`, `${origin}/nx2/scripts/scripts.js?v=2`);
+    expect(getUtilHrefs({ doc, origin })).to.deep.equal({
+      aemHref: `${origin}/nx2/scripts/aem.js?v=2`,
+      scriptsHref: `${origin}/nx2/scripts/scripts.js?v=2`,
+    });
+  });
+
+  it('takes aem.js from next to scripts.js when the page does not load it', () => {
+    const doc = docWith(`${origin}/org/site/scripts/scripts.js`);
+    expect(getUtilHrefs({ doc, origin })).to.deep.equal({
+      aemHref: `${origin}/org/site/scripts/aem.js`,
+      scriptsHref: `${origin}/org/site/scripts/scripts.js`,
+    });
+  });
+
+  it('falls back to the root scripts folder without a matching script', () => {
+    const doc = docWith(
+      `${origin}/scripts/myscripts.js`,
+      `${origin}/loader.js?entry=/scripts/scripts.js`,
+      'https://[invalid',
+    );
+    expect(getUtilHrefs({ doc, origin })).to.deep.equal({
+      aemHref: `${origin}/scripts/aem.js`,
+      scriptsHref: `${origin}/scripts/scripts.js`,
+    });
+  });
+
+  it('ignores scripts from other origins', () => {
+    const doc = docWith('https://attacker.example/x/scripts.js');
+    expect(getUtilHrefs({ doc, origin }).scriptsHref).to.equal(`${origin}/scripts/scripts.js`);
+  });
+
+  it('reads the real head even when body content clobbers document.head', () => {
+    const { origin: pageOrigin } = window.location;
+    const script = Object.assign(document.createElement('script'), {
+      type: 'text/plain',
+      src: `${pageOrigin}/site/scripts/scripts.js`,
+    });
+    const form = Object.assign(document.createElement('form'), { name: 'head' });
+    form.innerHTML = `<script src="${pageOrigin}/upload/scripts.js"></script>`;
+    document.querySelector('head').append(script);
+    document.body.append(form);
+    try {
+      expect(document.head).to.equal(form);
+      expect(getUtilHrefs({ doc: document, origin: pageOrigin }).scriptsHref)
+        .to.equal(`${pageOrigin}/site/scripts/scripts.js`);
+    } finally {
+      script.remove();
+      form.remove();
+    }
   });
 });
 

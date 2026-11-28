@@ -96,3 +96,10 @@ It is hidden for an untouched draft (never previewed) and when live is already u
 ## Status source
 
 Page status comes from the AEM admin status endpoint via `status.get({ org, site, path })` (`nx2/utils/api.js`). Per environment (`preview`, `live`) the control reads `status`, `url`, and `lastModified`. Status is fetched when the document changes and re-fetched after every preview/publish.
+
+External actions such as DA Live's Unpublish notify the control with the document-level
+`nx-aem-status-changed` event (`AEM_STATUS_EVENT.CHANGED` in `nx2/utils/aem-status-events.js`).
+Its detail is `{ path }`, the full `/org/site/document` path without a trailing `.html`.
+Send refreshes both environment cards and the badge only for the matching document
+(case-insensitive), including when unpublish only partially succeeds. Only the newest
+status request can update the UI.

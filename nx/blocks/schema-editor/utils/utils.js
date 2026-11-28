@@ -1,5 +1,7 @@
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
-import { daFetch } from '../../../../nx2/utils/api.js';
+import {
+  source, asText, daFetch, fromPath, isHlx6,
+} from '../../../../nx2/utils/api.js';
 
 // CodeMirror
 import {
@@ -22,8 +24,33 @@ function getTheme() {
   return isDark ? oneDark : githubLight;
 }
 
-const FORMS_BASE_PATH = '/.da/forms/schemas';
-const HTML_SHELL = '<body><header></header><main><div><pre><code>{{JSON}}</code></pre></div></main><footer></footer></body>';
+const SCHEMAS_PATH = '/.da/forms/schemas';
+
+// Names the source bus stores unchanged (it collapses and trims hyphens).
+const STABLE_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+// admin.da.live: org-level schemas, legacy sites, and sites whose Helix 6 check fails.
+const daSource = {
+  list: async (path) => {
+    const resp = await daFetch({ url: `${DA_ADMIN}/list${path}` });
+    const items = resp.ok ? await resp.json() : [];
+    return { ok: !!resp.ok && Array.isArray(items), items, status: resp.status };
+  },
+  get: (path) => daFetch({ url: `${DA_ADMIN}/source${path}` }),
+  save: (path, { body }) => {
+    const formData = new FormData();
+    formData.append('data', new Blob([body], { type: 'text/html' }));
+    return daFetch({ url: `${DA_ADMIN}/source${path}`, opts: { method: 'POST', body: formData } });
+  },
+  delete: (path) => daFetch({ url: `${DA_ADMIN}/source${path}`, opts: { method: 'DELETE' } }),
+};
+
+async function storeFor(org, site) {
+  if (!site) return daSource;
+  return (await isHlx6(org, site).catch(() => false)) ? source : daSource;
+}
+
+const toSchemaHtml = (jsonStr) => `<body><header></header><main><div><pre><code>${jsonStr}</code></pre></div></main><footer></footer></body>`;
 
 // loadSchema returns a tagged result the caller branches on via `status`:
 //   { status: 'loaded', schema }      — parsed successfully
@@ -32,10 +59,9 @@ const HTML_SHELL = '<body><header></header><main><div><pre><code>{{JSON}}</code>
 // The status is an explicit contract, so the editor never has to inspect a
 // schema's own fields (which could collide with a legitimate `invalid`/`error`
 // property) to tell a real schema from a malformed one.
-async function loadSchema(schema) {
-  const resp = await daFetch({ url: `${DA_ADMIN}/source${schema.path}` });
-  if (!resp.ok) return { status: 'load-failed' };
-  const html = await resp.text();
+async function loadSchema(store, target) {
+  const { ok, data: html, error } = await asText(store.get(target)).catch(() => ({}));
+  if (!ok || error) return { status: 'load-failed' };
 
   const parser = new DOMParser();
   const dom = parser.parseFromString(html, 'text/html');
@@ -50,61 +76,76 @@ async function loadSchema(schema) {
   }
 }
 
+const listSchemas = (store, prefix) => store.list(`${prefix}${SCHEMAS_PATH}`);
+
+// Throws when the site's schemas can't be loaded, so the editor never shows
+// or writes schemas from another store than the site's.
 export async function loadSchemas(org, site) {
-  const orgPath = `/${org}${FORMS_BASE_PATH}`;
-  const sitePath = `/${org}/${site}${FORMS_BASE_PATH}`;
-  const path = site ? sitePath : orgPath;
+  const orgPrefix = `/${org}`;
+  const sitePrefix = site ? `${orgPrefix}/${site}` : orgPrefix;
+  const store = await storeFor(org, site);
 
-  let resp = await daFetch({ url: `${DA_ADMIN}/list${path}` });
-
-  // If this was a site request, and it was empty, fallback to org
-  if (!resp.ok && site) resp = await daFetch({ url: `${DA_ADMIN}/list${orgPath}` });
-
-  if (!resp.ok) {
-    // eslint-disable-next-line no-console
-    console.log(`Cannot fetch schemas from ${path}.`);
-    return {};
+  let list = await listSchemas(store, sitePrefix);
+  if (!list.ok && store === source) {
+    // Helix 6 has no org-level store, and a site without schemas has no folder.
+    if (list.status !== 404) throw new Error(`Cannot list schemas from ${sitePrefix}${SCHEMAS_PATH}.`);
+    list = { ok: true, items: [] };
   }
 
-  const json = await resp.json();
-  if (!json) {
+  // If a legacy site listing failed, fall back to the org schemas
+  if (!list.ok && site) list = await listSchemas(daSource, orgPrefix);
+
+  if (!list.ok) {
     // eslint-disable-next-line no-console
-    console.log('Cannot read schemas.');
+    console.log(`Cannot fetch schemas from ${sitePrefix}${SCHEMAS_PATH}.`);
     return {};
   }
 
   // Map of schema name -> tagged result. Schemas that failed to fetch are
   // dropped so the editor only lists ones it can actually open.
-  const entries = await Promise.all(
-    json.map(async (schema) => [schema.name, await loadSchema(schema)]),
+  const results = await Promise.all(
+    list.items.map(async (entry) => [entry.name, await loadSchema(store, entry.path)]),
   );
   return Object.fromEntries(
-    entries.filter(([, result]) => result.status !== 'load-failed'),
+    results.filter(([, result]) => result.status !== 'load-failed'),
   );
 }
 
-export async function saveSchema(prefix, id, jsonStr) {
-  const path = `${prefix}${FORMS_BASE_PATH}/${id}.html`;
+// Helix 6 has no create-only save, so a create first checks that the name is free.
+async function checkNewName(id, target) {
+  if (!STABLE_NAME.test(id)) return 'Use lowercase letters and numbers, separated by single hyphens.';
+  const { ok, status } = await source.getMetadata(target);
+  if (ok) return 'A schema with this name already exists.';
+  if (status === 404) return undefined;
+  return `Error checking the schema name. Status: ${status ?? 'network error'}`;
+}
 
-  const content = HTML_SHELL.replace('{{JSON}}', jsonStr);
-
-  const body = new FormData();
-  const data = new Blob([content], { type: 'text/html' });
-  body.append('data', data);
-
-  const opts = { method: 'POST', body };
-  const resp = await daFetch({ url: `${DA_ADMIN}/source${path}`, opts });
-  if (!resp.ok) return { error: `Error saving. Status: ${resp.status}` };
-  return { status: resp.status };
+export async function saveSchema(prefix, id, jsonStr, { create } = {}) {
+  const target = `${prefix}${SCHEMAS_PATH}/${id}.html`;
+  try {
+    const { org, site } = fromPath(prefix);
+    const store = await storeFor(org, site);
+    const nameError = create && store === source && await checkNewName(id, target);
+    if (nameError) return { error: nameError };
+    const resp = await store.save(target, { body: toSchemaHtml(jsonStr) });
+    if (!resp.ok) return { error: `Error saving. Status: ${resp.status}` };
+    return { ok: true };
+  } catch {
+    return { error: 'Error saving. Status: network error' };
+  }
 }
 
 export async function deleteSchema(prefix, id) {
-  const path = `${prefix}${FORMS_BASE_PATH}/${id}.html`;
-
-  const opts = { method: 'DELETE' };
-  const resp = await daFetch({ url: `${DA_ADMIN}/source${path}`, opts });
-  if (!resp.ok) return { error: `Error deleting. Status: ${resp.status}` };
-  return { status: resp.status };
+  const target = `${prefix}${SCHEMAS_PATH}/${id}.html`;
+  try {
+    const { org, site } = fromPath(prefix);
+    const store = await storeFor(org, site);
+    const resp = await store.delete(target);
+    if (!resp.ok) return { error: `Error deleting. Status: ${resp.status}` };
+    return { ok: true };
+  } catch {
+    return { error: 'Error deleting. Status: network error' };
+  }
 }
 
 export function loadCodeMirror(el, doc) {
