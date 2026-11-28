@@ -56,7 +56,11 @@ class NxLocValidate extends LitElement {
   }
 
   async findConfigValue(key) {
-    if (!this._configSheet) this._configSheet = await fetchConfig(this._org, this._site);
+    if (!this._configSheet) {
+      const sheet = await fetchConfig(this._org, this._site);
+      if (sheet.loadError) throw new Error(sheet.loadError);
+      this._configSheet = sheet;
+    }
 
     const foundRow = this._configSheet.config.data.find((row) => row.key === key);
 
@@ -126,7 +130,12 @@ class NxLocValidate extends LitElement {
   async checkUrls() {
     // See if there are any additional
     // origins to match fragments against
-    this._originMatches = await this.getOriginMatches();
+    try {
+      this._originMatches = await this.getOriginMatches();
+    } catch (error) {
+      this._message = { type: 'error', text: error.message };
+      return;
+    }
 
     const checkUrl = this.checkUrl.bind(this);
 
@@ -234,6 +243,7 @@ class NxLocValidate extends LitElement {
   }
 
   handleChanged(url) {
+    if (!this._configSheet) return;
     url.checked = !url.checked;
     this._urls = [...this._urls];
     this.updateSourceMessage();
@@ -294,7 +304,7 @@ class NxLocValidate extends LitElement {
         ${this._urls ? this._urls.map((url) => html`
           <li>
             <div class="checkbox-wrapper">
-              <input type="checkbox" .checked=${url.checked} @change=${() => this.handleChanged(url)} />
+              <input type="checkbox" .checked=${url.checked} ?disabled=${!this._configSheet} @change=${() => this.handleChanged(url)} />
             </div>
             <a href=${url.daEdit} class="path" target="_blank">${url.pathname}</a>
             <div class="status status-${url.status}">${url.status}</div>

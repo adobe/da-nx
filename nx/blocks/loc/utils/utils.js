@@ -303,7 +303,7 @@ function dropBlankLanguageRows(options) {
 
 /**
  * Fetches the translate config for a site, falling back to the org, then to defaults.
- * The result is cached until clearConfigCache() is called.
+ * Successful reads are cached until clearConfigCache() is called.
  * @param {string} org - Org name.
  * @param {string} site - Site name.
  * @returns {Promise<object>} Translate config sheets, without blank language rows.
@@ -316,8 +316,8 @@ export async function fetchConfig(org, site) {
       const resp = await daFetch({ url: path });
       if (!resp.ok) return { error: 'Options not available.' };
       return resp.json();
-    } catch {
-      return { config: { data: [] } };
+    } catch (error) {
+      return { loadError: error.message };
     }
   };
 
@@ -334,6 +334,8 @@ export async function fetchConfig(org, site) {
     const fallbackUrl = new URL('../connectors/google/translate.json', import.meta.url).href;
     options = await fetchConf(fallbackUrl);
   }
+
+  if (options.loadError) return options;
 
   CONFIG_CACHE = dropBlankLanguageRows(options);
 
