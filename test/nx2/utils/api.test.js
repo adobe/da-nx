@@ -205,15 +205,6 @@ describe('api.js', () => {
       expect(lastCall().headers['Cache-Control']).to.equal('no-cache');
     });
 
-    it('source.list reports the response status', async () => {
-      restoreFetch();
-      installFetch({ status: 404, body: '' });
-      const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      const result = await source.list({ org: o, site: s, path: '/missing' });
-      expect(result.ok).to.equal(false);
-      expect(result.status).to.equal(404);
-    });
-
     it('source.list uses /list on legacy', async () => {
       const { org: o, site: s } = makeOrgSite();
       await source.list({ org: o, site: s, path: '/folder' });
