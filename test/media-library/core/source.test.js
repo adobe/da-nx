@@ -7,9 +7,7 @@ import {
 } from '../../../nx/blocks/media-library/core/source.js';
 import { listFolder, checkIndex, loadSheet } from '../../../nx/blocks/media-library/indexing/admin-api.js';
 import {
-  checkIndexLock,
-  createIndexLock,
-  removeIndexLock,
+  checkIndexLock, createIndexLock, removeIndexLock,
 } from '../../../nx/blocks/media-library/indexing/locks.js';
 import { loadMediaSheet } from '../../../nx/blocks/media-library/ui/data.js';
 import { validateSitePath } from '../../../nx/blocks/media-library/core/paths.js';
@@ -255,24 +253,47 @@ describe('media library source access', () => {
       expect(JSON.parse(write.opts.body).data[0].locked).to.be.true;
     });
 
-    it('reads and removes the Helix 6 lock on the source bus', async () => {
+    it('releases the Helix 6 lock without deleting the file', async () => {
       const org = uniqueOrg('hlx6');
       const lockUrl = `${AEM}/${org}/sites/site/source/.da/media-insights/index-lock.json`;
-      const calls = stubFetch([[lockUrl, (url, opts) => (opts.method === 'DELETE'
-        ? new Response(null, { status: 204 })
-        : json({ data: [{ locked: true, ownerId: 'me', timestamp: 1 }] }))]]);
+      let lockData = { locked: true, ownerId: 'me', timestamp: 1 };
+      const calls = stubFetch([[lockUrl, (url, opts) => {
+        if (opts.method === 'POST') {
+          [lockData] = JSON.parse(opts.body).data;
+          return new Response(null, { status: 201 });
+        }
+        return json({ data: [lockData] });
+      }]]);
 
       const lock = await checkIndexLock(`/${org}/site`);
       await removeIndexLock(`/${org}/site`);
+      const released = await checkIndexLock(`/${org}/site`);
 
       expect(lock.exists).to.be.true;
       expect(lock.ownerId).to.equal('me');
-      expect(calls.find((c) => c.url === lockUrl && c.opts.method === 'DELETE')).to.exist;
+      expect(released.exists).to.be.true;
+      expect(released.locked).to.be.false;
+      const writes = calls.filter((c) => c.url === lockUrl && c.opts.method && c.opts.method !== 'GET');
+      expect(writes).to.have.length(1);
+      expect(writes[0].opts.method).to.equal('POST');
+      expect(writes[0].opts.headers['Content-Type']).to.equal('application/json');
+      expect(JSON.parse(writes[0].opts.body).data).to.deep.equal([{ locked: false }]);
+    });
+
+    it('still deletes the legacy DA lock', async () => {
+      const org = uniqueOrg('legacy');
+      const lockUrl = `${DA_ADMIN}/source/${org}/site/.da/media-insights/index-lock.json`;
+      const calls = stubFetch([[lockUrl, () => new Response(null, { status: 204 })]]);
+
+      await removeIndexLock(`/${org}/site`);
+
+      const [write] = calls.filter((c) => c.url === lockUrl);
+      expect(write.opts.method).to.equal('DELETE');
     });
   });
 
   describe('index lock writes', () => {
-    it('sends a Helix 6 lock delete once, even when it fails', async () => {
+    it('sends a Helix 6 lock release once, even when it fails', async () => {
       const org = uniqueOrg('hlx6');
       const lockUrl = `${AEM}/${org}/sites/site/source/.da/media-insights/index-lock.json`;
       const calls = stubFetch([[lockUrl, () => new Response('', { status: 503 })]]);

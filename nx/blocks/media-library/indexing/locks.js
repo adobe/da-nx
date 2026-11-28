@@ -5,11 +5,13 @@
  * It handles lock creation, refresh (heartbeat), removal, ownership, and checking.
  */
 
-import { fetchSource, saveSource, deleteSource } from '../core/source.js';
+import {
+  fetchSource, saveSource, deleteSource, getSourceOrigin,
+} from '../core/source.js';
 import { createSheet } from './admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { getMessage } from '../core/messages.js';
-import { IndexFiles, IndexConfig } from '../core/constants.js';
+import { IndexFiles, IndexConfig, AEM_API_ORIGIN } from '../core/constants.js';
 
 const LOCK_OWNER_STORAGE_KEY = 'media-library-lock-owner-id';
 
@@ -125,7 +127,10 @@ export async function refreshIndexLock(sitePath, lockData = {}) {
 
 export async function removeIndexLock(sitePath) {
   const path = getIndexLockPath(sitePath);
-  const resp = await deleteSource(path);
+  // The source bus moves deleted files to the trash, so release the lock in place.
+  const resp = (await getSourceOrigin(path)) === AEM_API_ORIGIN
+    ? await saveSource({ path, json: await createSheet([{ locked: false }]), retry: false })
+    : await deleteSource(path);
   if (!resp.ok) {
     if (resp.status === 404) return resp;
     logMediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, { status: resp.status, path });
