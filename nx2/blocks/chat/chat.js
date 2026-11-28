@@ -5,8 +5,7 @@ import { PANEL_EVENT } from '../../utils/panel.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
 import '../shared/menu/menu.js';
 import ChatBackend from './chat-backend.js';
-import { renderMessage } from './renderers/renderers.js';
-import { renderToolCard } from './renderers/card-renderers.js';
+import { renderMessages } from './renderers/renderers.js';
 import '../shared/chat/new-chat/new-chat.js';
 import '../shared/chat/prompts/prompts.js';
 import '../shared/pills/pills.js';
@@ -355,9 +354,10 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
         : nothing}
-        ${this.messages?.map((msg) => {
-          if (msg.toolCard) return renderToolCard(msg.toolCard);
-          return renderMessage(msg, this.toolCards);
+        ${renderMessages({
+          messages: this.messages,
+          thinking: this.thinking || !!this.pendingInteraction,
+          toolCards: this.toolCards,
         })}
         ${this.thinking && !this.messages?.at(-1)?.streaming && !this.pendingInteraction
         ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
