@@ -54,8 +54,8 @@ export async function getUrls(
 
   // Only fetch the content if needed
   if (fetchContent) {
-    const config = await fetchConfig(org, site);
-    if (config.loadError) {
+    const config = connector ? await fetchConfig(org, site) : undefined;
+    if (config?.loadError) {
       formattedUrls.forEach((url) => { url.error = config.loadError; });
       return { urls: formattedUrls };
     }

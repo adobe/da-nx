@@ -43,25 +43,32 @@ describe('loc config that cannot be read', () => {
 
   it('marks every url instead of reading pages for translation', async () => {
     failConfigReads();
-    const { urls } = await getUrls('org', 'site', { connector: null }, '/en', '/en', [{ suppliedPath: '/en/page' }], true);
+    const connector = { dnt: { addDnt: (content) => content } };
+    const { urls } = await getUrls('org', 'site', { connector }, '/en', '/en', [{ suppliedPath: '/en/page' }], true);
     expect(urls[0].error).to.equal('Failed to fetch');
     expect(reads.some((href) => href.endsWith('.html'))).to.equal(false);
   });
 
-  it('shows the error in validate and reads the config again next time', async () => {
+  it('loads pages for copy without reading the translate config', async () => {
     failConfigReads();
-    const Validate = customElements.get('nx-loc-validate');
-    const ctx = {
-      _org: 'org',
-      _site: 'site',
-      _urls: [],
-      findConfigValue: Validate.prototype.findConfigValue,
-      getOriginMatches: Validate.prototype.getOriginMatches,
-      checkUrl: async () => {},
-      updateSourceMessage: async () => {},
-    };
-    await Validate.prototype.checkUrls.call(ctx);
-    expect(ctx._message).to.deep.equal({ type: 'error', text: 'Failed to fetch' });
-    expect(ctx._configSheet).to.be.undefined;
+    const { urls } = await getUrls('org', 'site', {}, '/en', '/en', [{ suppliedPath: '/en/page' }], true);
+    expect(urls[0].error).to.be.undefined;
+    expect(reads.some((href) => href.endsWith('/.da/translate.json'))).to.equal(false);
+    expect(reads.some((href) => href.endsWith('.html'))).to.equal(true);
+  });
+
+  it('shows the error in validate without selecting an unchecked page', async () => {
+    failConfigReads();
+    const el = document.createElement('nx-loc-validate');
+    const url = { pathname: '/en/page', checked: false };
+    el._org = 'org';
+    el._site = 'site';
+    el._urls = [url];
+    await el.checkUrls();
+    el.handleChanged(url);
+    expect(el._message).to.deep.equal({ type: 'error', text: 'Failed to fetch' });
+    expect(el._configSheet).to.be.undefined;
+    expect(url.checked).to.equal(false);
+    expect(reads).to.have.length(1);
   });
 });

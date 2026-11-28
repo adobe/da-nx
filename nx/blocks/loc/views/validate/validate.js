@@ -243,6 +243,7 @@ class NxLocValidate extends LitElement {
   }
 
   handleChanged(url) {
+    if (!this._configSheet) return;
     url.checked = !url.checked;
     this._urls = [...this._urls];
     this.updateSourceMessage();
@@ -303,7 +304,7 @@ class NxLocValidate extends LitElement {
         ${this._urls ? this._urls.map((url) => html`
           <li>
             <div class="checkbox-wrapper">
-              <input type="checkbox" .checked=${url.checked} @change=${() => this.handleChanged(url)} />
+              <input type="checkbox" .checked=${url.checked} ?disabled=${!this._configSheet} @change=${() => this.handleChanged(url)} />
             </div>
             <a href=${url.daEdit} class="path" target="_blank">${url.pathname}</a>
             <div class="status status-${url.status}">${url.status}</div>

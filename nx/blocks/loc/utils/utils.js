@@ -303,7 +303,7 @@ function dropBlankLanguageRows(options) {
 
 /**
  * Fetches the translate config for a site, falling back to the org, then to defaults.
- * The result is cached until clearConfigCache() is called.
+ * Successful reads are cached until clearConfigCache() is called.
  * @param {string} org - Org name.
  * @param {string} site - Site name.
  * @returns {Promise<object>} Translate config sheets, without blank language rows.
