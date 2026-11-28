@@ -1,6 +1,5 @@
-import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
-import { daFetch } from '../../../../../nx2/utils/api.js';
 import { getLivePreviewUrl } from '../../../../utils/utils.js';
+import { getSource } from '../../utils/source.js';
 import { shouldLogGLaaSRequests, logGLaaSDebug } from './api.js';
 import { parseSelections, ensureLivePreviewLogin } from './imageSelections.js';
 
@@ -86,9 +85,8 @@ export function parseBlockSchema(schemaData) {
 }
 
 async function fetchJson(org, site, relativePath) {
-  const url = `${DA_ADMIN}/source/${org}/${site}${relativePath}`;
   try {
-    const resp = await daFetch({ url });
+    const resp = await getSource(`/${org}/${site}${relativePath}`);
     if (!resp.ok) return null;
     return resp.json();
   } catch (error) {
@@ -123,16 +121,14 @@ function metadataPathForPage(pagePath, suffix) {
 
 async function fetchMetadataFile(org, site, pagePath, suffix, readBody) {
   const metadataPath = metadataPathForPage(pagePath, suffix);
-  let url = `${DA_ADMIN}/source/${org}/${site}${metadataPath}`;
   try {
-    let resp = await daFetch({ url });
+    let resp = await getSource(`/${org}/${site}${metadataPath}`);
     if (resp.ok) {
       return readBody(resp);
     }
     if (resp.status === 404 && metadataPath.includes('/langstore/')) {
       const fallbackPath = metadataPath.replace(/\/langstore\/[^/]+\//, '/');
-      url = `${DA_ADMIN}/source/${org}/${site}${fallbackPath}`;
-      resp = await daFetch({ url });
+      resp = await getSource(`/${org}/${site}${fallbackPath}`);
       if (resp.ok) {
         return readBody(resp);
       }

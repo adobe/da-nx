@@ -1,7 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { loadStyle } from '../../../../../nx2/scripts/nx.js';
-import { daFetch } from '../../../../../nx2/utils/api.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
 import {
@@ -15,6 +13,7 @@ import {
 } from '../../utils/utils.js';
 import { getFragmentUrls } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
+import { getSource } from '../../utils/source.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -109,8 +108,7 @@ class NxLocValidate extends LitElement {
     const isSheet = pathname.endsWith('.json');
     const extPath = isSheet ? pathname : `${pathname}.html`;
     const snapshotUrlFragment = createSnapshotPrefix(this._snapshot);
-    const daUrl = `${DA_ADMIN}/source/${this._org}/${this._site}${snapshotUrlFragment}${extPath}`;
-    const resp = await daFetch({ url: daUrl });
+    const resp = await getSource(`/${this._org}/${this._site}${snapshotUrlFragment}${extPath}`);
     const text = await resp.text();
     const ok = resp.status === 200;
     url.status = ok ? 'ready' : 'error - not found';

@@ -195,6 +195,16 @@ describe('api.js', () => {
       expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/source/index.html`);
     });
 
+    it('source.get passes opts (headers, signal) through to fetch', async () => {
+      const { org: o, site: s } = makeOrgSite();
+      const { signal } = new AbortController();
+      await source.get({
+        org: o, site: s, path: '/index.html', opts: { headers: { 'Cache-Control': 'no-cache' }, signal },
+      });
+      expect(lastCall().url).to.equal(`${DA_ADMIN}/source/${o}/${s}/index.html`);
+      expect(lastCall().headers['Cache-Control']).to.equal('no-cache');
+    });
+
     it('source.list uses /list on legacy', async () => {
       const { org: o, site: s } = makeOrgSite();
       await source.list({ org: o, site: s, path: '/folder' });

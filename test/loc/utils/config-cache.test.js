@@ -26,8 +26,8 @@ describe('loc config cache', () => {
    */
   function stubConfig(name) {
     let calls = 0;
-    window.fetch = async () => {
-      calls += 1;
+    window.fetch = async (href) => {
+      if (!String(href).includes('/ping/')) calls += 1;
       return new Response(JSON.stringify({ name }), { status: 200 });
     };
     return { count: () => calls };

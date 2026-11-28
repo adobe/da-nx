@@ -15,14 +15,12 @@
  * from Adobe.
  ************************************************************************* */
 
-import { daFetch } from '../../../../../nx2/utils/api.js';
-import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
-
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
 import { fetchProject } from './index.js';
 import createProjectCache from './project-cache.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
+import { checkSite, listSource } from '../../utils/source.js';
 
 const createProjectData = async ({
   org, site, currentUser, initialType, handleError, initialSignal,
@@ -77,13 +75,14 @@ const createProjectData = async ({
   };
 
   const fetchProjectList = async (signal, type) => {
-    const resp = await daFetch({ url: `${DA_ADMIN}/list/${org}/${site}/.da/translation/${type}`, opts: { signal } });
-    if (!resp.ok) {
-      setError(resp.status, resp.statusText);
+    const { ok, items, status } = await listSource(`/${org}/${site}/.da/translation/${type}`, { signal });
+    // Helix 6 answers 404 for a folder that has no projects yet.
+    const emptyHlx6Folder = status === 404 && await checkSite(org, site);
+    if (!ok && !emptyHlx6Folder) {
+      setError(status, status);
       return { projects: [] };
     }
-    const json = await resp.json();
-    return { projects: json.reverse() };
+    return { projects: items.reverse() };
   };
 
   const populateLastModifiedMap = (projects) => {

@@ -1,0 +1,217 @@
+import {
+  daFetch, source, versions, isHlx6, fromPath,
+} from '../../../../nx2/utils/api.js';
+import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
+import { createConfigLoader } from '../../../public/loc/copy.js';
+
+// api.aem.live allows 10 requests per second per project, and its 429 carries no
+// CORS headers, so the browser only sees a network error.
+const HLX6_MAX_IN_FLIGHT = 4;
+const HLX6_MIN_START_INTERVAL_MS = 125;
+const HLX6_RETRY_DELAYS_MS = [5000, 20000, 60000];
+const MAX_RETRY_AFTER_MS = 60000;
+
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+export function createLimiter({
+  maxInFlight, minIntervalMs, wait = sleep, now = Date.now,
+}) {
+  let active = 0;
+  let nextStart = 0;
+  let pausedUntil = 0;
+  const waiting = [];
+
+  const acquire = async () => {
+    if (active < maxInFlight) {
+      active += 1;
+    } else {
+      await new Promise((resolve) => { waiting.push(resolve); });
+    }
+  };
+
+  const release = () => {
+    const next = waiting.shift();
+    if (next) {
+      next();
+    } else {
+      active -= 1;
+    }
+  };
+
+  const limit = async (task, { signal } = {}) => {
+    await acquire();
+    try {
+      let delay = Math.max(nextStart, pausedUntil) - now();
+      while (delay > 0) {
+        // eslint-disable-next-line no-await-in-loop
+        await wait(delay);
+        delay = Math.max(nextStart, pausedUntil) - now();
+      }
+      signal?.throwIfAborted();
+      nextStart = now() + minIntervalMs;
+      return await task();
+    } finally {
+      release();
+    }
+  };
+
+  limit.pause = (ms) => { pausedUntil = Math.max(pausedUntil, now() + ms); };
+
+  return limit;
+}
+
+const isRetryable = (result) => result?.status === 429 || result?.status === 503;
+
+function getRetryDelay({ result, attempt, delays }) {
+  const header = result?.headers?.get?.('x-retry-after') || result?.headers?.get?.('retry-after');
+  const seconds = Number(header);
+  if (seconds > 0) return Math.min(seconds * 1000, MAX_RETRY_AFTER_MS);
+  return delays[attempt];
+}
+
+export async function withRetry(task, {
+  limiter, signal, delays = HLX6_RETRY_DELAYS_MS, attempt = 0,
+}) {
+  let result;
+  let error;
+  try {
+    result = await limiter(task, { signal });
+  } catch (e) {
+    if (e?.name === 'AbortError') throw e;
+    error = e;
+  }
+  if (!error && !isRetryable(result)) return result;
+  if (attempt >= delays.length) {
+    if (error) throw error;
+    return result;
+  }
+  limiter.pause(getRetryDelay({ result, attempt, delays }));
+  return withRetry(task, {
+    limiter, signal, delays, attempt: attempt + 1,
+  });
+}
+
+const limiters = {};
+
+// Like main, which always used admin.da.live, a failed check means a legacy DA site. It
+// returns undefined, not false: nx2's helpers ping again and get the same cached rejection.
+export async function checkSite(org, site) {
+  try {
+    return await isHlx6(org, site);
+  } catch {
+    return undefined;
+  }
+}
+
+const daAdmin = (kind, path, opts) => daFetch({ url: `${DA_ADMIN}/${kind}${path}`, opts });
+
+const toForm = (name, value) => {
+  const body = new FormData();
+  body.append(name, value);
+  return body;
+};
+
+async function run(path, task, { retry = true, signal, legacy } = {}) {
+  const { org, site } = fromPath(path);
+  const hlx6 = await checkSite(org, site);
+  if (hlx6 === undefined) return legacy();
+  if (!hlx6) return task(hlx6);
+  const key = `/${org}/${site}`;
+  limiters[key] ??= createLimiter({
+    maxInFlight: HLX6_MAX_IN_FLIGHT,
+    minIntervalMs: HLX6_MIN_START_INTERVAL_MS,
+  });
+  const paced = () => task(hlx6);
+  return retry
+    ? withRetry(paced, { limiter: limiters[key], signal })
+    : limiters[key](paced, { signal });
+}
+
+export async function getSource(path, { noCache, signal } = {}) {
+  signal?.throwIfAborted();
+  const opts = signal ? { signal } : {};
+  // The Helix 6 API does not allow cache-control in CORS and answers no-store anyway.
+  const legacyOpts = noCache ? { ...opts, headers: { 'Cache-Control': 'no-cache' } } : opts;
+  return run(
+    path,
+    (hlx6) => source.get(path, { opts: hlx6 ? opts : legacyOpts }),
+    { signal, legacy: () => daAdmin('source', path, legacyOpts) },
+  );
+}
+
+export function saveSource(path, body) {
+  const type = path.endsWith('.json') ? 'application/json' : 'text/html';
+  return run(path, () => source.save(path, { body }), {
+    legacy: () => daAdmin('source', path, { method: 'POST', body: toForm('data', new Blob([body], { type })) }),
+  });
+}
+
+export async function listSource(path, { signal } = {}) {
+  signal?.throwIfAborted();
+  const opts = signal ? { signal } : undefined;
+  return run(path, () => source.list(path, { opts }), {
+    signal,
+    legacy: async () => {
+      const resp = await daAdmin('list', path, opts);
+      return resp.ok
+        ? { ok: true, items: await resp.json(), status: resp.status }
+        : { ok: false, items: [], status: resp.status };
+    },
+  });
+}
+
+export function moveSource(path, destination) {
+  return run(path, () => source.move(path, { destination }), {
+    retry: false,
+    legacy: () => daAdmin('move', path, { method: 'POST', body: toForm('destination', destination) }),
+  });
+}
+
+export function createVersion(path, label) {
+  return run(path, () => versions.create(path, { comment: label }), {
+    legacy: () => daAdmin('versionsource', path, { method: 'POST', body: JSON.stringify({ label }) }),
+  });
+}
+
+const DA_ROUTES = ['source', 'versionsource'].map((kind) => ({ kind, prefix: `${DA_ADMIN}/${kind}` }));
+
+// The public copy engine builds DA admin URLs; on Helix 6 they go to the source bus instead.
+export async function sourceFetch(href, opts = {}) {
+  const route = DA_ROUTES.find(({ prefix }) => href.startsWith(`${prefix}/`));
+  if (!route) return daFetch({ url: href, opts });
+  const path = href.slice(route.prefix.length);
+  const { org, site } = fromPath(path);
+  if (!(await checkSite(org, site))) return daFetch({ url: href, opts });
+  if (route.kind === 'versionsource') {
+    const { label } = opts.body ? JSON.parse(opts.body) : {};
+    return createVersion(path, label);
+  }
+  if (!opts.method || opts.method === 'GET') return getSource(path, { signal: opts.signal });
+  const body = opts.body instanceof FormData ? opts.body.get('data') : opts.body;
+  return saveSource(path, body);
+}
+
+const loadLegacyConfig = createConfigLoader({
+  fetch: (url, opts) => daFetch({ url, opts }),
+  daOrigin: DA_ADMIN,
+});
+
+const hlx6Configs = {};
+
+async function loadHlx6Config({ org, site }) {
+  const resp = await getSource(`/${org}/${site}/.da/translate.json`);
+  if (resp.ok) return resp.json();
+  if (resp.status === 404) return { config: { data: [] } };
+  throw Object.assign(new Error(`Reading translation config failed (${resp.status})`), { status: resp.status });
+}
+
+// Helix 6 has no org-level source, so only the site's translate.json counts.
+export async function loadCopyConfig({ org, site }) {
+  if (!(await checkSite(org, site))) return loadLegacyConfig({ org, site });
+  const key = `/${org}/${site}`;
+  hlx6Configs[key] ??= loadHlx6Config({ org, site }).catch((error) => {
+    delete hlx6Configs[key];
+    throw error;
+  });
+  return hlx6Configs[key];
+}

@@ -1,11 +1,15 @@
 import { DA_ADMIN, setPageTitle } from '../../../../nx2/utils/utils.js';
-import { daFetch, loadIms, source } from '../../../../nx2/utils/api.js';
+import { daFetch, loadIms } from '../../../../nx2/utils/api.js';
 import { createCopy } from '../../../public/loc/copy.js';
+import {
+  checkSite, getSource, loadCopyConfig, saveSource, sourceFetch,
+} from './source.js';
 
 export const copy = createCopy({
-  fetch: (url, opts) => daFetch({ url, opts }),
+  fetch: sourceFetch,
   daOrigin: DA_ADMIN,
-  saveSource: source.save,
+  loadConfig: loadCopyConfig,
+  saveSource: ({ org, site, path, body }) => saveSource(`/${org}/${site}${path}`, body),
 });
 
 const CONFIG_PATH = '/.da/translate.json';
@@ -311,9 +315,9 @@ function dropBlankLanguageRows(options) {
 export async function fetchConfig(org, site) {
   if (CONFIG_CACHE) return CONFIG_CACHE;
 
-  const fetchConf = async (path) => {
+  const fetchConf = async (request) => {
     try {
-      const resp = await daFetch({ url: path });
+      const resp = await request();
       if (!resp.ok) return { error: 'Options not available.' };
       return resp.json();
     } catch {
@@ -322,17 +326,17 @@ export async function fetchConfig(org, site) {
   };
 
   // Attempt a site based config
-  let options = await fetchConf(`${DA_ADMIN}/source/${org}/${site}${CONFIG_PATH}`);
+  let options = await fetchConf(() => getSource(`/${org}/${site}${CONFIG_PATH}`));
 
-  // Attempt an org based config
-  if (options.error) {
-    options = await fetchConf(`${DA_ADMIN}/source/${org}${CONFIG_PATH}`);
+  // Attempt an org based config (Helix 6 has no org-level source)
+  if (options.error && !(await checkSite(org, site))) {
+    options = await fetchConf(() => daFetch({ url: `${DA_ADMIN}/source/${org}${CONFIG_PATH}` }));
   }
 
   // Fallback to zero config defaults
   if (options.error) {
     const fallbackUrl = new URL('../connectors/google/translate.json', import.meta.url).href;
-    options = await fetchConf(fallbackUrl);
+    options = await fetchConf(() => daFetch({ url: fallbackUrl }));
   }
 
   CONFIG_CACHE = dropBlankLanguageRows(options);
@@ -447,19 +451,9 @@ async function fetchProject({ path, updates, updateDocTitle = true }) {
   // If there's no updates, and there's a cache, use it.
   if (!updates && PROJECT_CACHE[path]) return { project: PROJECT_CACHE[path] };
 
-  const opts = {};
-  if (updates) {
-    const content = JSON.stringify(updates);
-    const data = new Blob([content], { type: 'application/json' });
-
-    const body = new FormData();
-    body.append('data', data);
-
-    opts.method = 'POST';
-    opts.body = body;
-  }
-
-  const resp = await daFetch({ url: `${DA_ADMIN}/source${path}.json`, opts });
+  const resp = await (updates
+    ? saveSource(`${path}.json`, JSON.stringify(updates))
+    : getSource(`${path}.json`));
   if (!resp.ok) {
     if (resp.status === 401 || resp.status === 403) {
       const [org, site] = path.substring(1).split('/');

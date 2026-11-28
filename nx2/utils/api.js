@@ -227,13 +227,13 @@ export const snapshot = {
 // `extras` (second arg) merges with parsed args when arg is a string.
 export const source = {
   get: withArgs(async ({
-    org, site, path, cachebust,
+    org, site, path, cachebust, opts,
   }) => {
     const url = await getDaApiPath(SOURCE, org, site, path);
     const finalUrl = cachebust
       ? `${url}${url.includes('?') ? '&' : '?'}nocache=${Date.now()}`
       : url;
-    return daFetch({ url: finalUrl });
+    return daFetch({ url: finalUrl, opts });
   }),
 
   // Returns `{ ok, items, continuationToken, permissions }`. Pagination
