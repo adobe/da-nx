@@ -2,8 +2,8 @@ import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
 import BaseChatController from '../../../../nx2/blocks/chat-ao/base-chat-controller.js';
-import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker-chat-controller.js';
-import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
+import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker/controller.js';
+import CmaChatController from '../../../../nx2/blocks/chat-ao/cma/controller.js';
 import { AO_EVENT, AO_FRAME } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { setMockIms, resetMockIms } from '../../mocks/ims.js';
 import { REQUIRED_SERVICE_CODES } from '../../../../nx2/utils/entitlement.js';
@@ -19,6 +19,7 @@ const deferred = () => {
 const tick = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
 
 describe('standalone input and full AO chat sharing', () => {
+  const { checkAccess } = CoworkerChatController.prototype;
   let elements;
   let sockets;
   let originals;
@@ -116,6 +117,9 @@ describe('standalone input and full AO chat sharing', () => {
     accessEffect = 'permit';
     accessStatus = 200;
     accessWait = undefined;
+    patch(CoworkerChatController.prototype, 'checkAccess', function enforceAccess() {
+      return checkAccess.call(this, { enforceEntitlement: true });
+    });
     setMockIms({
       projectedProductContext: [{ prodCtx: { owningEntity: org } }],
     });
@@ -212,6 +216,26 @@ describe('standalone input and full AO chat sharing', () => {
     });
     originals.reverse().forEach((restore) => restore());
     resetMockIms();
+  });
+
+  it('initializes both Coworker views without calling entitlement enforcement by default', async () => {
+    patch(CoworkerChatController.prototype, 'checkAccess', checkAccess);
+    accessEffect = 'deny';
+    accessStatus = 503;
+    const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
+    expect(accessChecks).to.equal(0);
+    expect(episodeLoads).to.equal(1);
+    expect(skillLoads).to.equal(1);
+    expect(standalone.checkVisibility()).to.equal(true);
+    expect(full.shadowRoot.querySelector('.chat-status')).to.equal(null);
+    [standalone, full].forEach((chat) => {
+      expect(input(chat).disabled).to.equal(false);
+      expect(chat._session.canSend()).to.equal(true);
+    });
+    submit(full, 'Send without entitlement enforcement');
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
   });
 
   it('shares a pending Coworker access check and only initializes after permission', async () => {
@@ -886,12 +910,16 @@ describe('standalone input and full AO chat sharing', () => {
 
   it('keeps drafts and attachments local until initialization accepts a submission', async () => {
     const pending = deferred();
+    const started = deferred();
     patch(CoworkerChatController.prototype, '_fetchEpisodes', () => {
       episodeLoads += 1;
+      started.resolve();
       return pending.promise;
     });
     patch(BaseChatController.prototype, '_uploadAttachment', async () => 'artifact');
     const [standalone, full] = await pair('coworker');
+    await started.promise;
+    await flush();
     const attachment = { id: 'file', label: 'File', dataBase64: 'ZmlsZQ==' };
     standalone.addItem(attachment);
     pills(full).add({ id: 'other', label: 'Other input' });
@@ -928,6 +956,7 @@ describe('standalone input and full AO chat sharing', () => {
 
   it('rejects an auto-send prompt while a turn is running without sending the existing draft', async () => {
     const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
     input(full).value = 'Unrelated draft';
     submit(standalone, 'From compact');
     await flush();

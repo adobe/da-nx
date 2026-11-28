@@ -609,7 +609,7 @@ class NxSnapshot extends LitElement {
       <div class="nx-url-accordion">
         <a class="nx-action-btn nx-btn-sm" href="${res.url}" target="_blank">Open on aem.reviews</a>
         <a class="nx-action-btn nx-btn-sm" href="${res.aemLive}" target="_blank">Open on aem.live</a>
-        <a class="nx-action-btn nx-btn-sm" href="${res.daEdit}" target="_blank">Edit in DA</a>
+        <a class="nx-action-btn nx-btn-sm" href="${res.daEdit}" target="_blank">Edit in Experience Workspace</a>
         ${snapshotExists ? html`
           <a class="nx-action-btn nx-btn-sm" href="${res.daSnapshotEdit}" target="_blank">Edit snapshot content</a>
         ` : nothing}

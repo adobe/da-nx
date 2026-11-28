@@ -1,4 +1,4 @@
-import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
+import { DA_ADMIN, setPageTitle } from '../../../../nx2/utils/utils.js';
 import { daFetch, loadIms, source } from '../../../../nx2/utils/api.js';
 import { createCopy } from '../../../public/loc/copy.js';
 
@@ -476,7 +476,7 @@ async function fetchProject({ path, updates, updateDocTitle = true }) {
   // Set the title of the doc
   if (updateDocTitle) {
     const { title } = PROJECT_CACHE[path];
-    document.title = `${title} - DA Translation`;
+    setPageTitle(`Translate ${title}`);
   }
 
   return { project: PROJECT_CACHE[path] };
