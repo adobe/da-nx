@@ -66,6 +66,29 @@ describe('schema editor utils', () => {
       expect(calls.filter((c) => c.url.startsWith(DA_ADMIN))).to.be.empty;
     });
 
+    it('lists only HTML schemas from the source bus', async () => {
+      const { org, site } = uniqueOrgSite();
+      const folder = `${AEM_API}/${org}/sites/${site}/source/.da/forms/schemas`;
+      installRoutes({
+        hlx6: true,
+        routes: {
+          [`GET ${folder}/`]: json([
+            { name: 'archive/', 'content-type': 'application/folder' },
+            { name: 'faqs.html', 'content-type': 'text/html' },
+            { name: 'faqs.json', 'content-type': 'application/json' },
+          ]),
+          [`GET ${folder}/faqs.html`]: html(schemaHtml(JSON.stringify(SCHEMA))),
+          [`GET ${folder}/faqs.json`]: json({ data: [] }),
+        },
+      });
+
+      const schemas = await loadSchemas(org, site);
+
+      expect(schemas).to.deep.equal({ faqs: { status: 'loaded', schema: SCHEMA } });
+      expect(calls.filter((c) => c.url.startsWith(folder)).map((c) => c.url))
+        .to.deep.equal([`${folder}/`, `${folder}/faqs.html`]);
+    });
+
     it('keeps the schemas that loaded when one request fails at the network level', async () => {
       const { org, site } = uniqueOrgSite();
       const folder = `${AEM_API}/${org}/sites/${site}/source/.da/forms/schemas`;
@@ -289,6 +312,29 @@ describe('schema editor utils', () => {
 
       expect(schemas).to.deep.equal({ faqs: { status: 'loaded', schema: SCHEMA } });
       expect(calls.filter((c) => c.url.startsWith(AEM_API))).to.be.empty;
+    });
+
+    it('lists only HTML schemas, not other files or folders', async () => {
+      const { org, site } = uniqueOrgSite();
+      const path = `/${org}/${site}/.da/forms/schemas`;
+      installRoutes({
+        hlx6: false,
+        routes: {
+          [`GET ${DA_ADMIN}/list${path}`]: json([
+            { name: 'faqs', ext: 'html', path: `${path}/faqs.html` },
+            { name: 'faqs', ext: 'json', path: `${path}/faqs.json` },
+            { name: 'archive', path: `${path}/archive` },
+          ]),
+          [`GET ${DA_ADMIN}/source${path}/faqs.html`]: html(schemaHtml(JSON.stringify(SCHEMA))),
+          [`GET ${DA_ADMIN}/source${path}/faqs.json`]: json({ data: [] }),
+        },
+      });
+
+      const schemas = await loadSchemas(org, site);
+
+      expect(schemas).to.deep.equal({ faqs: { status: 'loaded', schema: SCHEMA } });
+      expect(calls.filter((c) => c.url.startsWith(`${DA_ADMIN}/source`)).map((c) => c.url))
+        .to.deep.equal([`${DA_ADMIN}/source${path}/faqs.html`]);
     });
 
     it('keeps a schema with invalid JSON as raw text for repair', async () => {
