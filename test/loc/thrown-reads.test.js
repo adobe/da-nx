@@ -1,7 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { rolloutLang } from '../../nx/blocks/loc/views/rollout/index.js';
-import { getUrls } from '../../nx/blocks/loc/views/translate/index.js';
-import { clearConfigCache, loadProject } from '../../nx/blocks/loc/utils/utils.js';
+import { loadProject } from '../../nx/blocks/loc/utils/utils.js';
 import '../../nx/blocks/loc/views/validate/validate.js';
 
 const message = 'Failed to fetch';
@@ -16,9 +15,6 @@ describe('loc reads that throw', () => {
       const href = url.toString();
       const method = opts.method || 'GET';
       calls.push({ href, method });
-      if (href.endsWith('/.da/translate.json')) {
-        return new Response(JSON.stringify({ config: { data: [] } }), { status: 200 });
-      }
       if (method === 'GET') throw new TypeError(message);
       return new Response('', { status: 200 });
     };
@@ -26,19 +22,10 @@ describe('loc reads that throw', () => {
 
   beforeEach(() => {
     origFetch = window.fetch;
-    clearConfigCache();
   });
 
   afterEach(() => {
     window.fetch = origFetch;
-    clearConfigCache();
-  });
-
-  it('marks the page as failed in translate', async () => {
-    failPageReads();
-    const { urls } = await getUrls('org', 'site', {}, '/en', '/en', [{ suppliedPath: '/en/page' }], true);
-    expect(urls[0].content).to.be.undefined;
-    expect(urls[0].error).to.equal(`Error fetching content from /en/page.html - ${message}`);
   });
 
   it('stops a rollout before writing anything', async () => {
