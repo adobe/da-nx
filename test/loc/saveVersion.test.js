@@ -41,7 +41,7 @@ describe('saveVersion dedup - parallel copies to the same destination', () => {
   it('fires saveVersion exactly once when 6 overwriteCopy calls share the same destination', async () => {
     const calls = Array.from(
       { length: 6 },
-      () => copy.overwriteCopy({ source: '/src', destination: DEST, sourceContent: '<p>hi</p>' }, 'resync'),
+      () => copy.overwriteCopy({ source: '/src', destination: DEST, sourceContent: '<p>hi</p>' }, 'resync', { recordBaseline: false }),
     );
     await Promise.all(calls);
 
@@ -64,7 +64,7 @@ describe('saveVersion dedup - parallel copies to the same destination', () => {
       const result = await copy.mergeCopy({
         source: '/copy-test/source-site/page.html',
         destination: `/copy-test/${site}/page.html`,
-      }, 'Merge');
+      }, 'Merge', { recordBaseline: false });
       expect(result.ok).to.equal(true);
     }
     expect(fetchStub.args.filter(([href]) => href.endsWith('/.da/translate.json'))
@@ -81,7 +81,7 @@ describe('saveVersion dedup - parallel copies to the same destination', () => {
       '/test/org/repo/fr/page.html',
     ];
     const calls = dests.map(
-      (destination) => copy.overwriteCopy({ source: '/src', destination, sourceContent: '<p>hi</p>' }, 'resync'),
+      (destination) => copy.overwriteCopy({ source: '/src', destination, sourceContent: '<p>hi</p>' }, 'resync', { recordBaseline: false }),
     );
     await Promise.all(calls);
 

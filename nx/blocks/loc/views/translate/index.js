@@ -143,13 +143,23 @@ async function saveLang({
 
   const urlsToSave = urls.map((url) => {
     const daDestPath = getSaveDestPath({ url, lang, sourceLocations, snapshotPrefix });
-    return { ...url, destination: `/${org}/${site}${daDestPath}` };
+    const daSourcePath = lang.source
+      ? getSaveDestPath({
+        url, lang: { location: lang.source }, sourceLocations, snapshotPrefix,
+      })
+      : url.daDestPath;
+    return {
+      ...url,
+      destination: `/${org}/${site}${daDestPath}`,
+      ...(daSourcePath ? { sourcePage: `/${org}/${site}${daSourcePath}` } : {}),
+      langName: lang.name,
+    };
   });
 
   const saveFn = async (url) => {
     const overwrite = behavior === 'overwrite' || url.hasExt || url.ext !== 'html';
     const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
-    await copyFn(url, title);
+    await copyFn(url, title, { recordBaseline: false });
     const remaining = urlsToSave.filter((urlToSave) => !urlToSave.sourceContent).length;
     sendMessage({ text: `${remaining} items left to save for ${lang.name}.` });
   };
@@ -241,7 +251,7 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
  * @param {Object[]} urls The project urls.
  * @param {Object[]} langsWithUrls The languages with their fetched urls.
  * @param {string[]} [projectLocations] Project source locations; derived if omitted.
- * @returns {Promise<void>}
+ * @returns {Promise<{errors: object[]}>} The urls that failed to copy, with their `error`.
  */
 export async function copySourceLangs(
   org,
@@ -268,9 +278,13 @@ export async function copySourceLangs(
     const overwrite = behavior === 'overwrite' || url.hasExt;
 
     const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
-    const resp = await copyFn({ sourceContent: url.content, destination }, title);
+    const target = { sourceContent: url.content, destination, sourcePage: url.sourcePage };
+    const resp = await copyFn(target, title, { recordBaseline: false });
     url.status = resp.status;
+    if (target.error) url.error = target.error;
   };
+
+  const errors = [];
 
   for (const [idx, lang] of langs.entries()) {
     const queue = new Queue(copyUrl, MAX_CONCURRENT_WRITES);
@@ -288,6 +302,7 @@ export async function copySourceLangs(
         ...url,
         ...converted,
         code: lang.code,
+        ...(url.daDestPath ? { sourcePage: `/${org}/${site}${url.daDestPath}` } : {}),
       };
     });
 
@@ -297,7 +312,9 @@ export async function copySourceLangs(
       saved: success,
       status: success === langUrls.length ? 'complete' : 'error',
     };
+    errors.push(...langUrls.filter((url) => url.error));
   }
+  return { errors };
 }
 
 export function removeWaitingLanguagesFromConf(conf) {

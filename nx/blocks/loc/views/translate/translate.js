@@ -415,7 +415,7 @@ class NxLocTranslate extends LitElement {
       const { org, site, title, options } = this.project;
       const sourceLocations = getProjectSourceLocations(this.project);
 
-      await copySourceLangs(
+      const { errors } = await copySourceLangs(
         org,
         site,
         title,
@@ -425,6 +425,7 @@ class NxLocTranslate extends LitElement {
         langsWithUrls,
         sourceLocations,
       );
+      if (errors.length) this._urlErrors = errors;
       this.handleSaveLangs();
       this.requestUpdate();
     } finally {

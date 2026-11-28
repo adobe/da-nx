@@ -215,13 +215,13 @@ export function createSnapshotApi({
         return;
       }
       if (mode === 'overwrite') {
-        await copy.overwriteCopy(url, `Snapshot ${direction}`);
+        await copy.overwriteCopy(url, `Snapshot ${direction}`, { recordBaseline: false });
         return;
       }
       const labels = direction === 'fork'
         ? { labelLocal: 'Snapshot', labelUpstream: 'Main' }
         : { labelLocal: 'Main', labelUpstream: 'Snapshot' };
-      await copy.mergeCopy(url, `Snapshot ${direction}`, labels);
+      await copy.mergeCopy(url, `Snapshot ${direction}`, { ...labels, recordBaseline: false });
     };
 
     const safeCopyUrl = async (url) => {

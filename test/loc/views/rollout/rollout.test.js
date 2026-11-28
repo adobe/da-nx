@@ -292,7 +292,7 @@ describe('nx-loc-rollout smart overwrite', () => {
     expect(link.textContent).to.equal('/en-nl/page');
   });
 
-  it('lists pages where upstream removed an edited block or reordered blocks, each linking to the editor', async () => {
+  it('lists pages where upstream removed an edited block under review, and pages with reordered blocks', async () => {
     siteConfig = OPTED_IN;
     const synced = document.implementation.createHTMLDocument();
     synced.body.innerHTML = '<main><div><h1>Fedex Netherlands</h1><p>B</p><p>C</p></div></main>';
@@ -303,14 +303,14 @@ describe('nx-loc-rollout smart overwrite', () => {
     const lang = newLang();
     const el = newRollout('smart-overwrite', lang);
     await el.handleRolloutLang(lang);
-    expect(lang.locales[0].removedUpstream).to.deep.equal(['/org/optin/en-nl/page.html']);
-    expect(lang.locales[0]).to.not.have.property('review');
+    expect(lang.locales[0].review).to.deep.equal(['/org/optin/en-nl/page.html']);
+    expect(lang.locales[0]).to.not.have.property('removedUpstream');
+    expect(lang.locales[0]).to.not.have.property('skipped');
     lang.locales[0].reordered = ['/org/optin/en-nl/other.html'];
     const container = renderLocales(el, lang);
-    expect(container.querySelector('.skipped-count').textContent).to.equal('1 skipped (localized)');
+    expect(container.querySelector('.skipped-count').textContent).to.equal('1 needs review');
     const notes = [...container.querySelectorAll('.review-note')].map((note) => note.textContent);
     expect(notes).to.deep.equal([
-      'Upstream removed a block these pages edited (local version kept):',
       'Upstream reordered blocks on these pages (some moves not applied):',
     ]);
     const links = [...container.querySelectorAll('.review-list a')].map((link) => link.getAttribute('href'));
@@ -329,20 +329,6 @@ describe('nx-loc-rollout smart overwrite', () => {
     const el = newRollout('smart-overwrite', lang);
     await el.handleRolloutLang(lang);
     expect(lang.locales[0].reordered).to.deep.equal(['/org/optin/en-nl/page.html']);
-  });
-
-  it('lists source pages that left a locale without a sync point, each linking to the editor', async () => {
-    siteConfig = OPTED_IN;
-    sourcePage = '<body><header></header><main><div><h1>Fedex {{country}}</h1></div>Loose</main><footer></footer></body>';
-    const lang = newLang();
-    const el = newRollout('merge', lang);
-    await el.handleRolloutLang(lang);
-    expect(lang.locales[0].noSync).to.deep.equal(['/org/optin/langstore/en/page.html']);
-    const container = renderLocales(el, lang);
-    expect(container.querySelector('.skipped-count').textContent).to.equal('1 without sync point');
-    const link = container.querySelector('.review-list a');
-    expect(link.getAttribute('href')).to.equal('https://da.live/edit#/org/optin/langstore/en/page');
-    expect(link.textContent).to.equal('/langstore/en/page');
   });
 
   it('counts unchanged pages and replaces the previous rollout report', async () => {
@@ -406,11 +392,11 @@ describe('nx-loc-rollout smart overwrite skipped pages', () => {
     originalFetch = globalThis.fetch;
     globalThis.fetch = sinon.stub().callsFake(async () => ({ ok: false, status: 404, text: async () => '' }));
     const baseDoc = document.implementation.createHTMLDocument();
-    baseDoc.body.innerHTML = '<main><div><h1>Old</h1></div></main>';
+    baseDoc.body.innerHTML = '<main><div><h1>Fedex Netherlands</h1><p>B</p></div></main>';
     const base = await getBlockHashes({ doc: baseDoc, site: 'site', config: {} });
     const metadata = `<div class="da-metadata"><div><div>rolloutbase</div><div>/org/smart/en-nl/page.html|${base}</div></div></div>`;
     const pages = {
-      '/en-nl/page.html': `<body><header></header><main><div><h1>Local</h1></div></main>${metadata}<footer></footer></body>`,
+      '/en-nl/page.html': `<body><header></header><main><div><h1>Fedex Netherlands</h1></div></main>${metadata}<footer></footer></body>`,
     };
     globalThis.fetch = sinon.stub().callsFake(async (url, opts = {}) => {
       const headers = new Headers({ 'x-da-actions': 'read=true' });
@@ -419,7 +405,7 @@ describe('nx-loc-rollout smart overwrite skipped pages', () => {
         return { ok: true, status: 200, headers, json: async () => SMART_SITE };
       }
       if (url.endsWith('/.da/rollout-placeholders.json')) return { ok: true, status: 200, headers, json: async () => CONFIG };
-      if (url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => SOURCE };
+      if (url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => SOURCE.replace('</h1>', '</h1><p>B2</p>') };
       const dest = Object.keys(pages).find((path) => url.endsWith(path));
       if (dest) return { ok: true, status: 200, headers, text: async () => pages[dest] };
       return { ok: false, status: 404, headers, text: async () => '' };
@@ -450,6 +436,6 @@ describe('nx-loc-rollout smart overwrite skipped pages', () => {
     el._urls = el.project.urls;
     const container = document.createElement('div');
     render(el.renderLocales(lang.rollout, lang.locales), container);
-    expect(container.querySelector('.skipped-count').textContent).to.include('1 skipped (localized)');
+    expect(container.querySelector('.skipped-count').textContent).to.include('1 not applied (kept local)');
   });
 });

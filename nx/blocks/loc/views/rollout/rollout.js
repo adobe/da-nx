@@ -31,10 +31,9 @@ const renderPageList = (note, paths) => (paths?.length ? html`
   <ul class="review-list">${renderPageItems(paths)}</ul>` : nothing);
 
 const localeLabels = (locale, syncCounts) => [
-  locale.skipped && `${locale.skipped} skipped (localized)`,
+  locale.skipped && `${locale.skipped} not applied (kept local)`,
   locale.unchanged && `${locale.unchanged} unchanged`,
   locale.review?.length && `${locale.review.length} ${locale.review.length === 1 ? 'needs' : 'need'} review`,
-  locale.noSync?.length && `${locale.noSync.length} without sync point`,
   syncCounts && syncSummary(syncCounts),
 ].filter(Boolean);
 
@@ -243,11 +242,7 @@ class NxLocRollout extends LitElement {
         </div>
         ${locale.review?.length ? html`
           <ul class="review-list">${renderPageItems(locale.review)}</ul>` : nothing}
-        ${renderPageList('Upstream removed a block these pages edited (local version kept):', locale.removedUpstream)}
         ${renderPageList('Upstream reordered blocks on these pages (some moves not applied):', locale.reordered)}
-        ${locale.noSync?.length ? html`
-          <p class="no-sync-note">No sync point. Move all content into sections in these source pages:</p>
-          <ul class="review-list no-sync-list">${renderPageItems(locale.noSync)}</ul>` : nothing}
       </li>`;
   }
 

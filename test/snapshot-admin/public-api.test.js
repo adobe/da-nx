@@ -129,6 +129,39 @@ describe('Public snapshot API', () => {
     expect(fetch.args[0][0]).to.equal(`${DA}/source/org/site/.snapshots/s1/data.json`);
   });
 
+  describe('sync points on pages', () => {
+    const BASE_ROW = '<div class="da-metadata"><div><div>rolloutbase</div><div>/org/site/page.html|abcdef123456</div></div></div>';
+    const page = (text, meta = '') => `<body><header></header><main><div><p>${text}</p></div></main>${meta}<footer></footer></body>`;
+    const copyWith = async (pages, args) => {
+      const saved = {};
+      const api = create(async (href, opts) => {
+        const path = new URL(href).pathname.replace(/^\/source/, '');
+        if (opts?.method === 'POST') {
+          if (href.includes('/source/')) saved[path] = await opts.body.get('data').text();
+          return new Response('{}');
+        }
+        return pages[path] ? new Response(pages[path]) : new Response('', { status: 404 });
+      });
+      const result = await api.copyPage({ name: 's1', path: '/page', ...args });
+      return { result, saved };
+    };
+
+    it('keeps the live page sync point on a snapshot fork', async () => {
+      const { result, saved } = await copyWith({ '/org/site/page.html': page('Live', BASE_ROW) }, { direction: 'fork', mode: 'overwrite' });
+      expect(result.status).to.equal('success');
+      expect(saved['/org/site/.snapshots/s1/page.html']).to.include('/org/site/page.html|abcdef123456');
+    });
+
+    it('keeps the live page sync point when a snapshot merges back', async () => {
+      const { result, saved } = await copyWith({
+        '/org/site/page.html': page('Live', BASE_ROW),
+        '/org/site/.snapshots/s1/page.html': page('Snapshot'),
+      }, { direction: 'promote' });
+      expect(result.status).to.equal('success');
+      expect(saved['/org/site/page.html']).to.include('/org/site/page.html|abcdef123456');
+    });
+  });
+
   it('rejects invalid single-page copies without any request', async () => {
     const api = create(async () => new Response(''));
     expect((await api.copyPage({ name: 's1', direction: 'promote', mode: 'overwrite' })).status).to.equal(400);

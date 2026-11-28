@@ -453,8 +453,8 @@ describe('rolloutLang with placeholders', () => {
   it('copy helpers use prepared source html for overwrite and merge fallback', async () => {
     const sourceHtml = doc('<div><h1>Prepared</h1></div>');
     const src = '/org/site/langstore/en/page.html';
-    await copy.overwriteCopy({ source: src, destination: '/org/site/en-nl/page.html', sourceHtml }, 'P');
-    await copy.mergeCopy({ source: src, destination: '/org/site/en-to/page.html', sourceHtml }, 'P');
+    await copy.overwriteCopy({ source: src, destination: '/org/site/en-nl/page.html', sourceHtml }, 'P', { recordBaseline: false });
+    await copy.mergeCopy({ source: src, destination: '/org/site/en-to/page.html', sourceHtml }, 'P', { recordBaseline: false });
     expect(posted('/en-nl/page.html')).to.equal('Prepared');
     expect(posted('/en-to/page.html')).to.equal('Prepared');
   });

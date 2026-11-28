@@ -23,19 +23,10 @@ function setup({
   const writes = () => fetch.args
     .filter(([href, opts]) => opts?.method === 'POST' && !href.includes('/versionsource'))
     .map(([href]) => href);
-  return { copy, writes };
+  return { copy, writes, fetch };
 }
 
-const diffFailures = {
-  mergeCopy: {
-    url: { normalizeImages: () => { throw new Error('Diff failed'); } },
-    destination: () => new Response(html('Regional')),
-  },
-  rolloutCopy: {
-    url: {},
-    destination: () => new Response('<body><div><p>Regional</p></div></body>'),
-  },
-};
+const throwingImages = () => { throw new Error('Diff failed'); };
 
 ['mergeCopy', 'rolloutCopy'].forEach((method) => {
   describe(`${method} with an existing or failing destination`, () => {
@@ -44,7 +35,7 @@ const diffFailures = {
     it('overwrites a missing destination', async () => {
       const { copy, writes } = setup({ destination: () => new Response('', { status: 404 }) });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([`${ORIGIN}/source${DESTINATION}`]);
       expect(url.status).to.equal('success');
     });
@@ -52,7 +43,7 @@ const diffFailures = {
     it('overwrites an empty destination', async () => {
       const { copy, writes } = setup({ destination: () => new Response('') });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([`${ORIGIN}/source${DESTINATION}`]);
       expect(url.status).to.equal('success');
     });
@@ -61,7 +52,7 @@ const diffFailures = {
       it(`writes nothing and reports the path when the destination read answers ${status}`, async () => {
         const { copy, writes } = setup({ destination: () => new Response('', { status }) });
         const url = { source: SOURCE, destination: DESTINATION };
-        await copy[method](url, 'Rollout');
+        await copy[method](url, 'Rollout', { recordBaseline: false });
         expect(writes()).to.deep.equal([]);
         expect(url.status).to.equal('error');
         expect(url.error).to.include(DESTINATION);
@@ -74,7 +65,7 @@ const diffFailures = {
         destination: () => { throw new TypeError('Failed to fetch'); },
       });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([]);
       expect(url.status).to.equal('error');
       expect(url.error).to.include(DESTINATION);
@@ -82,10 +73,9 @@ const diffFailures = {
     });
 
     it('writes nothing and reports the path when the diff throws', async () => {
-      const failure = diffFailures[method];
-      const { copy, writes } = setup({ destination: failure.destination });
-      const url = { ...failure.url, source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      const { copy, writes } = setup();
+      const url = { normalizeImages: throwingImages, source: SOURCE, destination: DESTINATION };
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([]);
       expect(url.status).to.equal('error');
       expect(url.error).to.include(DESTINATION);
@@ -94,7 +84,7 @@ const diffFailures = {
     it('writes nothing and reports both paths when the source read answers 500', async () => {
       const { copy, writes } = setup({ source: () => new Response('', { status: 500 }) });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([]);
       expect(url.status).to.equal('error');
       expect(url.error).to.include(DESTINATION);
@@ -105,7 +95,7 @@ const diffFailures = {
     it('writes nothing and reports the path when the source is missing', async () => {
       const { copy, writes } = setup({ source: () => new Response('', { status: 404 }) });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(writes()).to.deep.equal([]);
       expect(url.status).to.equal('error');
       expect(url.error).to.include(DESTINATION);
@@ -114,10 +104,55 @@ const diffFailures = {
     it('reports the path when the merged save fails', async () => {
       const { copy } = setup({ save: () => new Response('', { status: 500 }) });
       const url = { source: SOURCE, destination: DESTINATION };
-      await copy[method](url, 'Rollout');
+      await copy[method](url, 'Rollout', { recordBaseline: false });
       expect(url.status).to.equal('error');
       expect(url.error).to.include(DESTINATION);
       expect(url.error).to.include('(500)');
+    });
+  });
+});
+
+describe('merges of a non-page destination', () => {
+  const SHEET_SOURCE = '/org/site/de/de/data.json';
+  const SHEET_DESTINATION = '/org/site/at/de/data.json';
+  const SHEET = '{"total":1,"data":[{"key":"a","value":"b"}]}';
+
+  const sheetSetup = () => {
+    const fetch = sinon.stub().callsFake(async (href, opts) => {
+      if (opts?.method === 'POST') return new Response('{}');
+      if (href === `${ORIGIN}/source${SHEET_DESTINATION}`) return new Response('{"total":0,"data":[]}');
+      if (href === `${ORIGIN}/source${SHEET_SOURCE}`) return new Response(SHEET);
+      throw new Error(`Unexpected fetch ${href}`);
+    });
+    const loadConfig = sinon.stub().resolves({ config: { data: [] } });
+    const copy = createCopy({ fetch, loadConfig, daOrigin: ORIGIN });
+    const saves = () => fetch.args
+      .filter(([href, opts]) => opts?.method === 'POST' && !href.includes('/versionsource'));
+    const versions = () => fetch.args.filter(([href]) => href.includes('/versionsource'));
+    return { copy, saves, versions };
+  };
+
+  ['mergeCopy', 'rolloutCopy'].forEach((method) => {
+    it(`${method} overwrites the sheet with the raw source`, async () => {
+      const { copy, saves, versions } = sheetSetup();
+      const url = { source: SHEET_SOURCE, destination: SHEET_DESTINATION };
+      const result = await copy[method](url, 'Rollout', { recordBaseline: false });
+      expect(saves().map(([href]) => href)).to.deep.equal([`${ORIGIN}/source${SHEET_DESTINATION}`]);
+      const data = saves()[0][1].body.get('data');
+      expect(data.type).to.equal('application/json');
+      expect(await data.text()).to.equal(SHEET);
+      expect(versions()).to.have.length(1);
+      expect(result.ok).to.equal(true);
+      expect(url.status).to.equal('success');
+    });
+
+    it(`${method} overwrites the sheet with supplied source content`, async () => {
+      const { copy, saves } = sheetSetup();
+      const url = { destination: SHEET_DESTINATION, sourceContent: SHEET };
+      await copy[method](url, 'Rollout', { recordBaseline: false });
+      expect(saves().map(([href]) => href)).to.deep.equal([`${ORIGIN}/source${SHEET_DESTINATION}`]);
+      expect(await saves()[0][1].body.get('data').text()).to.equal(SHEET);
+      expect(url.status).to.equal('success');
     });
   });
 });
@@ -128,9 +163,132 @@ describe('overwriteCopy with a failing save', () => {
   it('reports the path', async () => {
     const { copy } = setup({ save: () => new Response('', { status: 403 }) });
     const url = { destination: DESTINATION, sourceContent: html('Upstream') };
-    await copy.overwriteCopy(url, 'Copy');
+    await copy.overwriteCopy(url, 'Copy', { recordBaseline: false });
     expect(url.status).to.equal('error');
     expect(url.error).to.include(DESTINATION);
     expect(url.error).to.include('(403)');
+  });
+});
+
+describe('copies without a recordBaseline flag', () => {
+  afterEach(() => sinon.restore());
+
+  ['mergeCopy', 'overwriteCopy'].forEach((method) => {
+    it(`${method} throws and writes nothing`, async () => {
+      const { copy, writes } = setup();
+      const url = { source: SOURCE, destination: DESTINATION };
+      let error;
+      try {
+        await copy[method](url, 'Copy');
+      } catch (e) {
+        error = e;
+      }
+      expect(error).to.be.instanceOf(TypeError);
+      expect(writes()).to.deep.equal([]);
+    });
+  });
+});
+
+describe('engine reports', () => {
+  let engine;
+
+  before(async () => {
+    ({ engine } = await import('../../nx/public/loc/da-merge.js'));
+  });
+
+  afterEach(() => sinon.restore());
+
+  const versions = (fetchArgs) => fetchArgs.filter(([href]) => href.includes('/versionsource'));
+
+  it('explains a copy that would lose content in the editor form, and writes nothing', async () => {
+    sinon.stub(engine, 'applyCopy').rejects(Object.assign(new Error('Canonicalizing changes the page'), { code: 'canonicalize-loss' }));
+    const { copy, writes } = setup();
+    const url = { source: SOURCE, destination: DESTINATION };
+    const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+    expect(writes()).to.deep.equal([]);
+    expect(result.code).to.equal('canonicalize-loss');
+    expect(result.error).to.include('Open the source and the destination in the editor');
+    expect(url.status).to.equal('error');
+    expect(url.error).to.include(DESTINATION);
+    expect(url.error).to.include('Open the source and the destination in the editor, save them, then copy again');
+  });
+
+  const lossOn = (side) => {
+    sinon.stub(engine, 'applyCopy').rejects(Object.assign(new Error('Canonicalizing would change the page content'), { code: 'canonicalize-loss', side }));
+  };
+
+  it('names the destination when canonicalizing it would lose content', async () => {
+    lossOn('target');
+    const { copy } = setup();
+    const url = { source: SOURCE, destination: DESTINATION };
+    const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+    expect(result.error).to.include(`Open ${DESTINATION} in the editor, save it, then copy again`);
+    expect(url.error).to.not.include(SOURCE);
+  });
+
+  it('names the source when canonicalizing it would lose content', async () => {
+    lossOn('source');
+    const { copy } = setup();
+    const url = { source: SOURCE, destination: DESTINATION };
+    const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+    expect(result.error).to.include(`Open ${SOURCE} in the editor, save it, then copy again`);
+  });
+
+  it('says the supplied source content can\'t be kept when there is no source page to open', async () => {
+    lossOn('source');
+    const { copy } = setup();
+    const url = { destination: DESTINATION, sourceContent: html('Translated') };
+    const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+    expect(result.error).to.include('The source content has content that the editor cannot keep');
+    expect(result.error).to.include('Fix the source page, then copy or translate it again.');
+    expect(result.code).to.equal('canonicalize-loss');
+  });
+
+  ['mergeCopy', 'overwriteCopy'].forEach((method) => {
+    it(`${method} names the source page and language of a translation it can't keep`, async () => {
+      lossOn('source');
+      const { copy, writes } = setup();
+      const url = {
+        destination: DESTINATION,
+        sourceContent: html('Übersetzt'),
+        sourcePage: SOURCE,
+        langName: 'German',
+      };
+      const result = await copy[method](url, 'Translate', { recordBaseline: false });
+      expect(writes()).to.deep.equal([]);
+      expect(result.code).to.equal('canonicalize-loss');
+      expect(result.error).to.equal(`The German translation of ${SOURCE} has content that the editor cannot keep. Open ${SOURCE} in the editor, save it, then send it for translation again.`);
+      expect(url.error).to.include(DESTINATION);
+    });
+  });
+
+  it('names the source page of supplied source content without a language', async () => {
+    lossOn('source');
+    const { copy } = setup();
+    const url = { destination: DESTINATION, sourceContent: html('Upstream'), sourcePage: SOURCE };
+    const result = await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+    expect(result.error).to.include(`Open ${SOURCE} in the editor, save it, then copy again`);
+  });
+
+  it('asks to fix the source page of a translation when the page is unknown', async () => {
+    lossOn('source');
+    const { copy } = setup();
+    const url = { destination: DESTINATION, sourceContent: html('Übersetzt'), langName: 'German' };
+    const result = await copy.mergeCopy(url, 'Translate', { recordBaseline: false });
+    expect(result.error).to.equal('The German translation of the source page has content that the editor cannot keep. Open the source page in the editor, save it, then send it for translation again.');
+  });
+
+  [true, false].forEach((contentChanged) => {
+    it(`${contentChanged ? 'saves' : 'saves no'} version when content changed is ${contentChanged}`, async () => {
+      sinon.stub(engine, 'applyCopy').resolves({
+        html: html('Merged'), baseline: null, report: { outcome: 'written', contentChanged },
+      });
+      const { copy, writes, fetch } = setup();
+      const url = { source: SOURCE, destination: DESTINATION };
+      await copy.mergeCopy(url, 'Copy', { recordBaseline: false });
+      expect(writes()).to.deep.equal([`${ORIGIN}/source${DESTINATION}`]);
+      expect(url.status).to.equal('success');
+      expect(versions(fetch.args)).to.have.length(contentChanged ? 1 : 0);
+    });
   });
 });
