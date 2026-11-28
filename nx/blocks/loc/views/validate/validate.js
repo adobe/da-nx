@@ -130,7 +130,11 @@ class NxLocValidate extends LitElement {
 
     const checkUrl = this.checkUrl.bind(this);
 
-    const queue = new Queue(checkUrl, MAX_CONCURRENT_READS);
+    const queue = new Queue(checkUrl, MAX_CONCURRENT_READS, (url, error) => {
+      url.status = `error - ${error.message}`;
+      url.checked = false;
+      this.requestUpdate();
+    });
 
     let notChecked;
     while (!notChecked || notChecked.length > 0) {

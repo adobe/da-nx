@@ -57,6 +57,7 @@ class NxLoc extends LitElement {
     path: { attribute: false },
     _project: { state: true },
     _message: { state: true },
+    _loadError: { state: true },
   };
 
   connectedCallback() {
@@ -71,6 +72,7 @@ class NxLoc extends LitElement {
   }
 
   async getProject() {
+    this._loadError = undefined;
     // If there's no path, create a synthetic project
     if (!this.path) {
       this._project = {
@@ -81,10 +83,12 @@ class NxLoc extends LitElement {
       return;
     }
 
-    const path = `/${this.org}/${this.site}${this.path}`;
+    const { org, site, path: projectPath } = this;
+    const path = `/${org}/${site}${projectPath}`;
 
     const { message, project } = await loadProject({ path });
-    if (message) this._message = message;
+    if (this.org !== org || this.site !== site || this.path !== projectPath) return;
+    if (message) this._loadError = message.text;
 
     // The hash-based view should override the project view
     if (project) this._project = { ...project, view: this.view };
@@ -213,7 +217,9 @@ class NxLoc extends LitElement {
   }
 
   render() {
-    if (!this._project) return nothing;
+    if (!this._project) {
+      return this._loadError ? html`<p class="nx-loc-step" role="alert">Could not open the translation project. ${this._loadError}</p>` : nothing;
+    }
 
     return html`
       <nx-loc-header .view=${this.view} .title=${this._project?.title}></nx-loc-header>

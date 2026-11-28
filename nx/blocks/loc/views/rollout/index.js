@@ -58,7 +58,9 @@ async function fetchLangSources(lang, urls) {
 
     return url;
   };
-  const queue = new Queue(fetchUrl, MAX_CONCURRENT_READS);
+  const queue = new Queue(fetchUrl, MAX_CONCURRENT_READS, (url, error) => {
+    url.error = `Error fetching content from ${url.source} - ${error.message}`;
+  });
   await Promise.all(urls.map((url) => queue.push(url)));
 
   // Setup the results obj
