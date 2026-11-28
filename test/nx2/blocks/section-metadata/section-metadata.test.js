@@ -198,3 +198,36 @@ describe('section-metadata no section', () => {
     expect(document.querySelector('.nx-section-container')).to.be.null;
   });
 });
+
+// ─── style: fit content ───────────────────────────────────────────────────
+
+describe('section-metadata fit content style', () => {
+  function buildMain({ fitContent }) {
+    const main = document.createElement('main');
+    main.style.cssText = 'display: grid; height: 600px;';
+    const meta = fitContent
+      ? '<div class="nx-section-metadata"><div><div>style</div><div>fit content</div></div></div>'
+      : '';
+    main.innerHTML = `
+      <div class="section"><div class="default-content"><p style="margin:0;height:50px">Header</p></div>${meta}</div>
+      <div class="section"><div class="default-content"><p style="margin:0;height:100px">Body</p></div></div>
+    `;
+    document.body.append(main);
+    return main;
+  }
+
+  const heights = (main) => [...main.children]
+    .map((s) => Math.round(s.getBoundingClientRect().height));
+
+  it('lets sections stretch to fill main by default', async () => {
+    const main = buildMain({ fitContent: false });
+    expect(heights(main)).to.not.deep.equal([50, 100]);
+  });
+
+  it('sizes every section to its content when one section uses fit content', async () => {
+    const main = buildMain({ fitContent: true });
+    await init(main.querySelector('.nx-section-metadata'));
+    expect(main.querySelector('.section').classList.contains('fit-content')).to.be.true;
+    expect(heights(main)).to.deep.equal([50, 100]);
+  });
+});
