@@ -7,11 +7,9 @@ describe('dashboard copy and archive', () => {
   let origFetch;
 
   const respondWith = (status) => {
-    window.fetch = async (url, opts = {}) => {
-      if ((opts.method || 'GET') === 'GET') {
-        return new Response(JSON.stringify({ title: 'Proj', langs: [] }), { status: 200 });
-      }
-      return new Response(null, { status });
+    window.fetch = async (url, opts) => {
+      if (opts.method === 'POST') return new Response(null, { status });
+      return new Response(JSON.stringify({ title: 'Proj', langs: [] }), { status: 200 });
     };
   };
 
@@ -20,14 +18,14 @@ describe('dashboard copy and archive', () => {
 
   it('reports a failed copy as an error', async () => {
     respondWith(403);
-    const error = await copyProject(project, 'me@example.com').then(() => undefined, (e) => e);
-    expect(error?.message).to.equal('Copy failed (403)');
+    const error = await copyProject(project, 'me@example.com').catch((e) => e);
+    expect(error.message).to.equal('Copy failed (403)');
   });
 
   it('reports a failed archive as an error', async () => {
     respondWith(403);
-    const error = await archiveProject(project).then(() => undefined, (e) => e);
-    expect(error?.message).to.equal('Archive failed (403)');
+    const error = await archiveProject(project).catch((e) => e);
+    expect(error.message).to.equal('Archive failed (403)');
   });
 
   it('returns the new paths when copy and archive work', async () => {
