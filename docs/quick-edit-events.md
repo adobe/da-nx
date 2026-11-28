@@ -90,9 +90,8 @@ sends `true` for most legacy sites too. The standalone portal reads org/site fro
 shape and asks nx2 `api.js` (`isHlx6`) where the document lives,
 so the payload shape doesn't decide the store. If the check fails (the ping gets no answer), the
 portal treats the site as legacy DA, as it did before Helix 6 support: it opens, uploads and
-previews through the legacy DA and Helix admin APIs. It names the collab room with
-`getSourceUrl`, the url the da-live editors use, so quick edit and the canvas join the
-same room.
+previews through the legacy DA and Helix admin APIs. Quick edit and the canvas both use
+the document's source URL as the collab room name.
 
 ### `DROP_TARGET`
 
@@ -249,8 +248,9 @@ upload. An out-of-date/missing index fails instead of choosing an image by URL.
 For older iframes, a URL-only request is accepted only when it identifies
 exactly one image.
 
-Both hosts upload through nx2 `source.uploadMedia` and reply with the url the upload
-returned: a `content.da.live` url on DA sites, a media bus url on hlx6 sites (usually
+Both hosts use nx2 `source.uploadMedia` on Helix 6. On legacy DA, the standalone portal
+posts the multipart upload directly. Both reply with the url the upload returned:
+a `content.da.live` url on DA sites, a media bus url on hlx6 sites (usually
 relative, `./media_…`), which the iframe resolves against the page. In `SET_BODY` the
 standalone portal keeps `./media_` refs relative in `<img>`, `<source srcset>` and linked
 images (`<a data-edit-as="image">`), so the page resolves them against its own url like

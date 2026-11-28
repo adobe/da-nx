@@ -1,7 +1,5 @@
-import {
-  daFetch, getSourceUrl, isHlx6, source,
-} from '../../../../nx2/utils/api.js';
-import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
+import { daFetch, isHlx6, source } from '../../../../nx2/utils/api.js';
+import { AEM_API, DA_ADMIN } from '../../../../nx2/utils/utils.js';
 
 export async function checkSite(org, site) {
   try {
@@ -31,7 +29,7 @@ const getDocPath = (pathname) => (pathname.endsWith('/') ? `${pathname}index.htm
 export async function loadDocSource({ org, site, pathname }) {
   const path = getDocPath(pathname);
   const sourceUrl = await checkSite(org, site)
-    ? await getSourceUrl({ org, site, path })
+    ? `${AEM_API}/${org}/sites/${site}/source${path}`
     : `${DA_ADMIN}/source/${org}/${site}${path}`;
   const resp = await daFetch({ url: sourceUrl, opts: { method: 'HEAD' } });
   if (!resp.ok) return { error: `Could not load ${path}`, status: resp.status };

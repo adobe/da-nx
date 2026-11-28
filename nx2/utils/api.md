@@ -2,7 +2,7 @@
 
 A unified client for talking to **DA admin** (`admin.da.live`) and the **AEM admin API** in either its legacy form (`admin.hlx.page`, "helix5") or its new form (`api.aem.live`, "helix6"). Every method auto-routes by the per-site **hlx6** upgrade flag — once a site has been upgraded, calls flow to the new origin; otherwise they fall back to the legacy origin.
 
-The module ships its low-level primitive (`daFetch`), an upgrade detector (`isHlx6`), helpers (`fromPath`, `getSourceUrl`, `signout`, `asJson`, `asText`), and **eight namespaced surfaces**: `source`, `versions`, `config`, `org`, `status`, `aem`, `snapshot`, `jobs`. Type definitions live in `[api.d.ts](./api.d.ts)` — VSCode picks them up automatically and surfaces overloads, field-level docs, and inline shapes.
+The module ships its low-level primitive (`daFetch`), an upgrade detector (`isHlx6`), helpers (`fromPath`, `signout`, `asJson`, `asText`), and **eight namespaced surfaces**: `source`, `versions`, `config`, `org`, `status`, `aem`, `snapshot`, `jobs`. Type definitions live in `[api.d.ts](./api.d.ts)` — VSCode picks them up automatically and surfaces overloads, field-level docs, and inline shapes.
 
 > **Routing model.** Some endpoints are owned by DA itself (`source`, `list`, `config`, `versions`) and DA proxies them to AEM when the site is upgraded. Others are AEM-only (`status`, `preview`, `live`, `snapshots`, `jobs`) and live on either `admin.hlx.page` (legacy) or `api.aem.live` (hlx6). The module hides this distinction; callers always pass `{ org, site, path }` and get a `Response` back.
 
@@ -13,7 +13,7 @@ The module ships its low-level primitive (`daFetch`), an upgrade detector (`isHl
 ```js
 import {
   // Low-level
-  daFetch, isHlx6, signout, fromPath, getSourceUrl,
+  daFetch, isHlx6, signout, fromPath,
   // Namespaces
   source, versions, config, org, status, aem, snapshot, jobs,
   // Response helpers
@@ -116,7 +116,7 @@ Document CRUD on `source` paths. Bridges DA's `/source` and AEM's `/sites/{site}
 | -------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get`          | `({ org, site, path })` or `(fullPath)`                                                       | GET — raw `Response`.                                                                                                                                                                          |
 | `list`         | `({ org, site, path?, continuationToken? })` or `(fullPath, { continuationToken? })`            | List a folder. Returns `{ ok, items, continuationToken, permissions }` (normalized — items match legacy DA shape regardless of server). Pass `{ org }` (no site) to list at org level — merges DA-legacy folders (`${DA_ADMIN}/list/{org}`) with hlx6 source-bus sites (`org.listSites`), deduped by name. Only DA paginates; `org.listSites` is only queried on the first page (no `continuationToken`). Bulk lists paginate — pass `continuationToken` back into the next call. |
-| `save`         | `({ org, site, path, body })` or `(fullPath, { body })`                                       | Upload — raw `Response`. POST for both branches. **DA-legacy**: wraps `body` as a Blob in `multipart/form-data` field `data`, with the Blob's type set from the path extension via `TYPE_MAP` (for extensions not in `TYPE_MAP`, the type of a Blob/File `body`). **hlx6**: sends `body` raw (string, Blob, or File); `Content-Type` is set from the path extension via `TYPE_MAP` and overrides any auto-applied Blob type. Extensions not in `TYPE_MAP` send no `Content-Type`. On success, `resp.json()` is normalized to DA's `{ source: { contentUrl } }` shape (`contentUrl` = the written source URL), since the hlx6 endpoint returns an empty body; non-ok responses pass through unchanged. |
+| `save`         | `({ org, site, path, body })` or `(fullPath, { body })`                                       | Upload — raw `Response`. POST for both branches. **DA-legacy**: wraps `body` as a Blob in `multipart/form-data` field `data`, with the Blob's type set from the path extension via `TYPE_MAP`. **hlx6**: sends `body` raw (string, Blob, or File); `Content-Type` is set from the path extension via `TYPE_MAP` and overrides any auto-applied Blob type. Extensions not in `TYPE_MAP` send no `Content-Type`. On success, `resp.json()` is normalized to DA's `{ source: { contentUrl } }` shape (`contentUrl` = the written source URL), since the hlx6 endpoint returns an empty body; non-ok responses pass through unchanged. |
 | `getMetadata`  | `({ org, site, path })` or `(fullPath)`                                                       | HEAD — raw `Response`. Value is in `resp.headers` (`doc-id`, `last-modified`, etc.).                                                                                                          |
 | `delete`       | `({ org, site, path, continuationToken? })` or `(fullPath, { continuationToken? })`           | DELETE — raw `Response` (typically 204). For recursive folder deletion use `deleteFolder`.                                                                                                    |
 | `copy`         | `({ org, site, path, destination, collision?, continuationToken? })` or `(fullPath, { destination, collision?, continuationToken? })` | Raw `Response`. `path` = source, `destination` = target. **hlx6**: PUT to dest URL with `?source=…&collision=…` query. **DA**: POST `/copy/{org}/{site}{path}` with `multipart/form-data` field `destination`. |
@@ -445,16 +445,6 @@ Splits a `/org/site/file/path` string into `{ org, site, path }`. Used internall
 ```js
 fromPath('/adobe/aem-boilerplate/index.html');
 // → { org: 'adobe', site: 'aem-boilerplate', path: '/index.html' }
-```
-
-### `getSourceUrl(arg)`
-
-Resolves the source url of a document without requesting it: `${AEM_API}/{org}/sites/{site}/source{path}` on hlx6, `${DA_ADMIN}/source/{org}/{site}{path}` on legacy DA. Accepts the object or path-string form. Collab (da-collab) rooms are named with this url, so editors that open the same document should name their room with it to share one.
-
-```js
-await getSourceUrl({ org: 'adobe', site: 'aem-boilerplate', path: '/index.html' });
-// → 'https://api.aem.live/adobe/sites/aem-boilerplate/source/index.html' (hlx6)
-// → 'https://admin.da.live/source/adobe/aem-boilerplate/index.html' (legacy)
 ```
 
 ### `asJson(promise)` / `asText(promise)`

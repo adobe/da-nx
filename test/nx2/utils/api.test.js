@@ -11,7 +11,6 @@ import {
   isHlx6,
   signout,
   fromPath,
-  getSourceUrl,
   source,
   versions,
   config,
@@ -547,17 +546,6 @@ describe('api.js', () => {
       expect(stored).to.be.instanceof(Blob);
       expect(stored.size).to.equal(data.size);
       expect(calls.some((c) => c.url.includes('/media'))).to.equal(false);
-    });
-
-    it('source.uploadMedia legacy keeps the blob type for extensions the type map lacks', async () => {
-      restoreFetch();
-      installFetch({
-        body: JSON.stringify({ source: { contentUrl: 'https://stage-content.da.live/o/s/img.webp' } }),
-      });
-      const { org: o, site: s } = makeOrgSite();
-      const data = new Blob(['binary'], { type: 'image/webp' });
-      await source.uploadMedia({ org: o, site: s, path: '/img.webp', body: data });
-      expect(lastCall().body.get('data').type).to.equal('image/webp');
     });
 
     it('source.uploadMedia hlx6 POSTs to the media route with content-type header and raw body', async () => {
@@ -1572,33 +1560,6 @@ describe('api.js', () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await jobs.stop({ org: o, site: s, topic: 'preview', name: 'j1' });
       expect(lastCall().method).to.equal('DELETE');
-    });
-  });
-
-  describe('getSourceUrl', () => {
-    it('returns the source bus url on hlx6', async () => {
-      const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      const url = await getSourceUrl({ org: o, site: s, path: '/drafts/page.html' });
-      expect(url).to.equal(`${AEM_API}/${o}/sites/${s}/source/drafts/page.html`);
-    });
-
-    it('returns the da-admin source url on legacy', async () => {
-      const { org: o, site: s } = makeOrgSite();
-      const url = await getSourceUrl({ org: o, site: s, path: '/drafts/page.html' });
-      expect(url).to.equal(`${DA_ADMIN}/source/${o}/${s}/drafts/page.html`);
-    });
-
-    it('accepts the path-string form', async () => {
-      const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      const url = await getSourceUrl(`/${o}/${s}/index.html`);
-      expect(url).to.equal(`${AEM_API}/${o}/sites/${s}/source/index.html`);
-    });
-
-    it('builds the url without requesting the document', async () => {
-      const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await getSourceUrl({ org: o, site: s, path: '/page.html' });
-      expect(callsTo(AEM_API)).to.have.lengthOf(0);
-      expect(callsTo(DA_ADMIN)).to.have.lengthOf(0);
     });
   });
 

@@ -53,12 +53,6 @@ export function signout(): void;
 /** Split `/org/site/file/path` into `{ org, site, path }`. */
 export function fromPath(fullPath: string): { org: string; site: string; path: string };
 
-/**
- * Source url of a document without requesting it: `${AEM_API}/{org}/sites/{site}/source{path}`
- * on hlx6, `${DA_ADMIN}/source/{org}/{site}{path}` on legacy DA. Collab rooms are named with it.
- */
-export function getSourceUrl(arg: { org: string; site: string; path: string } | string): Promise<string>;
-
 // ─── response helpers ──────────────────────────────────────────────────────
 
 /** Failure reason returned by `asJson` / `asText` when `ok` is false. */

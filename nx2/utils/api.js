@@ -37,7 +37,6 @@ export { AEM_API };
 //   daFetch    authenticated fetch (used by everything above)
 //   isHlx6     Helix 6 upgrade-status probe (cached)
 //   fromPath   `/org/site/file/path` -> { org, site, path }
-//   getSourceUrl  document source url on DA or the hlx6 source bus
 //
 // All namespace methods return a raw `Response` (augmented with
 // `resp.permissions`) EXCEPT `source.list`, which merges body + header
@@ -334,7 +333,7 @@ export const source = {
   _saveDA: withArgs(async ({ org, site, path, body }) => {
     const url = await getDaApiPath(SOURCE, org, site, path);
     const formData = new FormData();
-    formData.append('data', new Blob([body], { type: findContentType(path, body) }));
+    formData.append('data', new Blob([body], { type: findContentType(path) }));
     const opts = {
       method: 'POST',
       body: formData,
@@ -357,7 +356,7 @@ export const source = {
       method: 'POST',
       body,
       headers: {
-        'content-type': findContentType(path, body) || 'application/octet-stream',
+        'content-type': findContentType(path) || body?.type || 'application/octet-stream',
       },
     };
     const resp = await daFetch({ url, opts });
@@ -702,11 +701,6 @@ export function fromPath(str) {
   return { org, site, path: parts.length ? `/${parts.join('/')}` : '' };
 }
 
-// Document source url on DA or the hlx6 source bus; collab rooms are named after it.
-export const getSourceUrl = withArgs(
-  ({ org, site, path }) => getDaApiPath(SOURCE, org, site, path),
-);
-
 // Site token exchange for authenticated content access.
 // Uses IIFE pattern for memoized token retrieval.
 export const getAemSiteToken = (() => {
@@ -757,13 +751,12 @@ const TYPE_MAP = {
 };
 
 /**
- * finds the content type by path extension, else the type of a Blob body
+ * finds the content type by path extension
  * @param path
- * @param body
  */
-function findContentType(path, body) {
+function findContentType(path) {
   const ext = Object.keys(TYPE_MAP).find((e) => path.toLowerCase().endsWith(e));
-  return TYPE_MAP[ext] ?? (body?.type || undefined);
+  return TYPE_MAP[ext];
 }
 
 // Rewrite relative `media_` refs (src/href/srcset) to absolute URLs against
