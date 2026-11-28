@@ -101,7 +101,7 @@ const upgraded = await isHlx6('adobe', 'aem-boilerplate');
 
 `isHlx6(org, site)` returns a `Promise<boolean>`. It memoizes per `(org, site)` in module memory and persists positive results in `localStorage` under the key `hlx6-upgrade`. Detection works by pinging `${HLX_ADMIN}/ping/{org}/{site}` and looking for the `x-api-upgrade-available` header.
 
-Returns `false` immediately when `site` is missing.
+Returns `false` without a ping when `site` is missing or `.da` (org-level paths such as `/{org}/.da/...`).
 
 Most callers don't call `isHlx6` directly — they let the namespace methods do the routing.
 

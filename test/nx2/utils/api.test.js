@@ -177,6 +177,13 @@ describe('api.js', () => {
       const pingCalls = calls.filter((c) => c.url.includes(`${HLX_ADMIN}/ping/`));
       expect(pingCalls).to.have.lengthOf(0);
     });
+
+    it('returns false for the reserved .da folder without pinging', async () => {
+      const result = await isHlx6(uniq('org'), '.da').catch(() => undefined);
+      expect(result).to.equal(false);
+      const pingCalls = calls.filter((c) => c.url.includes(`${HLX_ADMIN}/ping/`));
+      expect(pingCalls).to.have.lengthOf(0);
+    });
   });
 
   describe('source', () => {

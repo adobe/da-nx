@@ -692,6 +692,7 @@ export const isHlx6 = (() => {
 
   return (org, site) => {
     if (!site) return false;
+    if (site === '.da') return Promise.resolve(false);
 
     const path = `/${org}/${site}`;
     cache[path] ??= fetchUpgradeStatus(path);
