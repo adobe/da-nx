@@ -60,7 +60,7 @@ describe('getEWFlags', () => {
     expect(await getEWFlags({ org: 'flag-org4', site: 'flag-site4' })).to.deep.equal({});
   });
 
-  it('uses only site flags for hlx6, even when legacy org flags are cached', async () => {
+  it('merges DA org flags with hlx6 site flags, site winning', async () => {
     const org = 'flag-org-hlx6';
     const site = 'site';
     installFetch({
@@ -75,8 +75,25 @@ describe('getEWFlags', () => {
       pingHlx6: true,
       body: JSON.stringify({ config: [], flags: [{ key: 'ew.enabled', value: 'true' }] }),
     });
-    expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.enabled': 'true' });
+    expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.enabled': 'true', 'ew.disableChat': 'true' });
     expect(calls.filter((call) => call.url.startsWith(DA_ADMIN))).to.have.lengthOf(0);
+  });
+
+  it('keeps hlx6 site flags when the DA org config request fails with a network error', async () => {
+    const org = 'flag-org-hlx6-network';
+    const site = 'site';
+    installFetch();
+    window.fetch = async (url) => {
+      const u = url.toString();
+      if (u.includes('/ping/')) {
+        return new Response('', { status: 200, headers: { 'x-api-upgrade-available': 'true' } });
+      }
+      if (u.includes('/sites/')) {
+        return new Response(JSON.stringify({ config: [], flags: [{ key: 'ew.enabled', value: 'true' }] }), { status: 200 });
+      }
+      throw new TypeError('Failed to fetch');
+    };
+    expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.enabled': 'true' });
   });
 });
 

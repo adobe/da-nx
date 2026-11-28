@@ -124,17 +124,27 @@ describe('fetchDaConfigs', () => {
     const site = uniq('site');
     installFetch({ pingHlx6: true, body: JSON.stringify({ flags: [{ key: 'ew.enabled', value: 'true' }] }) });
 
-    const [orgConfig, siteConfig] = await Promise.all(fetchDaConfigs({ org, site }));
+    const [, siteConfig] = await Promise.all(fetchDaConfigs({ org, site }));
 
-    expect(orgConfig).to.equal(null);
-    expect(calls.filter((c) => c.url.startsWith(DA_ADMIN))).to.have.lengthOf(0);
     expect(calls.some((c) => c.url === `${AEM_API}/${org}/sites/${site}/config/editor/da.json`)).to.equal(true);
     expect(siteConfig[':type']).to.equal('sheet');
     expect(siteConfig[':sheetname']).to.equal('flags');
     expect(siteConfig.data).to.deep.equal([{ key: 'ew.enabled', value: 'true' }]);
   });
 
-  it('hlx6: concurrent and repeated callers make one probe and one site-config request', async () => {
+  it('hlx6: org config is still fetched from DA_ADMIN (orgs are not migrated)', async () => {
+    const org = uniq('hlx6-org');
+    const site = uniq('site');
+    installFetch({ pingHlx6: true, body: JSON.stringify({ data: [{ key: 'org' }] }) });
+
+    const [orgConfig] = await Promise.all(fetchDaConfigs({ org, site }));
+
+    expect(orgConfig.data).to.deep.equal([{ key: 'org' }]);
+    expect(calls.filter((c) => c.url === `${DA_ADMIN}/config/${org}/`)).to.have.lengthOf(1);
+    expect(calls.some((c) => c.url.startsWith(`${AEM_API}/${org}/config`))).to.equal(false);
+  });
+
+  it('hlx6: concurrent and repeated callers make one probe, one org and one site request', async () => {
     const org = uniq('hlx6-concurrent');
     const site = uniq('site');
     installFetch({ pingHlx6: true, body: JSON.stringify({ config: [] }) });
@@ -145,38 +155,36 @@ describe('fetchDaConfigs', () => {
     ]);
     expect(await Promise.all(fetchDaConfigs({ org, site }))).to.deep.equal(results[0]);
     expect(results[0]).to.deep.equal(results[1]);
-    expect(calls.map((call) => call.url)).to.deep.equal([
+    expect(calls.map((call) => call.url).sort()).to.deep.equal([
+      `${DA_ADMIN}/config/${org}/`,
       `${HLX_ADMIN}/ping/${org}/${site}`,
       `${AEM_API}/${org}/sites/${site}/config/editor/da.json`,
-    ]);
+    ].sort());
   });
 
-  it('hlx6: does not cache the skipped org config for org-only or legacy callers', async () => {
+  it('hlx6: shares the cached org config with org-only and legacy-site callers', async () => {
     const org = uniq('mixed-backends');
     const site = uniq('hlx6-site');
-    installFetch({ pingHlx6: true, body: JSON.stringify({ config: [] }) });
-    const [skipped] = await Promise.all(fetchDaConfigs({ org, site }));
-    expect(skipped).to.equal(null);
+    installFetch({ pingHlx6: true, body: JSON.stringify({ data: [{ key: 'org' }] }) });
+    const [hlx6Org] = await Promise.all(fetchDaConfigs({ org, site }));
 
     restoreFetch();
-    installFetch({ body: JSON.stringify({ data: [{ key: 'legacy' }] }) });
+    installFetch({ body: JSON.stringify({ data: [{ key: 'other' }] }) });
     const [orgConfig] = await Promise.all(fetchDaConfigs({ org }));
     const [legacyOrg] = await Promise.all(fetchDaConfigs({ org, site: uniq('legacy-site') }));
-    const [hlx6Org] = await Promise.all(fetchDaConfigs({ org, site }));
-    expect(orgConfig.data).to.deep.equal([{ key: 'legacy' }]);
-    expect(legacyOrg).to.equal(orgConfig);
-    expect(hlx6Org).to.equal(null);
-    expect(calls.filter((call) => call.url === `${DA_ADMIN}/config/${org}/`)).to.have.lengthOf(1);
+    expect(hlx6Org.data).to.deep.equal([{ key: 'org' }]);
+    expect(orgConfig).to.equal(hlx6Org);
+    expect(legacyOrg).to.equal(hlx6Org);
+    expect(calls.filter((call) => call.url === `${DA_ADMIN}/config/${org}/`)).to.have.lengthOf(0);
   });
 
-  it('hlx6: reports a failed site config without falling back to legacy config', async () => {
+  it('hlx6: reports a failed site config without falling back to legacy site config', async () => {
     const org = uniq('hlx6-failed');
     const site = uniq('site');
     installFetch({ pingHlx6: true, status: 403 });
-    const [orgConfig, siteConfig] = await Promise.all(fetchDaConfigs({ org, site }));
-    expect(orgConfig).to.equal(null);
+    const [, siteConfig] = await Promise.all(fetchDaConfigs({ org, site }));
     expect(siteConfig).to.deep.equal({ error: `Error loading /${org}/${site}`, status: 403 });
-    expect(calls.filter((call) => call.url.startsWith(DA_ADMIN))).to.have.lengthOf(0);
+    expect(calls.filter((call) => call.url === `${DA_ADMIN}/config/${org}/${site}/`)).to.have.lengthOf(0);
   });
 
   it('hlx6: reads the primary config sheet after multi-sheet conversion', async () => {
@@ -191,21 +199,58 @@ describe('fetchDaConfigs', () => {
     expect(getFirstSheet(siteConfig)).to.deep.equal(rows);
   });
 
-  it('evicts rejected config promises so a later call retries', async () => {
+  it('evicts failed config requests (invalid JSON) so a later call retries', async () => {
     const org = uniq('retry-org');
     installFetch({ body: '{invalid json' });
+    const [failed] = await Promise.all(fetchDaConfigs({ org }));
+    expect(failed).to.deep.equal({ error: `Error loading /${org}`, status: 200 });
+
+    restoreFetch();
+    installFetch({ body: JSON.stringify({ data: [{ key: 'retried' }] }) });
+    const [retried] = await Promise.all(fetchDaConfigs({ org }));
+    expect(getFirstSheet(retried)).to.deep.equal([{ key: 'retried' }]);
+  });
+
+  it('propagates unexpected errors and evicts them so a later call retries', async () => {
+    const org = uniq('unexpected-org');
+    installFetch();
+    window.fetch = async () => {
+      const resp = new Response('{}');
+      resp.json = async () => { throw new Error('boom'); };
+      return resp;
+    };
     let error;
     try {
       await Promise.all(fetchDaConfigs({ org }));
     } catch (e) {
       error = e;
     }
-    expect(error).to.be.instanceOf(SyntaxError);
+    expect(error?.message).to.equal('boom');
 
     restoreFetch();
     installFetch({ body: JSON.stringify({ data: [{ key: 'retried' }] }) });
     const [retried] = await Promise.all(fetchDaConfigs({ org }));
     expect(getFirstSheet(retried)).to.deep.equal([{ key: 'retried' }]);
+  });
+
+  it('hlx6: a network error on the DA org config does not reject or drop the site config', async () => {
+    const org = uniq('hlx6-org-network');
+    const site = uniq('site');
+    installFetch();
+    window.fetch = async (url) => {
+      const u = url.toString();
+      if (u.includes(`${HLX_ADMIN}/ping/`)) {
+        return new Response('', { status: 200, headers: { 'x-api-upgrade-available': 'true' } });
+      }
+      if (u.startsWith(AEM_API)) {
+        return new Response(JSON.stringify({ config: [{ key: 'a', value: 'site' }] }), { status: 200 });
+      }
+      throw new TypeError('Failed to fetch');
+    };
+
+    const [orgConfig, siteConfig] = await Promise.all(fetchDaConfigs({ org, site }));
+    expect(orgConfig).to.deep.equal({ error: `Error loading /${org}`, status: 0 });
+    expect(getFirstSheet(siteConfig)).to.deep.equal([{ key: 'a', value: 'site' }]);
   });
 });
 
@@ -257,15 +302,39 @@ describe('getConfigValue', () => {
     expect(await getConfigValue({ org, site, key: 'a' })).to.equal('org');
   });
 
-  it('does not fall back to a cached legacy org value for an hlx6 site', async () => {
-    const org = uniq('hlx6-no-inheritance');
+  it('falls back to the DA org config for an hlx6 site that does not set the key', async () => {
+    const org = uniq('hlx6-inheritance');
     const site = uniq('site');
-    installFetch({ body: sheet([{ key: 'a', value: 'org' }]) });
-    expect(await getConfigValue({ org, key: 'a' })).to.equal('org');
+    installFetch();
+    window.fetch = async (url) => {
+      const u = url.toString();
+      if (u.includes(`${HLX_ADMIN}/ping/`)) {
+        return new Response('', { status: 200, headers: { 'x-api-upgrade-available': 'true' } });
+      }
+      if (u.startsWith(AEM_API)) {
+        return new Response(JSON.stringify({ config: [] }), { status: 200 });
+      }
+      return new Response(sheet([{ key: 'a', value: 'org' }]), { status: 200 });
+    };
 
-    restoreFetch();
-    installFetch({ pingHlx6: true, body: JSON.stringify({ config: [] }) });
-    expect(await getConfigValue({ org, site, key: 'a' })).to.equal(undefined);
-    expect(calls.filter((call) => call.url.startsWith(DA_ADMIN))).to.have.lengthOf(0);
+    expect(await getConfigValue({ org, site, key: 'a' })).to.equal('org');
+  });
+
+  it('keeps hlx6 site values when the DA org config returns invalid JSON', async () => {
+    const org = uniq('hlx6-org-badjson');
+    const site = uniq('site');
+    installFetch();
+    window.fetch = async (url) => {
+      const u = url.toString();
+      if (u.includes(`${HLX_ADMIN}/ping/`)) {
+        return new Response('', { status: 200, headers: { 'x-api-upgrade-available': 'true' } });
+      }
+      if (u.startsWith(AEM_API)) {
+        return new Response(JSON.stringify({ config: [{ key: 'a', value: 'site' }] }), { status: 200 });
+      }
+      return new Response('{invalid json', { status: 200 });
+    };
+
+    expect(await getConfigValue({ org, site, key: 'a' })).to.equal('site');
   });
 });

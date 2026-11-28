@@ -68,7 +68,7 @@ Skills Lab — external app at da.live/apps/skills, linked from Chat
 
 ## Config loading
 
-`fetchDaConfigs({ org, site })` keeps its `[orgPromise, sitePromise]` shape. Legacy sites inherit org config; hlx6 sites use only their site config at `api.aem.live/{org}/sites/{site}/config/editor/da.json`, with the org promise resolving to `null`. Cached legacy org settings are not inherited by hlx6 sites. Calls without a site still load the legacy org config. Successful and in-flight config requests are reused; failures remain retryable.
+`fetchDaConfigs({ org, site })` keeps its `[orgPromise, sitePromise]` shape. Orgs have no hlx6 migration yet, so the org config is always loaded from DA admin (`admin.da.live/config/{org}/`), for legacy and hlx6 sites alike. Legacy sites load their site config from DA admin; hlx6 sites load only their site config from `api.aem.live/{org}/sites/{site}/config/editor/da.json` (no legacy site-config fallback). Both kinds inherit org config, with site values winning. Successful and in-flight config requests are reused; failures remain retryable.
 
 Sandbox checks skip hlx6 sites. The browse Permissions action checks legacy org-config access or hlx6 site-config access; hlx6 permissions are managed by the site user-admin tool.
 
