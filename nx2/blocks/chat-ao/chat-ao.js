@@ -26,8 +26,7 @@ import {
 import { getConfig } from '../../scripts/nx.js';
 import { CHAT_EVENT, skillsAppHref } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
-import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
-import { renderSelectionPills } from '../shared/chat/selection-pills.js';
+import { renderMessages, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderChatStatus, chatStatusStyle } from '../shared/chat/status/status.js';
 import { showToast } from '../shared/toast/toast.js';
 import '../shared/picker/picker.js';
@@ -244,7 +243,10 @@ export default class NxChatAo extends LitElement {
     }
     this._controller = this._session.controller;
     this._releaseSession = this._session.subscribe(this, {
-      onUpdate: (state) => this._onControllerUpdate(state),
+      onUpdate: (state) => {
+        this._controller = this._session.controller;
+        this._onControllerUpdate(state);
+      },
       onTurnCompleted: (detail) => {
         this.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
           bubbles: true, composed: true, detail,
@@ -338,17 +340,17 @@ export default class NxChatAo extends LitElement {
     if (changed.has('pendingPlanApproval') && this.pendingPlanApproval?.turnId !== changed.get('pendingPlanApproval')?.turnId) {
       this._planFeedback = '';
     }
-    if (changed.has('messages') || changed.has('pendingQuestion')) {
+    if (changed.has('messages') || changed.has('pendingQuestion') || changed.has('pendingPermission')) {
       const log = this.shadowRoot?.querySelector('.chat-scroll-container');
       this._wasNearBottom = !log || (log.scrollHeight - log.scrollTop - log.clientHeight < 50);
     }
   }
 
   updated(changed) {
-    if (changed.has('messages') || changed.has('pendingQuestion')) {
+    if (changed.has('messages') || changed.has('pendingQuestion') || changed.has('pendingPermission')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
+      cancelAnimationFrame(this._scrollRaf);
       if (log && this._wasNearBottom) {
-        cancelAnimationFrame(this._scrollRaf);
         this._scrollRaf = requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
       }
     }
@@ -358,7 +360,7 @@ export default class NxChatAo extends LitElement {
     }
 
     if (changed.has('pendingPermission') && this.pendingPermission && !changed.get('pendingPermission')) {
-      this.shadowRoot.querySelector('.permission-approve-btn')?.focus();
+      this.shadowRoot.querySelector('.permission-approve-btn')?.focus({ preventScroll: true });
     }
   }
 
@@ -482,18 +484,12 @@ export default class NxChatAo extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
           : nothing}
-            ${this.messages?.map((msg) => (msg.role === 'assistant' ? html`
-              <div class="message message-assistant">
-                ${renderAssistantMessageBody(msg, {
+            ${renderMessages({
+            messages: this.messages,
+            thinking: this.thinking || !!this.pendingQuestion
+              || !!this.pendingPlanApproval || !!this.pendingPermission,
             onExpandToolCall: (toolCallId) => this._controller.hydrateToolCall(toolCallId),
           })}
-              </div>
-            ` : html`
-              <div class="message message-user">
-                ${renderSelectionPills(msg)}
-                <div class="message-content">${msg.content}</div>
-              </div>
-            `))}
             ${this.pendingQuestion ? html`
               <div class="message message-assistant">
                 <nx-question-card
@@ -504,20 +500,25 @@ export default class NxChatAo extends LitElement {
                 <div class="chat-waiting">Waiting for your response...</div>
               </div>
             ` : nothing}
+            ${this.pendingPermission ? html`
+              <div class="message message-assistant">
+                ${renderPermissionCard(this.pendingPermission, {
+            onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
+          })}
+                <div class="chat-waiting">Waiting for your approval...</div>
+              </div>
+            ` : nothing}
             ${this.pendingPlanApproval ? renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
             onFeedbackText: (text) => { this._planFeedback = text; },
             onApprove: () => this._controller.respondToPlanApproval('approve'),
             onReject: () => this._controller.respondToPlanApproval('reject', this._planFeedback?.trim() ?? ''),
           }) : nothing}
-            ${this.thinking && !this.pendingQuestion && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
+            ${this.thinking && !this.pendingQuestion && !this.pendingPermission && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
           ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
           `)}
         </div>
       </div>
       <div class="chat-form-wrap">
-        ${renderPermissionCard(this.pendingPermission, {
-            onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
-          })}
         <nx-ao-input
           .disabled=${!!this.access}
           .blocked=${this._blocked}

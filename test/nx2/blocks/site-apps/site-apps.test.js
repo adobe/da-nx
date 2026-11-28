@@ -25,20 +25,24 @@ const cards = (el) => [...el.querySelectorAll(':scope > nx-action-card')];
 
 // Element presence is asserted as booleans (`!!el`): the test reporter crashes printing DOM nodes.
 const original = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+const originalTitle = document.title;
 const setHash = (hash) => window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
 const local = (path) => new URL(path, window.location.href).href;
 
 afterEach(() => {
   document.body.innerHTML = '';
   window.history.replaceState(null, '', original);
+  document.title = originalTitle;
 });
 
 describe('site-apps init', () => {
-  it('removes its section without a site hash', async () => {
+  it('removes its section without a site hash and preserves the content-authored title', async () => {
     setHash('');
+    document.title = 'Content-authored tools title';
     const { main, el } = build();
     await init(el);
     expect(!!main.querySelector('.section')).to.be.false;
+    expect(document.title).to.equal('Content-authored tools title');
   });
 });
 

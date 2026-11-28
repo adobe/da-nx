@@ -1,8 +1,10 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { setConfig, getConfig } from '../../../../nx2/scripts/nx.js';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
 
 await setConfig({ hostnames: [] });
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, await loadStyle('/nx2/styles/styles.css')];
 const { default: init } = await import('../../../../nx2/blocks/cards/cards.js');
 
 const { codeBase } = getConfig();
@@ -14,16 +16,19 @@ const local = (path) => new URL(path, window.location.href).href;
 
 const row = ({
   icon = 'icon-calendar',
+  iconContent = `<span class="icon ${icon}"></span>`,
   em = '',
   title = '<a href="/apps/traverse">Traverse</a>',
   desc = 'Get a birds eye view.',
+  label = '',
   learnMore = '<ul><li><a href="https://www.adobe.com/learn">Learn more</a></li></ul>',
 } = {}) => `
   <div>
-    <div><span class="icon ${icon}"></span>${em}</div>
+    <div>${iconContent}${em}</div>
     <div>
       <h3>${title}</h3>
       <p>${desc}</p>
+      ${label}
       ${learnMore}
     </div>
   </div>`;
@@ -81,6 +86,33 @@ describe('cards block', () => {
     const el = await buildBlock(row(), {
       prepare: (block) => { block.querySelector('span.icon').className = 'icon icon-s2"><img'; },
     });
+
+    expect(!!cards(el)[0].querySelector('[slot="icon"]')).to.be.false;
+  });
+
+  [
+    'https://da.live/img/adobe-logo.svg',
+    '/img/my-tool.svg',
+  ].forEach((href) => {
+    it(`uses the authored icon link as an image: ${href}`, async () => {
+      const iconContent = `<p><a href="${href}">Icon</a></p>`;
+      const el = await buildBlock(row({ iconContent, em: '<p><em>#F4EBFC</em></p>' }));
+      const [card] = cards(el);
+      const img = card.querySelector('img[slot="icon"]');
+      expect(img.src).to.equal(local(href));
+      expect(img.alt).to.equal('');
+      expect(img.loading).to.equal('lazy');
+      expect(card.tint).to.equal('#F4EBFC');
+    });
+  });
+
+  it('does not interpret plain text as an icon', async () => {
+    const el = await buildBlock(row({ iconContent: '<p>img/icons/my-tool.svg</p>' }));
+    expect(!!cards(el)[0].querySelector('[slot="icon"]')).to.be.false;
+  });
+
+  it('does not render an icon when only a tint is authored', async () => {
+    const el = await buildBlock(row({ iconContent: '', em: '<p><em>#F4EBFC</em></p>' }));
     expect(!!cards(el)[0].querySelector('[slot="icon"]')).to.be.false;
   });
 
@@ -102,6 +134,29 @@ describe('cards block', () => {
     expect(cards(el)[0].menu).to.deep.equal([]);
   });
 
+  it('uses a standalone bold paragraph as the button label without changing its link or menu', async () => {
+    const el = await buildBlock(row({ label: '<p><strong>Use Modernization Agent</strong></p>' }));
+    const [card] = cards(el);
+    await card.updateComplete;
+    expect(card.actionLabel).to.equal('Use Modernization Agent');
+    expect(card.action).to.equal(local('/apps/traverse'));
+    expect(card.description).to.equal('Get a birds eye view.');
+    expect(card.menu).to.deep.equal([{ id: 'learn-more', label: 'Learn more' }]);
+    expect(card.shadowRoot.querySelector('.action').textContent.trim()).to.equal('Use Modernization Agent');
+  });
+
+  it('keeps inline bold text in the description and falls back to Open', async () => {
+    const el = await buildBlock(row({ desc: 'A <strong>bold</strong> description.' }));
+    const [card] = cards(el);
+    expect(card.description).to.equal('A bold description.');
+    expect(card.actionLabel).to.equal('Open');
+  });
+
+  it('falls back to Open for an empty bold label', async () => {
+    const el = await buildBlock(row({ label: '<p><strong> </strong></p>' }));
+    expect(cards(el)[0].actionLabel).to.equal('Open');
+  });
+
   it('puts the by adobe byline into the extra slot for the tools variant', async () => {
     const el = await buildBlock(row());
     const extra = cards(el)[0].querySelector('[slot="extra"]');
@@ -113,6 +168,42 @@ describe('cards block', () => {
   it('has no extra content without the tools variant', async () => {
     const el = await buildBlock(row(), { variant: '' });
     expect(!!cards(el)[0].querySelector('[slot="extra"]')).to.be.false;
+  });
+
+  it('uses white bordered tiles only for the bordered variant', async () => {
+    const plain = await buildBlock(row());
+    const bordered = await buildBlock(row({
+      iconContent: '<p><a href="https://da.live/img/adobe-logo.svg">Adobe</a></p>',
+    }), { variant: 'bordered' });
+    const tools = await buildBlock(row(), { variant: 'tools bordered' });
+    const start = await buildBlock(row(), { variant: 'start' });
+    expect(cards(plain)[0].bordered).to.be.false;
+    expect(cards(plain)[0].tint).to.equal(undefined);
+    expect(cards(start)[0].bordered).to.be.false;
+    expect(cards(start)[0].tint).to.equal(undefined);
+    const [card] = cards(bordered);
+    await card.updateComplete;
+    expect(card.bordered).to.be.true;
+    expect(card.tint).to.equal('#fff');
+    const tile = card.shadowRoot.querySelector('.tile');
+    expect(getComputedStyle(tile).backgroundColor).to.equal('rgb(255, 255, 255)');
+    expect(getComputedStyle(tile).outlineStyle).to.equal('solid');
+    expect(getComputedStyle(card.querySelector('[slot="icon"]')).width).to.equal('32px');
+    expect(cards(tools)[0].bordered).to.be.true;
+    expect(!!cards(tools)[0].querySelector('[slot="extra"]')).to.be.true;
+  });
+
+  it('preserves explicit tints in the bordered variant', async () => {
+    const el = await buildBlock(row({ em: '<em>#F4EBFC</em>' }), { variant: 'bordered' });
+    expect(cards(el)[0].tint).to.equal('#F4EBFC');
+  });
+
+  it('does not add an empty white tile to a bordered card without an icon', async () => {
+    const el = await buildBlock(row({ iconContent: '' }), { variant: 'bordered' });
+    const [card] = cards(el);
+    await card.updateComplete;
+    expect(card.tint).to.equal(undefined);
+    expect(card.shadowRoot.querySelector('.tile').hidden).to.be.true;
   });
 
   it('hides cards that do not match the search', async () => {

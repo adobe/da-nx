@@ -21,30 +21,50 @@ export function normalizeItem({ row, origin }) {
   if (!title || (!docHref && !tryHref)) return null;
 
   const description = (row.Description ?? '').trim();
-  const owner = (row.Owner ?? '').trim();
-  const type = (row.Type ?? '').trim();
   const category = (row.Category ?? '').trim();
-  const imageHref = toSafeHref({ value: row.Image, origin });
+  const iconHref = toSafeHref({ value: row.Logo, origin });
 
   return {
-    title, description, docHref, tryHref, owner, type, category, imageHref,
+    title, description, docHref, tryHref, category, iconHref,
   };
 }
 
-export function getCategories(el) {
-  return [...el.classList].slice(1).map((cls) => cls.toLowerCase());
+const ALL_FILTER = { value: 'all', label: 'All Types' };
+
+export function getCategoryFilters(items = []) {
+  const categories = items.reduce((acc, { category }) => {
+    const value = category?.toLowerCase();
+    if (value && value !== ALL_FILTER.value && !acc.has(value)) acc.set(value, category);
+    return acc;
+  }, new Map());
+  return [ALL_FILTER, ...[...categories].map(([value, label]) => ({ value, label }))];
 }
 
-export function filterByCategories({ items, categories = [] }) {
-  if (!categories.length) return items;
-  return items.filter(({ category }) => categories.includes(category?.toLowerCase()));
+export function filterByCategory({ items, filter = ALL_FILTER.value }) {
+  if (filter === ALL_FILTER.value) return items;
+  return items.filter(({ category }) => category?.toLowerCase() === filter);
 }
 
-export function isAdobeOwned({ owner }) {
-  return owner?.toLowerCase() === 'adobe';
+export function searchItems({ items, query }) {
+  const needle = (query ?? '').trim().toLowerCase();
+  if (!needle) return items;
+  return items.filter(({ title = '', description = '' }) => (
+    title.toLowerCase().includes(needle) || description.toLowerCase().includes(needle)));
 }
 
-export async function fetchMarketplace({ origin }) {
+export function getVisibleItems({ items, filter, query }) {
+  return searchItems({ items: filterByCategory({ items, filter }), query });
+}
+
+// List rows: View details last (rightmost). Grid cards: View details first.
+export function getActions({ docHref, tryHref, view = 'list' }) {
+  const details = docHref && { id: 'details', label: 'View details', href: docHref };
+  const tryOut = tryHref && { id: 'try', label: 'Try out', href: tryHref };
+  const ordered = view === 'grid' ? [details, tryOut] : [tryOut, details];
+  return ordered.filter(Boolean);
+}
+
+async function loadMarketplace({ origin }) {
   try {
     const resp = await fetch(new URL(MARKETPLACE_PATH, origin));
     if (!resp.ok) return { error: 'Could not load marketplace.', status: resp.status };
@@ -59,3 +79,26 @@ export async function fetchMarketplace({ origin }) {
     return { error: 'Could not load marketplace.' };
   }
 }
+
+// Shares one request per origin; failed results are evicted so a later call retries.
+const marketplaceCache = (() => {
+  const requests = new Map();
+  return {
+    fetch({ origin }) {
+      if (!requests.has(origin)) {
+        const request = loadMarketplace({ origin }).then((result) => {
+          if (result.error) requests.delete(origin);
+          return result;
+        });
+        requests.set(origin, request);
+      }
+      return requests.get(origin);
+    },
+    reset: () => requests.clear(),
+  };
+})();
+
+export const fetchMarketplace = marketplaceCache.fetch;
+
+// Test-only: clears the shared per-origin request cache.
+export const resetMarketplaceCache = marketplaceCache.reset;

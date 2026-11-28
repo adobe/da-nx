@@ -57,6 +57,7 @@ class SchemaEditor extends LitElement {
 
   updated(props) {
     if (!(props.has('_currentSchema') || props.has('_createNew'))) return;
+    if (!this.codeEditor) return;
 
     const entry = this._schemas?.[this._currentSchema];
 
@@ -112,7 +113,16 @@ class SchemaEditor extends LitElement {
       return;
     }
 
-    const schemas = await loadSchemas(this._org, this._site);
+    const schemas = await loadSchemas(this._org, this._site).catch(() => undefined);
+    if (!schemas) {
+      this._editor?.destroy();
+      this._editor = undefined;
+      this._schemas = undefined;
+      this._createNew = undefined;
+      this._currentSchema = undefined;
+      this._alert = { type: 'warning', message: 'Could not load schemas. Reload the page to try again.' };
+      return;
+    }
 
     // We at least have an org, but the schemas are empty
     if (!Object.keys(schemas).length) {
@@ -194,14 +204,15 @@ class SchemaEditor extends LitElement {
     }
 
     const prefix = this.getPrefix();
-    const result = await saveSchema(prefix, id, content);
+    const result = await saveSchema(prefix, id, content, { create: !!this._createNew });
     if (result.error) {
       this.newInput.error = result.error;
       return;
     }
     this._schemas[id] = { status: 'loaded', schema: parsed };
-    if (!isUpdate) {
+    if (this._createNew) {
       this._createNew = undefined;
+      this._currentSchema = id;
     }
     this._schemaErrors = undefined;
     this._alert = { type: 'success', message: 'Schema saved.' };
@@ -248,7 +259,7 @@ class SchemaEditor extends LitElement {
     return html`
       <sl-input type="text" name="new-schema" placeholder="new-schema-name" @input=${this.handleNewInput}></sl-input>
       <sl-button class="primary outline" @click=${this.setDefault}>Cancel</sl-button>
-      <sl-button @click=${this.handleSave}>Save schema</sl-button>
+      <sl-button @click=${() => this.handleSave(false)}>Save schema</sl-button>
     `;
   }
 

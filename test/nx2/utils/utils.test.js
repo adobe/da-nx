@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
-import { sheet2object, object2sheet, getFirstSheet } from '../../../nx2/utils/utils.js';
+import {
+  sheet2object, object2sheet, getFirstSheet, setPageTitle,
+} from '../../../nx2/utils/utils.js';
 
 describe('sheet2object', () => {
   it('converts a single-sheet doc to a simple object', () => {
@@ -97,5 +99,21 @@ describe('getFirstSheet', () => {
   it('returns undefined for null or empty input', () => {
     expect(getFirstSheet(null)).to.equal(undefined);
     expect(getFirstSheet({})).to.equal(undefined);
+  });
+});
+
+describe('setPageTitle', () => {
+  let title;
+  beforeEach(() => { title = document.title; });
+  afterEach(() => { document.title = title; });
+
+  it('appends the product name to the page name', () => {
+    setPageTitle('Translate project');
+    expect(document.title).to.equal('Translate project | Experience Workspace');
+  });
+
+  it('uses only the product name without a page name', () => {
+    setPageTitle();
+    expect(document.title).to.equal('Experience Workspace');
   });
 });
