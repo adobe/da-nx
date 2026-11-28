@@ -1,6 +1,8 @@
 import { daFetch } from '../core/ims-adapter.js';
-import { DA_ADMIN, HLX_ADMIN } from '../../../utils/utils.js';
+import { HLX_ADMIN } from '../../../utils/utils.js';
 import { etcFetch } from '../core/urls.js';
+import { fetchSource, saveSource, listSource } from '../core/source.js';
+import { createRateLimiter } from '../core/rate-limit.js';
 import {
   IndexFiles,
   ExternalMedia,
@@ -14,30 +16,6 @@ const AEM_PAGE_MARKDOWN_RATE = 180; /* keep some headroom under the 200 RPS host
 const AEM_SITE_AUTH_DENIED = new Set([401, 403]);
 
 const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
-
-function createRateLimiter(initialRate) {
-  let intervalMs = Math.ceil(1000 / initialRate);
-  let queue = Promise.resolve();
-
-  return {
-    async acquire() {
-      const gate = queue;
-      queue = queue.then(() => delay(intervalMs));
-      return gate;
-    },
-    handleResponse(res) {
-      const rate = parseFloat(res.headers.get('x-ratelimit-rate'));
-      if (rate > 0) intervalMs = Math.ceil(1000 / rate);
-    },
-    backoff(seconds) {
-      queue = queue.then(() => delay(seconds * 1000));
-    },
-    reset() {
-      queue = Promise.resolve();
-      intervalMs = Math.ceil(1000 / initialRate);
-    },
-  };
-}
 
 const aemPageMarkdownLimiter = createRateLimiter(AEM_PAGE_MARKDOWN_RATE);
 
@@ -176,7 +154,7 @@ export async function fetchPaginated(
 
 export async function loadSheet(path) {
   try {
-    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
+    const resp = await fetchSource(path);
 
     if (resp.ok) {
       const data = await resp.json();
@@ -192,7 +170,7 @@ export async function loadMultiSheet(path, sheetName, options = {}) {
   const { allowMissing = false } = options;
 
   try {
-    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
+    const resp = await fetchSource(path);
 
     if (resp.ok) {
       const data = await resp.json();
@@ -296,16 +274,13 @@ export async function loadIndexChunks(basePath, chunkCount, sheetName, onProgres
 }
 
 export async function saveSheet(data, path) {
-  const formData = await createSheet(data);
-  return daFetch(`${DA_ADMIN}/source${path}`, {
-    method: 'PUT',
-    body: formData,
-  });
+  const json = await createSheet(data);
+  return saveSource({ path, json, method: 'PUT' });
 }
 
 export async function loadSheetMeta(path) {
   try {
-    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
+    const resp = await fetchSource(path);
     if (resp.ok) {
       const data = await resp.json();
       const metaData = data.data || data || null;
@@ -322,11 +297,7 @@ export async function loadSheetMeta(path) {
 
 export async function saveSheetMeta(meta, path) {
   const metaArray = Array.isArray(meta) ? meta : [meta];
-  const formData = await createSheet(metaArray);
-  return daFetch(`${DA_ADMIN}/source${path}`, {
-    method: 'PUT',
-    body: formData,
-  });
+  return saveSheet(metaArray, path);
 }
 
 export async function fetchAuditLog(org, repo, ref = 'main', since = null, limit = 1000) {
@@ -890,7 +861,7 @@ export async function fetchPageMarkdown(pagePath, org, repo, ref = 'main') {
   }
 }
 
-// Lists folder contents via DA List API.
+// Lists folder contents via the DA List API or the Helix 6 source bus.
 export async function listFolder(path, org, repo) {
   // Strip org/repo prefix if present (path might be /org/repo/subfolder or just /subfolder)
   const prefix = `/${org}/${repo}`;
@@ -904,13 +875,8 @@ export async function listFolder(path, org, repo) {
   const normalizedPath = contentPath.replace(/^\//, '') || '';
   const listPath = normalizedPath ? `/${normalizedPath}` : '';
 
-  const url = `${DA_ADMIN}/list/${org}/${repo}${listPath}`;
-  const resp = await daFetch(url);
-  if (!resp.ok) {
-    return [];
-  }
-  const data = await resp.json();
-  return Array.isArray(data) ? data : (data.sources || []);
+  const { items } = await listSource(`/${org}/${repo}${listPath}`);
+  return items;
 }
 
 const MEDIA_EXTS = new Set([
@@ -1034,7 +1000,7 @@ export async function checkIndex(folderPath, org, repo) {
 // Loads index meta JSON (lastFetchTime, etc.) from DA.
 export async function loadIndexMeta(path) {
   try {
-    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
+    const resp = await fetchSource(path);
     if (resp.ok) {
       const data = await resp.json();
       return data.data?.[0] || data;
@@ -1049,11 +1015,8 @@ export async function loadIndexMeta(path) {
 
 // Saves index meta to DA source path.
 export async function saveIndexMeta(meta, path) {
-  const formData = await createSheet([meta]);
-  return daFetch(`${DA_ADMIN}/source${path}`, {
-    method: 'POST',
-    body: formData,
-  });
+  const json = await createSheet([meta]);
+  return saveSource({ path, json, method: 'POST' });
 }
 
 function isProtectedSiteAssetUrl(url, org, repo, ref = 'main') {
