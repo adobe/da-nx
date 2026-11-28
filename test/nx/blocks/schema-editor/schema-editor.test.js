@@ -47,6 +47,11 @@ async function mount(routes, { pingFails } = {}) {
 const button = (label) => [...el.shadowRoot.querySelectorAll('sl-button')]
   .find((btn) => btn.textContent.trim() === label);
 
+const schemaRoutes = (path) => ({
+  [`GET ${DA_ADMIN}/list${path}`]: () => new Response(JSON.stringify([{ name: 'faqs', ext: 'html', path: `${path}/faqs.html` }]), { status: 200 }),
+  [`GET ${DA_ADMIN}/source${path}/faqs.html`]: () => new Response(schemaHtml(JSON.stringify(SCHEMA)), { status: 200 }),
+});
+
 describe('schema editor', () => {
   afterEach(() => {
     el?.remove();
@@ -64,11 +69,7 @@ describe('schema editor', () => {
   });
 
   it('shows a working editor again when a later load succeeds', async () => {
-    const routes = (path) => ({
-      [`GET ${DA_ADMIN}/list${path}`]: () => new Response(JSON.stringify([{ name: 'faqs', ext: 'html', path: `${path}/faqs.html` }]), { status: 200 }),
-      [`GET ${DA_ADMIN}/source${path}/faqs.html`]: () => new Response(schemaHtml(JSON.stringify(SCHEMA)), { status: 200 }),
-    });
-    await mount(routes);
+    await mount(schemaRoutes);
     const { _org: org, _site: site } = el;
 
     const workingFetch = window.fetch;
@@ -82,6 +83,32 @@ describe('schema editor', () => {
 
     expect(el.codeEditor.querySelector('.cm-editor')).to.exist;
     expect(el._editor.state.doc.toString()).to.equal(JSON.stringify(SCHEMA, null, 2));
+  });
+
+  it('shows a failed save as an alert', async () => {
+    await mount((path) => ({
+      ...schemaRoutes(path),
+      [`POST ${DA_ADMIN}/source${path}/faqs.html`]: () => new Response('', { status: 500 }),
+    }));
+
+    button('Save schema').click();
+    await waitFor(() => el._alert.message === 'Error saving. Status: 500');
+
+    expect(el._alert.type).to.equal('warning');
+    expect(el._currentSchema).to.equal('faqs');
+  });
+
+  it('shows a failed delete as an alert and keeps the schema', async () => {
+    await mount((path) => ({
+      ...schemaRoutes(path),
+      [`DELETE ${DA_ADMIN}/source${path}/faqs.html`]: () => new Response('', { status: 500 }),
+    }));
+
+    button('Delete schema').click();
+    await waitFor(() => el._alert.message === 'Error deleting. Status: 500');
+
+    expect(el._alert.type).to.equal('warning');
+    expect(el._schemas.faqs.schema).to.deep.equal(SCHEMA);
   });
 
   it('selects a new schema once it is saved', async () => {

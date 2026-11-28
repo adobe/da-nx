@@ -147,6 +147,14 @@ class SchemaEditor extends LitElement {
     return this._site ? `${prefix}/${this._site}` : prefix;
   }
 
+  showError(message) {
+    if (this.newInput) {
+      this.newInput.error = message;
+      return;
+    }
+    this._alert = { type: 'warning', message };
+  }
+
   handleSchemaChange({ target }) {
     if (target.value === 'nx-new-schema') {
       this._createNew = true;
@@ -164,7 +172,7 @@ class SchemaEditor extends LitElement {
     const prefix = this.getPrefix();
     const result = await deleteSchema(prefix, id);
     if (result.error) {
-      this.newInput.error = result.error;
+      this.showError(result.error);
       return;
     }
     delete this._schemas[id];
@@ -206,7 +214,7 @@ class SchemaEditor extends LitElement {
     const prefix = this.getPrefix();
     const result = await saveSchema(prefix, id, content, { create: !!this._createNew });
     if (result.error) {
-      this.newInput.error = result.error;
+      this.showError(result.error);
       return;
     }
     this._schemas[id] = { status: 'loaded', schema: parsed };
