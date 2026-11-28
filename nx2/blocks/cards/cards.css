@@ -1,7 +1,7 @@
 /* Card grid. Each card is a shared <nx-action-card> (nx2/blocks/shared/action-card). */
 .nx-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: var(--s2-spacing-300);
   margin: 0;
   padding: 0;

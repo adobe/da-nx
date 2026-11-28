@@ -69,6 +69,15 @@ describe('cards block', () => {
     expect(el.querySelectorAll(':scope > div').length).to.equal(0);
   });
 
+  it('fits cards within a container narrower than the preferred card width', async () => {
+    const el = await buildBlock(row() + row(), {
+      prepare: (block) => { block.style.width = '240px'; },
+    });
+    await Promise.all(cards(el).map((card) => card.updateComplete));
+
+    expect(el.scrollWidth).to.be.at.most(el.clientWidth);
+  });
+
   it('maps the row to card properties', async () => {
     const el = await buildBlock(row({ icon: 'icon-Tree-View', em: '<em>#F4EBFC</em>' }));
     const [card] = cards(el);
