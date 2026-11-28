@@ -34,7 +34,7 @@
     padding: var(--s2-spacing-75) var(--s2-spacing-100);
     background-color: var(--nx-pill-background, var(--s2-blue-200));
     border-radius: var(--s2-corner-radius-400);
-    max-width: 200px;
+    max-width: var(--nx-pill-max-width, 200px);
     min-width: 0;
     box-sizing: border-box;
     justify-content: center;
@@ -122,7 +122,7 @@
     gap: var(--s2-spacing-100);
     padding: var(--s2-spacing-100) var(--s2-spacing-200);
     border-radius: var(--s2-corner-radius-500);
-    max-width: 240px;
+    max-width: var(--nx-pill-max-width, 240px);
   }
 
   .pill-label {

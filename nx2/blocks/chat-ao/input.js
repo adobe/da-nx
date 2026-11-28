@@ -308,7 +308,7 @@ export default class NxAoInput extends LitElement {
 
   _getSlashItems(filter) {
     const skills = this._standalone
-      ? this._session?.controller.getSkills() : this.getSkills?.();
+      ? this._session?.controller?.getSkills() : this.getSkills?.();
     return toSlashMenuItems({ skills: skills ?? [], filter });
   }
 
@@ -344,12 +344,12 @@ export default class NxAoInput extends LitElement {
   _handleInput(e) {
     if (this._disabled) return;
     this._slashMenu.onInput(e);
-    if (this._standalone) this._session?.controller.warmSession();
+    if (this._standalone) this._session?.controller?.warmSession();
     else this.onInput?.();
   }
 
   _stop() {
-    if (this._standalone) this._session?.controller.stop();
+    if (this._standalone) this._session?.controller?.stop();
     else this.onStop?.();
     this.focusInput();
   }

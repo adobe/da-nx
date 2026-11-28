@@ -47,6 +47,24 @@ describe('GLaaS multimodal save', () => {
   });
 
   describe('DA source save path', () => {
+    [
+      { name: 'unsuccessful response', stub: (save) => save.resolves(new Response('', { status: 403 })) },
+      { name: 'network failure', stub: (save) => save.rejects(new Error('Network error')) },
+    ].forEach(({ name, stub }) => {
+      it(`uses Experience Workspace in the translated-image save error on ${name}`, async () => {
+        stub(sinon.stub(daSource, 'save'));
+        const result = await saveTranslatedImageToDaSource({
+          org: 'org',
+          site: 'site',
+          langCode: 'de',
+          glaasName: '/hero.png',
+          blob: new Blob(['x'], { type: 'image/png' }),
+        });
+
+        expect(result.error).to.equal('Error saving translated image to Experience Workspace.');
+      });
+    });
+
     it('saveTranslatedImageToDaSource saves to /source/{org}/{site}/translated-images/{lang}{site-relative path}', async () => {
       const fetchStub = sinon.stub(window, 'fetch').resolves(new Response('', { status: 200 }));
       const blob = new Blob(['x'], { type: 'image/png' });

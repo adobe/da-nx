@@ -23,6 +23,7 @@ support.
 | Attribute | Default | Description |
 | --- | --- | --- |
 | `for` | Required | Trigger element's ID. |
+| `anchor` | Trigger | Optional element's ID to position against, such as an icon inside a wider control. Must be in the same document or shadow root. |
 | `placement` | `top` | Preferred side: `top`, `bottom`, `left`, or `right`. Flips when necessary. |
 
 ## Content

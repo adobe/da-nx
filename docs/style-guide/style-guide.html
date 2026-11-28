@@ -341,12 +341,19 @@ menu.items = [
           <button type="button" class="nx-action-btn" id="demo-tooltip-long">Longer description</button>
           <nx-tooltip for="demo-tooltip-long">Save a draft without publishing. You can continue editing
             later.</nx-tooltip>
+          <button type="button" class="nx-action-btn" id="demo-tooltip-wide" aria-label="Help" style="width:160px">
+            <span id="demo-tooltip-icon" style="display:inline-block;width:32px">?</span>
+          </button>
+          <nx-tooltip for="demo-tooltip-wide" anchor="demo-tooltip-icon" placement="right">Help</nx-tooltip>
         </div>
         <pre><code>&lt;button id="save" type="button"&gt;Save&lt;/button&gt;
 &lt;nx-tooltip for="save"&gt;Save your changes&lt;/nx-tooltip&gt;
 
 &lt;button id="save-bottom" type="button"&gt;Save&lt;/button&gt;
 &lt;nx-tooltip for="save-bottom" placement="bottom"&gt;Save your changes&lt;/nx-tooltip&gt;
+
+&lt;button id="help" aria-label="Help"&gt;&lt;span id="help-icon"&gt;?&lt;/span&gt;&lt;/button&gt;
+&lt;nx-tooltip for="help" anchor="help-icon" placement="right"&gt;Help&lt;/nx-tooltip&gt;
 </code></pre>
       </article>
 
@@ -770,7 +777,7 @@ card.focus({ preventScroll: true });</code></pre>
               <span slot="extra">By Adobe</span>
             </nx-action-card>
             <nx-action-card heading="Bulk Helper"
-              description="Image without tint fills the tile; custom action label, opens in a new tab." action="#bulk"
+              description="White 56px bordered tile with a contained 32px icon; opens in a new tab." tint="#fff" bordered action="#bulk"
               action-label="Launch" action-target="_blank">
               <img slot="icon" src="./icons/selected.svg" alt="">
               <span slot="extra">By Admin</span>
@@ -792,8 +799,8 @@ card.focus({ preventScroll: true });</code></pre>
   &lt;span slot="extra"&gt;By Adobe&lt;/span&gt;
 &lt;/nx-action-card&gt;
 
-&lt;!-- Any image format via &lt;img slot="icon"&gt; --&gt;
-&lt;nx-action-card heading="Bulk Helper" action="/tools/bulk"&gt;
+&lt;!-- White 56px bordered tile with a contained 32px icon. --&gt;
+&lt;nx-action-card heading="Bulk Helper" action="/tools/bulk" tint="#fff" bordered&gt;
   &lt;img slot="icon" src="/media/app.jpeg" alt=""&gt;
 &lt;/nx-action-card&gt;
 
