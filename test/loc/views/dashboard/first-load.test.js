@@ -18,9 +18,10 @@ describe('dashboard first load', () => {
     expect(ctx._error).to.be.undefined;
   });
 
-  it('loads again when a filter change cancels the first load', async () => {
+  it('lets the first load finish when a filter changes during it', async () => {
     const applied = [];
     let loads = 0;
+    let finishLoad;
     const ctx = {
       abortCurrentAndGetNewController: Dashboard.prototype.abortCurrentAndGetNewController,
       ensureInitialized: Dashboard.prototype.ensureInitialized,
@@ -31,23 +32,25 @@ describe('dashboard first load', () => {
         loads += 1;
         this.abortCurrentAndGetNewController();
         const { signal } = this._dataAbortController;
-        if (loads === 1) {
-          return new Promise((resolve, reject) => {
-            signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
-          });
-        }
-        this._projectData = {
-          applyFilters: async (filters, filterSignal) => {
-            applied.push({ filters, aborted: filterSignal.aborted });
-          },
-        };
-        return Promise.resolve();
+        return new Promise((resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+          finishLoad = () => {
+            this._projectData = {
+              applyFilters: async (filters, filterSignal) => {
+                applied.push({ filters, aborted: filterSignal.aborted });
+              },
+            };
+            resolve();
+          };
+        });
       },
     };
     const firstLoad = Dashboard.prototype.ensureInitialized.call(ctx).catch((e) => e.name);
-    await Dashboard.prototype.handleFilterChange.call(ctx, { status: 'done' });
-    expect(await firstLoad).to.equal('AbortError');
-    expect(loads).to.equal(2);
+    const filterChange = Dashboard.prototype.handleFilterChange.call(ctx, { status: 'done' });
+    finishLoad();
+    expect(await firstLoad).to.be.undefined;
+    await filterChange;
+    expect(loads).to.equal(1);
     expect(applied).to.deep.equal([{ filters: { status: 'done' }, aborted: false }]);
     expect(ctx.errorText).to.be.undefined;
   });

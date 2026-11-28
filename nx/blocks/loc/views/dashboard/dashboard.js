@@ -147,7 +147,7 @@ class NxLocDashboard extends LitElement {
       this._initPromise = this.initializeProjectsAndUser().catch((error) => {
         this._initPromise = undefined;
         this._isLoading = false;
-        if (error.name !== 'AbortError') this._error = { message: error.message };
+        this._error = { message: error.message };
         throw error;
       });
     }
@@ -155,13 +155,9 @@ class NxLocDashboard extends LitElement {
   }
 
   async handleFilterChange(filters) {
-    this.abortCurrentAndGetNewController();
-
     try {
-      await this.ensureInitialized().catch((error) => {
-        if (error.name !== 'AbortError') throw error;
-        return this.ensureInitialized();
-      });
+      await this.ensureInitialized();
+      this.abortCurrentAndGetNewController();
       this._isLoading = true;
       await this._projectData.applyFilters(filters, this._dataAbortController.signal);
       this.updateShowRangeToFirstPage();
