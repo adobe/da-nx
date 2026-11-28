@@ -1,5 +1,8 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { loadIms as loadApiIms } from '../../../../nx2/utils/api.js';
+import { AEM_API, HLX_ADMIN } from '../../../../nx2/utils/utils.js';
+import { checkSite } from './source.js';
 import { isRenderedBlock } from './rerender-scope.js';
 
 const DA_LIVE_PREVIEW_ENVS = {
@@ -31,6 +34,26 @@ function getLivePreviewUrl(owner, repo) {
   const domain = getLivePreviewDomain();
   const protocol = domain.startsWith('localhost') ? 'http' : 'https';
   return `${protocol}://main--${repo}--${owner}.${domain}`;
+}
+
+// prose2aem resolves ./media_ refs against the portal (sources, linked images); keep them relative.
+export function keepMediaBusImagesRelative(html) {
+  const base = new URL('./', document.baseURI).href;
+  if (!html.includes('src="./media_') && !html.includes(`${base}media_`)) return html;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('picture').forEach((picture) => {
+    const src = picture.querySelector('img')?.getAttribute('src');
+    if (!src?.startsWith('./media_')) return;
+    picture.querySelectorAll('source').forEach((source) => source.setAttribute('srcset', src));
+  });
+  doc.querySelectorAll('a[data-edit-as="image"]').forEach((link) => {
+    const href = link.getAttribute('href');
+    if (!href?.startsWith(`${base}media_`)) return;
+    const ref = `./${href.slice(base.length)}`;
+    if (link.textContent === href) link.textContent = ref;
+    link.setAttribute('href', ref);
+  });
+  return doc.documentElement.outerHTML;
 }
 
 export async function getImageCookie(owner, repo) {
@@ -221,39 +244,6 @@ export function generateColor(name, hRange = [0, 360], sRange = [60, 80], lRange
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
-export async function checkPermissions(sourceUrl) {
-  const token = await getToken();
-  const resp = await fetch(sourceUrl, {
-    method: 'HEAD',
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  // If child actions header is present, use it.
-  // This is a hint as to what can be done with the children.
-  if (resp.headers?.get('x-da-child-actions')) {
-    resp.permissions = resp.headers
-      .get('x-da-child-actions')
-      .split('=')
-      .pop()
-      .split(',');
-    return resp;
-  }
-
-  // Use the self actions hint if child actions are not present.
-  if (resp.headers?.get('x-da-actions')) {
-    resp.permissions = resp.headers
-      ?.get('x-da-actions')
-      ?.split('=')
-      .pop()
-      .split(',');
-    return resp;
-  }
-
-  // Support legacy admin.role.all
-  resp.permissions = ['read', 'write'];
-  return resp;
-}
-
 export async function signIn() {
   const token = await getToken();
   if (!token) {
@@ -274,19 +264,22 @@ export async function signIn() {
   }
 }
 
+// Not aem.preview: daFetch also sends the token in x-content-source-authorization (da-nx#866).
+async function requestPreview({ owner, repo, path }) {
+  const { accessToken } = await loadApiIms();
+  if (!accessToken) return 'not signed in';
+  const page = path.endsWith('/') ? `${path}index` : path;
+  const url = await checkSite(owner, repo)
+    ? `${AEM_API}/${owner}/sites/${repo}/preview${page}`
+    : `${HLX_ADMIN}/preview/${owner}/${repo}/main${page}`;
+  const resp = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${accessToken.token}` } });
+  return resp.ok ? undefined : resp.statusText;
+}
+
 export async function handlePreview(ctx) {
-  const path = ctx.path.endsWith('/') ? `${ctx.path}index` : `${ctx.path}`;
-  const url = `https://admin.hlx.page/preview/${ctx.owner}/${ctx.repo}/main${path}`;
-  const token = await getToken();
-  const resp = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-  if (!resp.ok) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to preview:', resp.statusText);
-    const error = `Failed to preview: ${resp.statusText}`;
-    ctx.port.postMessage({
-      type: MESSAGE_TYPES.PREVIEW, payload: { ok: false, error },
-    });
-  } else {
-    ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW, payload: { ok: true } });
-  }
+  const error = await requestPreview(ctx).catch((e) => e.message);
+  const payload = error === undefined ? { ok: true } : { ok: false, error: `Failed to preview: ${error}` };
+  // eslint-disable-next-line no-console
+  if (!payload.ok) console.error(payload.error);
+  ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW, payload });
 }

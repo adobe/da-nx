@@ -2,6 +2,7 @@
 import prose2aem from 'https://da.live/blocks/shared/prose2aem.js';
 import { getImageDocumentVersion } from '../../../../nx2/public/utils/quick-edit-images.js';
 import { EDITABLE_SELECTORS } from './editable-elements.js';
+import { keepMediaBusImagesRelative } from './utils.js';
 
 function isOutermostWysiwygEditable(el) {
   if (!el?.matches?.(EDITABLE_SELECTORS)) return false;
@@ -109,5 +110,5 @@ export function getInstrumentedHTML(view) {
   });
 
   // Convert to an HTML string using prose2aem.
-  return prose2aem(editorClone, true, false, true);
+  return keepMediaBusImagesRelative(prose2aem(editorClone, true, false, true));
 }

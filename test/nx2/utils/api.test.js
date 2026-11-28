@@ -582,6 +582,16 @@ describe('api.js', () => {
       expect(lastCall().headers['content-type']).to.equal('application/octet-stream');
     });
 
+    it('source.uploadMedia hlx6 sends the blob type for extensions the type map lacks', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1.webp`, meta: {} }),
+      });
+      await source.uploadMedia({ org: o, site: s, path: '/img.webp', body: new Blob(['x'], { type: 'image/webp' }) });
+      expect(lastCall().headers['content-type']).to.equal('image/webp');
+    });
+
     it('source.uploadMedia hlx6 normalizes contentUrl by stripping the site aem.page prefix', async () => {
       restoreFetch();
       const { org: o, site: s } = makeOrgSite({ hlx6: true });

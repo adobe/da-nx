@@ -77,6 +77,22 @@ parallel one. If you do add a new key:
 
 ---
 
+### `INIT`
+
+`config.mountpoint` is the site's content source: the sidekick passes its
+`contentSourceUrl`, which is `https://content.da.live/{org}/{site}/` on DA sites and
+`https://api.aem.live/{org}/sites/{site}/source` on hlx6 (source bus) sites. Some
+sites build the DA shape themselves when there's no sidekick. A source bus site can also have
+no url (site config `content.source` is just `{ type: 'sourcebus' }`), and then the sidekick
+sends no mountpoint. In that case the portal uses `config.owner` / `config.repo` when the
+upgrade check (nx2 `isHlx6`) says the site is on Helix 6. It ignores `apiUpgrade`: the sidekick
+sends `true` for most legacy sites too. The standalone portal reads org/site from either url
+shape and asks nx2 `api.js` (`isHlx6`) where the document lives,
+so the payload shape doesn't decide the store. If the check fails (the ping gets no answer), the
+portal treats the site as legacy DA, as it did before Helix 6 support: it opens, uploads and
+previews through the legacy DA and Helix admin APIs. Quick edit and the canvas both use
+the document's source URL as the collab room name.
+
 ### `DROP_TARGET`
 
 da-live owns drags that start in another iframe (extension SDK drags and the AEM
@@ -234,6 +250,14 @@ replacement, but deleting or changing the target image does. Replies echo
 upload. An out-of-date/missing index fails instead of choosing an image by URL.
 For older iframes, a URL-only request is accepted only when it identifies
 exactly one image.
+
+Both hosts use nx2 `source.uploadMedia` on Helix 6. On legacy DA, the standalone portal
+posts the multipart upload directly. Both reply with the url the upload returned:
+a `content.da.live` url on DA sites, a media bus url on hlx6 sites (usually
+relative, `./media_…`), which the iframe resolves against the page. In `SET_BODY` the
+standalone portal keeps `./media_` refs relative in `<img>`, `<source srcset>` and linked
+images (`<a data-edit-as="image">`), so the page resolves them against its own url like
+delivered html (da-live's `prose2aem` would otherwise point them at the portal's origin).
 
 Both hosts use `nx2/public/utils/quick-edit-images.js` for document versions,
 image-position resolution, and replacement after upload. It accepts the host's

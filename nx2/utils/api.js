@@ -360,7 +360,7 @@ export const source = {
       method: 'POST',
       body,
       headers: {
-        'content-type': findContentType(path) || 'application/octet-stream',
+        'content-type': findContentType(path) || body?.type || 'application/octet-stream',
       },
     };
     const resp = await daFetch({ url, opts });
