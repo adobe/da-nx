@@ -1,5 +1,5 @@
 import { html, LitElement } from 'da-lit';
-import { loadStyle } from '../../../nx2/utils/utils.js';
+import { loadStyle, setPageTitle } from '../../../nx2/utils/utils.js';
 import { loadMediaSheet, buildMediaIndexStructures, getUsageIndexKey } from './ui/data.js';
 import { copyMediaToClipboard, exportToCsv } from './core/export.js';
 import {
@@ -1239,7 +1239,7 @@ let hashChangeHandler = null;
 let popstateHandler = null;
 
 export default function init(el) {
-  document.title = 'Media Library';
+  setPageTitle('Media Library');
   el.innerHTML = '';
 
   if (hashChangeHandler) {

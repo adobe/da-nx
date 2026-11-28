@@ -112,6 +112,9 @@ awaits `decorateMain(main)` then `loadSections(main)`; both exports are required
 If neither pipeline is available, `quick-edit-init.js` replaces the whole body and calls the page's
 `loadPage` (so header and footer re-render); without `loadPage` either, edits are shown
 undecorated in `main`.
+`quick-edit-init.js` imports these functions from the same-origin `scripts.js` and `aem.js`
+URLs in the page's head, so neither module runs twice; without those script tags it uses
+`/scripts/scripts.js` and the `aem.js` next to it.
 All scopes use the same resolved `reloadEditable` function. `createReload` only handles
 preparing the scope and inserting the reloaded nodes; it does not select any additional
 page hooks or fallbacks.

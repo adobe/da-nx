@@ -1,34 +1,35 @@
 # Navigation branding
 
-The EW `nx-nav` reads the brand link from the first section of its nav fragment.
-By default, an SVG link renders as a lockup and other links keep their text.
-The brand always links to `/`.
+`nx-nav` reads the logo URL and title from the first link in its nav fragment's
+first section:
 
-Consumers can pass `navBrand` to `setConfig()` to replace the fragment's lockup
-with a separate logo and text:
-
-```js
-navBrand: {
-  logoHref: '/img/logos/product.svg',
-  label: 'Product name',
-}
+```html
+<div>
+  <p><a href="/img/logos/product.svg">Product name</a></p>
+</div>
 ```
 
-Both fields are required for the override. The consumer owns the asset and label;
-Nexter owns their presentation. The existing nav fragment still supplies the
-navigation items and actions. No content publication is required for the override.
+The SVG is rendered directly; no filename or shape conventions apply. The brand
+links to `/`, with the title as its accessible name even when hidden. Linked
+images and pictures are also supported, using image alt text if link text is absent.
 
-The logo is 24×24 pixels, centered in a 32×32 pixel wrapper with a 12px left inset.
-The label starts at 56px, flush with the right edge of the shell's navigation rail.
-The label uses the S2 component M bold tokens (14px, weight 700, 18px line
-height), with a 12px gap after the wrapper. Top-bar branding stays the same size
-for both UI-size preferences. Text inherits the current theme's color, and the
-decorative image has empty alternative text. The link's accessible name is the
-label.
+The logo is 24x24px in a 32x32px wrapper. The title uses S2 14px bold typography.
 
-Only the logo is visible by default, and breadcrumbs start at 56px. Set
-`--nx-nav-brand-label-display: inline` on `nx-nav` to show the label.
+## Title visibility
 
-Deploy the Nexter capability before enabling it in a consuming application.
-Older Nexter versions ignore `navBrand` and continue rendering the fragment's
-original brand.
+- Empty left navigation area: show the logo and title.
+- Non-empty left navigation area: show only the logo.
+
+This uses CSS `:empty`; breadcrumb placeholders are omitted until a route is
+available. Other mounted navigation components count as content.
+Override with
+`--nx-nav-brand-label-display: inline` or `none` on `nx-nav` for page-specific
+layouts or sidenav expansion.
+
+## Compatibility
+
+The existing `navBrand: { logoHref, label }` config override remains supported;
+both fields are required. Prefer content-owned branding.
+
+Deploy Nexter and publish the updated nav content before removing the override.
+Check legacy UI rendering if it shares the fragment.

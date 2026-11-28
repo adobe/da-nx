@@ -7,7 +7,7 @@ Four consumers use it.
 - **Canvas** (da-live `blocks/canvas/ew-panel-extensions/aem-assets.js`)
 - **Canvas rail panel** (da-live `blocks/canvas/ew-canvas-assets/`)
 - **Classic editor** (da-live `blocks/edit/da-assets/`)
-- **SC editor** (`nx/blocks/form/utils/aem-selector.js`)
+- **Form editor** (da-live `blocks/form/assets/aem-selector.js`)
 
 da-live loads these files at runtime through `getNx2()`, for example `` await import(`${getNx2()}/utils/aem-assets/urls.js`) ``. That makes every export a cross-repository contract. Keep file names, export names, and positional signatures backward compatible. Add new behavior through new exports or optional trailing parameters.
 
@@ -239,7 +239,7 @@ Helpers.
 | `DM_ERROR_MSG` | Author + DM, and the asset is not approved for delivery |
 | `PUBLISH_ERROR_MSG` | Author + Publish, and the asset is not published |
 
-Callers own the UI for each error. Canvas and the classic editor ignore a missing format silently and show the other two in their error panel. The SC editor shows every error inline and keeps the previous value.
+Callers own the UI for each error. Canvas and the classic editor ignore a missing format silently and show the other two in their error panel. The form editor shows every error inline and keeps the previous value.
 
 ### `selector.js`
 

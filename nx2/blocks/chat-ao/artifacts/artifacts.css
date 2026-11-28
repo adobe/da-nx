@@ -418,46 +418,6 @@
   .code {
     font-size: var(--s2-component-s-regular-font-size);
   }
-  
-  .token.comment,
-  .token.prolog,
-  .token.doctype,
-  .token.cdata {
-    color: var(--s2-gray-600);
-  }
-
-  .token.keyword,
-  .token.atrule,
-  .token.attr-value {
-    color: var(--s2-blue-1100);
-  }
-
-  .token.string,
-  .token.char,
-  .token.attr-name,
-  .token.selector {
-    color: var(--s2-green-1100);
-  }
-
-  .token.number,
-  .token.boolean,
-  .token.constant,
-  .token.builtin {
-    color: var(--s2-orange-1100);
-  }
-
-  .token.function,
-  .token.class-name,
-  .token.tag,
-  .token.property {
-    color: var(--s2-red-1100);
-  }
-
-  .token.interpolation,
-  .token.punctuation,
-  .token.operator {
-    color: var(--s2-gray-800);
-  }
 }
 
 .ui-artifact-alert {
