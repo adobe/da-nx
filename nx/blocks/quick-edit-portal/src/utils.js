@@ -280,9 +280,9 @@ export async function handlePreview(ctx) {
   const token = await getToken();
   const resp = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
   if (!resp.ok) {
+    const error = `Failed to preview: ${resp.statusText || resp.status}`;
     // eslint-disable-next-line no-console
-    console.error('Failed to preview:', resp.statusText);
-    const error = `Failed to preview: ${resp.statusText}`;
+    console.error(error);
     ctx.port.postMessage({
       type: MESSAGE_TYPES.PREVIEW, payload: { ok: false, error },
     });
