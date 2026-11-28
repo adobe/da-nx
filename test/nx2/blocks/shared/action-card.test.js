@@ -79,6 +79,54 @@ describe('nx-action-card tile', () => {
     expect($(card, '.tile').style.getPropertyValue('--tile-bg')).to.equal(TINT);
   });
 
+  it('keeps untinted tiles transparent and borderless by default', async () => {
+    const card = await make({}, SVG);
+    const styles = getComputedStyle($(card, '.tile'));
+    expect(styles.backgroundColor).to.equal('rgba(0, 0, 0, 0)');
+    expect(styles.outlineStyle).to.equal('none');
+  });
+
+  ['light', 'dark'].forEach((scheme) => {
+    it(`uses a 56px bordered tile with a contained 32px icon in ${scheme} mode`, async () => {
+      const card = await make({ tint: '#fff', bordered: true }, SVG);
+      card.style.colorScheme = scheme;
+      const tile = $(card, '.tile');
+      const styles = getComputedStyle(tile);
+      expect(styles.backgroundColor).to.equal('rgb(255, 255, 255)');
+      expect(styles.outlineStyle).to.equal('solid');
+      expect(styles.outlineWidth).to.equal('1px');
+      expect(styles.outlineOffset).to.equal('-1px');
+      expect([tile.getBoundingClientRect().width, tile.getBoundingClientRect().height])
+        .to.deep.equal([56, 56]);
+      expect(size(slotted(card)[0])).to.deep.equal(['32px', '32px']);
+      expect(getComputedStyle(slotted(card)[0]).objectFit).to.equal('contain');
+      card.bordered = false;
+      await card.updateComplete;
+      expect(getComputedStyle(tile).outlineStyle).to.equal('none');
+    });
+  });
+
+  it('caps a tinted image at 20px under Edge Delivery page image styles', async () => {
+    const meta = document.createElement('meta');
+    meta.content = 'edge-delivery';
+    document.head.append(meta);
+    try {
+      const main = document.createElement('main');
+      main.style.width = '120px';
+      document.body.append(main);
+      const src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2264%22 height=%2264%22%3E%3C/svg%3E';
+      main.innerHTML = `<img src="${src}" alt="">`;
+      const card = await make({ tint: TINT }, `<img slot="icon" src="${src}" alt="">`);
+      main.append(card);
+      const [img] = slotted(card);
+      await img.decode();
+      expect(getComputedStyle(main.querySelector('img')).width).to.equal('120px');
+      expect(size(img)).to.deep.equal(['20px', '20px']);
+    } finally {
+      meta.remove();
+    }
+  });
+
   it('sizes the icon by tint: 20px tinted, 40px untinted', async () => {
     const tintedSvg = await make({ tint: TINT }, SVG);
     const plainSvg = await make({}, SVG);
