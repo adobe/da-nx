@@ -121,10 +121,21 @@ export default async function decorate(el) {
       editorPort = port;
       editorPromise ||= (async () => {
         el.innerHTML = '';
-        if (!bootstrapComplete) await getImageCookie(owner, repo);
+        if (!bootstrapComplete) {
+          await getImageCookie(owner, repo);
+          bootstrapComplete = true;
+        }
         await initProse(owner, repo, path, el, ctx);
       })();
-      await editorPromise;
+      try {
+        await editorPromise;
+      } catch (error) {
+        editorPromise = undefined;
+        port.close();
+        // eslint-disable-next-line no-console
+        console.error('Failed to open the document for quick edit', error);
+        return;
+      }
       if (editorPort !== port) {
         port.close();
         return;
