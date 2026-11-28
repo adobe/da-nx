@@ -167,6 +167,14 @@
   transform: rotate(0deg);
 }
 
+.ui-artifact-pe-section:not(:has(.ui-artifact-pe-items)) > .ui-artifact-pe-section-header {
+  cursor: default;
+
+  > .ui-artifact-pe-chevron {
+    display: none;
+  }
+}
+
 /* --- item rows --- */
 
 .ui-artifact-pe-item-chip {
@@ -374,6 +382,25 @@
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
+}
+
+.ui-artifact-pe-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2-spacing-100);
+  margin-top: var(--s2-spacing-75);
+
+  .ui-artifact-pe-modal-copy {
+    margin-top: 0;
+  }
+}
+
+.ui-artifact-pe-modal-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-100);
 }
 
 .ui-artifact-pe-modal-context-title {

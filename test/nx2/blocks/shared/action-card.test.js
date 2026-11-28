@@ -1,0 +1,303 @@
+import { expect } from '@esm-bundle/chai';
+import { setConfig, getConfig } from '../../../../nx2/scripts/nx.js';
+
+// Note: element presence is asserted as booleans (`!!el`), not `to.equal(null)`;
+// the custom test reporter crashes when it has to print a DOM element on failure.
+
+await setConfig({ hostnames: [] });
+// Global design tokens, so shared styles (e.g. buttons.css) resolve as on a real page.
+const { loadStyle } = await import('../../../../nx2/utils/utils.js');
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, await loadStyle('/nx2/styles/styles.css')];
+await import('../../../../nx2/blocks/shared/action-card/action-card.js');
+// Preload the menu the card lazy-loads on first click, so opening it needs no polling.
+await import('../../../../nx2/blocks/shared/menu/menu.js');
+
+const ICON = '/img/icons/s2-icon-treeview-20-n.svg';
+const TINT = '#F4EBFC';
+const MENU = [{ id: 'learn-more', label: 'Learn more' }, { id: 'open-new-tab', label: 'Open in new tab' }];
+
+const tick = () => new Promise((r) => { setTimeout(r, 0); });
+
+async function make(props = {}, extraHtml = '') {
+  const card = document.createElement('nx-action-card');
+  Object.assign(card, { heading: 'Traverse', description: 'Get a birds eye view.', ...props });
+  card.innerHTML = extraHtml;
+  document.body.append(card);
+  await card.updateComplete;
+  return card;
+}
+
+const $ = (card, sel) => card.shadowRoot.querySelector(sel);
+
+async function openMenu(card) {
+  $(card, '.more').click();
+  await tick();
+  return $(card, 'nx-menu');
+}
+
+afterEach(() => {
+  document.body.innerHTML = '';
+});
+
+describe('nx-action-card content', () => {
+  it('renders heading and description', async () => {
+    const card = await make();
+    expect($(card, '.heading').textContent.trim()).to.equal('Traverse');
+    expect($(card, '.description').textContent.trim()).to.equal('Get a birds eye view.');
+  });
+
+  it('puts extra content into the footer', async () => {
+    const card = await make({}, '<span slot="extra">By Admin</span>');
+    const slot = $(card, '.footer slot[name="extra"]');
+    expect(slot.assignedElements().map((e) => e.textContent)).to.deep.equal(['By Admin']);
+  });
+});
+
+describe('nx-action-card tile', () => {
+  const SVG = `<svg slot="icon" viewBox="0 0 20 20"><use href="${ICON}#icon"></use></svg>`;
+  const IMG = '<img slot="icon" src="/media/app.jpeg" alt="">';
+  const slotted = (card) => card.shadowRoot.querySelector('slot[name="icon"]').assignedElements();
+  const size = (el) => [getComputedStyle(el).width, getComputedStyle(el).height];
+  const visible = (el) => getComputedStyle(el).display !== 'none';
+
+  it('renders a slotted svg icon in the tile', async () => {
+    const card = await make({}, SVG);
+    expect(slotted(card).map((e) => e.tagName)).to.deep.equal(['svg']);
+    expect(visible($(card, '.tile'))).to.be.true;
+  });
+
+  it('renders a slotted image in the tile', async () => {
+    const card = await make({}, IMG);
+    const [img] = slotted(card);
+    expect(img.tagName).to.equal('IMG');
+    expect(getComputedStyle(img).objectFit).to.equal('cover');
+  });
+
+  it('applies a valid tint', async () => {
+    const card = await make({ tint: TINT }, SVG);
+    expect($(card, '.tile').classList.contains('has-bg')).to.be.true;
+    expect($(card, '.tile').style.getPropertyValue('--tile-bg')).to.equal(TINT);
+  });
+
+  it('keeps untinted tiles transparent and borderless by default', async () => {
+    const card = await make({}, SVG);
+    const styles = getComputedStyle($(card, '.tile'));
+    expect(styles.backgroundColor).to.equal('rgba(0, 0, 0, 0)');
+    expect(styles.outlineStyle).to.equal('none');
+  });
+
+  ['light', 'dark'].forEach((scheme) => {
+    it(`uses a 56px bordered tile with a contained 32px icon in ${scheme} mode`, async () => {
+      const card = await make({ tint: '#fff', bordered: true }, SVG);
+      card.style.colorScheme = scheme;
+      const tile = $(card, '.tile');
+      const styles = getComputedStyle(tile);
+      expect(styles.backgroundColor).to.equal('rgb(255, 255, 255)');
+      expect(styles.outlineStyle).to.equal('solid');
+      expect(styles.outlineWidth).to.equal('1px');
+      expect(styles.outlineOffset).to.equal('-1px');
+      expect([tile.getBoundingClientRect().width, tile.getBoundingClientRect().height])
+        .to.deep.equal([56, 56]);
+      expect(size(slotted(card)[0])).to.deep.equal(['32px', '32px']);
+      expect(getComputedStyle(slotted(card)[0]).objectFit).to.equal('contain');
+      card.bordered = false;
+      await card.updateComplete;
+      expect(getComputedStyle(tile).outlineStyle).to.equal('none');
+    });
+  });
+
+  it('caps a tinted image at 20px under Edge Delivery page image styles', async () => {
+    const meta = document.createElement('meta');
+    meta.content = 'edge-delivery';
+    document.head.append(meta);
+    try {
+      const main = document.createElement('main');
+      main.style.width = '120px';
+      document.body.append(main);
+      const src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2264%22 height=%2264%22%3E%3C/svg%3E';
+      main.innerHTML = `<img src="${src}" alt="">`;
+      const card = await make({ tint: TINT }, `<img slot="icon" src="${src}" alt="">`);
+      main.append(card);
+      const [img] = slotted(card);
+      await img.decode();
+      expect(getComputedStyle(main.querySelector('img')).width).to.equal('120px');
+      expect(size(img)).to.deep.equal(['20px', '20px']);
+    } finally {
+      meta.remove();
+    }
+  });
+
+  it('sizes the icon by tint: 20px tinted, 40px untinted', async () => {
+    const tintedSvg = await make({ tint: TINT }, SVG);
+    const plainSvg = await make({}, SVG);
+    const tintedImg = await make({ tint: TINT }, IMG);
+    const plainImg = await make({}, IMG);
+    expect(size(slotted(tintedSvg)[0])).to.deep.equal(['20px', '20px']);
+    expect(size(slotted(plainSvg)[0])).to.deep.equal(['40px', '40px']);
+    expect(size(slotted(tintedImg)[0])).to.deep.equal(['20px', '20px']);
+    expect(size(slotted(plainImg)[0])).to.deep.equal(['40px', '40px']);
+  });
+
+  it('colors a slotted svg with the tile color', async () => {
+    const card = await make({ tint: TINT }, SVG);
+    const [svg] = slotted(card);
+    expect(getComputedStyle(svg).fill).to.equal('rgb(41, 41, 41)');
+  });
+
+  it('renders a tinted tile without an icon', async () => {
+    const card = await make({ tint: TINT });
+    expect(visible($(card, '.tile.has-bg'))).to.be.true;
+    expect(slotted(card).length).to.equal(0);
+  });
+
+  it('ignores an invalid tint', async () => {
+    const card = await make({ tint: 'not a color' }, SVG);
+    expect($(card, '.tile').classList.contains('has-bg')).to.be.false;
+  });
+
+  it('hides tile and header without icon, tint and menu', async () => {
+    const card = await make();
+    expect(visible($(card, '.tile'))).to.be.false;
+    expect(visible($(card, '.header'))).to.be.false;
+  });
+
+  it('shows the tile when an icon is slotted later', async () => {
+    const card = await make();
+    card.insertAdjacentHTML('beforeend', SVG);
+    await tick();
+    await card.updateComplete;
+    expect(visible($(card, '.tile'))).to.be.true;
+    expect(visible($(card, '.header'))).to.be.true;
+  });
+});
+
+describe('nx-action-card action', () => {
+  it('renders the action link with its label', async () => {
+    const card = await make({ action: '/apps/traverse', actionLabel: 'Launch' });
+    const link = $(card, '.action');
+    expect(link.getAttribute('href')).to.equal('/apps/traverse');
+    expect(link.textContent.trim()).to.equal('Launch');
+    expect(link.getAttribute('aria-label')).to.equal('Launch Traverse');
+    expect(link.hasAttribute('target')).to.be.false;
+  });
+
+  it('reuses the shared primary button, outlined', async () => {
+    const card = await make({ action: '/apps/traverse' });
+    const link = $(card, '.action');
+    expect(link.classList.contains('nx-btn-primary')).to.be.true;
+    const cs = getComputedStyle(link);
+    expect([cs.height, cs.fontSize, cs.fontWeight, cs.borderRadius]).to.deep.equal(['32px', '14px', '700', '16px']);
+    expect([cs.borderTopWidth, cs.backgroundColor, cs.textDecorationLine]).to.deep.equal(['2px', 'rgba(0, 0, 0, 0)', 'none']);
+  });
+
+  it('defaults the label to Open', async () => {
+    const card = await make({ action: '/apps/traverse' });
+    expect($(card, '.action').textContent.trim()).to.equal('Open');
+  });
+
+  it('opens external actions in a new tab', async () => {
+    const card = await make({ action: 'https://labs.aem.live/x' });
+    expect($(card, '.action').getAttribute('target')).to.equal('_blank');
+    expect($(card, '.action').getAttribute('rel')).to.equal('noopener');
+  });
+
+  it('omits the action without a url', async () => {
+    const card = await make({ actionLabel: 'Open' });
+    expect(!!$(card, '.action')).to.be.false;
+  });
+
+  it('still renders the card for an invalid action url', async () => {
+    const card = await make({ action: 'http://' });
+    expect($(card, '.heading').textContent.trim()).to.equal('Traverse');
+    expect($(card, '.action').getAttribute('href')).to.equal('http://');
+    expect($(card, '.action').hasAttribute('target')).to.be.false;
+  });
+
+  it('uses the action target', async () => {
+    const card = await make({ action: '/apps/traverse', actionTarget: '_blank' });
+    expect($(card, '.action').getAttribute('target')).to.equal('_blank');
+    expect($(card, '.action').getAttribute('rel')).to.equal('noopener');
+  });
+
+  it('opens a named window with noopener', async () => {
+    const card = await make({ action: '/apps/traverse', actionTarget: 'tools' });
+    expect($(card, '.action').getAttribute('target')).to.equal('tools');
+    expect($(card, '.action').getAttribute('rel')).to.equal('noopener');
+  });
+
+  it('lets the action target override the external default', async () => {
+    const card = await make({ action: 'https://labs.aem.live/x', actionTarget: '_self' });
+    expect($(card, '.action').getAttribute('target')).to.equal('_self');
+    expect($(card, '.action').hasAttribute('rel')).to.be.false;
+  });
+
+  it('reads the action target from its attribute', async () => {
+    document.body.innerHTML = '<nx-action-card heading="T" action="/x" action-target="_blank"></nx-action-card>';
+    const card = document.querySelector('nx-action-card');
+    await card.updateComplete;
+    expect(card.actionTarget).to.equal('_blank');
+  });
+});
+
+describe('nx-action-card menu', () => {
+  it('renders the more button for menu items', async () => {
+    const card = await make({ menu: MENU });
+    const btn = $(card, '.more');
+    expect(btn.getAttribute('aria-label')).to.equal('More options for Traverse');
+    expect(btn.getAttribute('aria-haspopup')).to.equal('menu');
+    expect(btn.getAttribute('aria-expanded')).to.equal('false');
+  });
+
+  it('reuses the shared small icon button for more', async () => {
+    const card = await make({ menu: MENU });
+    const btn = $(card, '.more');
+    expect(['nx-action-btn-icon', 'nx-btn-sm'].every((c) => btn.classList.contains(c))).to.be.true;
+    const cs = getComputedStyle(btn);
+    expect([cs.width, cs.height]).to.deep.equal(['24px', '24px']);
+    expect(getComputedStyle(btn.querySelector('svg')).width).to.equal('16px');
+  });
+
+  it('omits the more button without menu items', async () => {
+    expect(!!$(await make(), '.more')).to.be.false;
+    expect(!!$(await make({ menu: [] }), '.more')).to.be.false;
+  });
+
+  it('uses the more icon from the code base', async () => {
+    const card = await make({ menu: MENU });
+    const use = $(card, '.more svg use');
+    expect(use.getAttribute('href')).to.equal(`${getConfig().codeBase}/img/icons/s2-icon-more-20-n.svg#icon`);
+  });
+
+  it('keeps the more button on the right without a tile', async () => {
+    const card = await make({ menu: MENU });
+    const header = $(card, '.header').getBoundingClientRect();
+    const btn = $(card, '.more').getBoundingClientRect();
+    expect(Math.round(header.right - btn.right)).to.equal(0);
+  });
+
+  it('opens with the menu items', async () => {
+    const card = await make({ menu: MENU });
+    const menu = await openMenu(card);
+    expect(menu.open).to.be.true;
+    expect(menu.items).to.deep.equal(MENU);
+    expect($(card, '.more').getAttribute('aria-expanded')).to.equal('true');
+  });
+
+  it('lets the select event bubble out of the card', async () => {
+    const card = await make({ menu: MENU });
+    const selected = [];
+    card.addEventListener('select', (e) => selected.push(e.detail.id));
+    const menu = await openMenu(card);
+    menu.shadowRoot.querySelector('[data-id="open-new-tab"]').click();
+    expect(selected).to.deep.equal(['open-new-tab']);
+  });
+
+  it('clicking more again closes the menu', async () => {
+    const card = await make({ menu: MENU });
+    const menu = await openMenu(card);
+    $(card, '.more').click();
+    await tick();
+    expect(menu.open).to.be.false;
+    expect($(card, '.more').getAttribute('aria-expanded')).to.equal('false');
+  });
+});

@@ -4,6 +4,10 @@ import { getOrCreateConnectorGuid } from './connectorGuid.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 import downloadQueue from '../../utils/downloadQueue.js';
 
+export const requiredKeys = ['apiEndpoint', 'providerId'];
+
+export const requiredCredentialKeys = ['authEndpoint', 'clientId', 'clientSecret'];
+
 export const dnt = { addDnt };
 
 const INTEGRATION_NAME = 'lionbridge';
@@ -167,7 +171,7 @@ async function createJob(service, title, options) {
 
   const body = {
     jobName: truncateBytes(`${title} - ${Date.now()}`, MAX_NAME_BYTES),
-    description: `DA translation project: ${title}`,
+    description: `Experience Workspace translation project: ${title}`,
     connectorName: guid ? `${guid} ${CONNECTOR_NAME}` : CONNECTOR_NAME,
     connectorVersion: CONNECTOR_VERSION,
     ...(dueDate ? { dueDate } : {}),

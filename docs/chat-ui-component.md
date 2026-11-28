@@ -14,6 +14,33 @@ chat.context = { org, site, path, view }; // view: 'browse' | 'edit'
 
 The component manages its own controller internally. No external wiring needed.
 
+## Turn completion notifications
+
+Both `nx-chat` and `nx-chat-ao` emit the bubbling, composed
+`CHAT_EVENT.TURN_COMPLETED` (`nx-chat-turn-completed`) event. Its detail is
+`{ org, site, path, sessionId, turnId, status }`; identifiers are supplied when
+available, and `status` is `completed`, `aborted`, or `error`. The page context
+is the controller's current context when the notification fires.
+No chat text, tool results, or credentials are included.
+
+Notifications cover a whole turn, not each text chunk, tool call, or approval
+pause. Legacy chat completes after chained tool rounds and approvals finish;
+stopping it reports `aborted`. AO/Coworker/CMA completes on the server's terminal
+event, including its acknowledgement of an interruption. Legacy request failures
+report `error`; AO does not infer completion from local errors or cleanup.
+Notifications may repeat: consumers should treat them as invalidation signals,
+not exactly-once lifecycle events. No client-side turn tracking or deduplication
+is performed.
+
+DA Live exposes this event through `chatTurnCompleted` in
+`blocks/shared/chat-panel.js`, a non-replaying channel available to Canvas,
+Browse, and other hosts without Canvas initialization. Its first subscriber
+attaches the document listener; the last unsubscribe removes it.
+Consumers can refresh app data without depending on collaboration updates.
+This is an invalidation signal, not confirmation of preview, publication, or
+durable editor persistence. Extension subscriptions are documented in
+[SDK messaging](sdk-messaging.md#chat-turn-subscriptions).
+
 ## Properties in
 
 | Property   | Type      | Description                                                            |
@@ -60,6 +87,15 @@ Context fields on the detail (`blockName`, `innerText`, `proseIndex`) are forwar
 ### Setting a prompt programmatically
 
 Both `nx-chat` and `nx-chat-ao` expose `setPrompt(text, { autoSend? })` as an instance method, and both also listen for `CHAT_EVENT.SET_PROMPT` (`'nx-set-prompt'`, `nx2/utils/chat.js`) on `document` and call their own `setPrompt()` when it fires. Dispatch the event rather than calling the method directly — the caller doesn't need to know (or query for) which of the two elements is actually mounted:
+
+`nx-chat` restores conversation history and its session before becoming ready to send.
+A prompt set during startup waits for that restoration: `autoSend: true` submits it
+once ready; `autoSend: false` prefills the input without submitting. Removing the
+chat during restoration cancels the queued submission.
+
+`nx-chat-ao` also waits for its owned Coworker/CMA session before automatic
+submission. Its compact standalone input follows the same rule. See
+[AO prompt startup behavior](./chat-ao-component.md).
 
 ```js
 document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, { detail: { text, autoSend } }));

@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../utils/utils.js';
+import { loadStyle, hashChange } from '../../utils/utils.js';
 import { getConfig } from '../../scripts/nx.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
@@ -10,6 +10,7 @@ import { showToast } from '../shared/toast/toast.js';
 import { AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES, ADD_MENU_ITEMS } from './ao-constants.js';
 import { ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { sampleRUM } from '../../deps/rum.js';
+import { toSlashMenuItems } from './utils/skills.js';
 import '../shared/pills/pills.js';
 import '../shared/menu/menu.js';
 import '../shared/popover/popover.js';
@@ -17,6 +18,7 @@ import '../shared/chat/prompts/prompts.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+const spinnerStyle = await loadStyle(new URL('../../styles/spinner.css', import.meta.url).href);
 const { codeBase } = getConfig();
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
@@ -25,7 +27,8 @@ const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
 export default class NxAoInput extends LitElement {
   static properties = {
     blocked: { type: Boolean },
-    altHarness: { type: Boolean },
+    disabled: { type: Boolean },
+    harness: { type: String },
     prompts: { type: Array },
     menuItems: { type: Array },
     addEvent: { type: String },
@@ -36,11 +39,114 @@ export default class NxAoInput extends LitElement {
     onMenuSelect: { attribute: false },
     _dragging: { state: true },
     _voiceListening: { state: true },
+    _access: { state: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
 
   _voiceInterim = '';
+
+  _contextEvent = `nx-ao-context-${crypto.randomUUID()}`;
+
+  get isolated() { return !!this._isolated; }
+
+  set isolated(value) {
+    this._isolated = !!value;
+    this._syncSession();
+  }
+
+  get _standalone() {
+    return !this.onSubmit && !!this._context?.org && !!this._context?.site;
+  }
+
+  set context(value) {
+    this._explicitContext = true;
+    this._context = value;
+    this._syncSession();
+  }
+
+  set harnessConfig(value) {
+    this._harnessConfig = value;
+    this._syncSession();
+  }
+
+  _syncSession() {
+    if (!this.isConnected) return;
+    if (this._pendingAutoSend && this._pendingAutoSend.documentKey !== this._documentKey) {
+      this._pendingAutoSend = undefined;
+      this._promptRequest = undefined;
+    }
+    const { org, site } = this._context ?? {};
+    const identity = JSON.stringify([
+      org, site, !!this.onSubmit, this.isolated, this._harnessConfig,
+    ]);
+    if (identity === this._sessionIdentity) return;
+    this._sessionIdentity = identity;
+    this.requestUpdate();
+    const request = {};
+    this._sessionRequest = request;
+    if (this._session) this.blocked = false;
+    this._releaseSession?.();
+    this._releaseSession = undefined;
+    this._session = undefined;
+    this._access = undefined;
+    this._pendingAutoSend = undefined;
+    this._unsubscribeEvents?.();
+    this._unsubscribeEvents = undefined;
+    if (!this._standalone) return;
+    this._sessionReady = this._joinSession({ request, context: this._context });
+  }
+
+  async _joinSession({ request, context }) {
+    try {
+      const { getAoSession, subscribeChatEvents } = await import('./session.js');
+      const key = `${context.org}/${context.site}`;
+      const supplied = this._harnessConfig;
+      let { harness } = supplied && (!supplied.key || supplied.key === key) ? supplied : {};
+      if (harness === undefined) {
+        // No fresh pre-resolved config supplied; resolve via the shared helper
+        // (flag + entitlement, re-verified server-side).
+        const { org, site } = context;
+        const { resolveHarness } = await import('../../utils/ewFlags.js');
+        harness = await resolveHarness({ org, site });
+      }
+      if (!this.isConnected || this._sessionRequest !== request || !this._standalone) return;
+      this.harness = harness;
+      this._session = getAoSession({
+        context, owner: this, isolated: this.isolated, harness,
+      });
+      if (this._pendingAutoSend && !this._session.canQueueAutoSend({ includeReady: true })) {
+        this._pendingAutoSend = undefined;
+        this._promptRequest = undefined;
+      }
+      this._releaseSession = this._session.subscribe(this, {
+        onUpdate: (state) => {
+          this.blocked = !!state.thinking && !state.pendingPlanApproval;
+          this._access = state.access;
+          if (this._pendingAutoSend && ['denied', 'error'].includes(state.access?.status)) {
+            this._pendingAutoSend = undefined;
+            this._promptRequest = undefined;
+          }
+          if (this._pendingAutoSend && this._session.canSend()) {
+            this._submitWhenReady(this._pendingAutoSend)
+              .catch((error) => showToast({ text: error.message, variant: 'error' }));
+          }
+        },
+      });
+      this._unsubscribeEvents = subscribeChatEvents(this, {
+        getContext: () => this._context,
+        getSession: () => this._session,
+        onPrompt: ({ text, autoSend }) => this.setPrompt(text, { autoSend }),
+        onContext: (detail) => {
+          document.dispatchEvent(new CustomEvent(this._contextEvent, { detail }));
+        },
+      });
+    } catch (error) {
+      if (!this.isConnected || this._sessionRequest !== request) return;
+      this._sessionIdentity = undefined;
+      showToast({ text: error.message, variant: 'error' });
+    }
+  }
 
   get draft() {
     return this.shadowRoot.querySelector('.chat-input')?.value ?? '';
@@ -60,12 +166,63 @@ export default class NxAoInput extends LitElement {
   }
 
   async setPrompt(text, { autoSend = false } = {}) {
+    const request = {};
+    const sessionRequest = this._sessionRequest;
+    const documentKey = this._documentKey;
+    this._promptRequest = request;
+    this._pendingAutoSend = undefined;
     await this.updateComplete;
-    if (!text || this.blocked) return;
+    if (!this.isConnected || this._promptRequest !== request
+      || this._sessionRequest !== sessionRequest
+      || this._documentKey !== documentKey || !text) return false;
+    if (this.blocked) {
+      showToast({ text: 'Wait for the current response to finish', variant: 'warning' });
+      return false;
+    }
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     this.shadowRoot.querySelector('.chat-input').value = text;
-    if (autoSend) this.shadowRoot.querySelector('form').requestSubmit();
-    else await this.focusInput();
+    if (!autoSend) {
+      await this.focusInput();
+      return true;
+    }
+    if (this._standalone) {
+      if (this._session?.canSend()) {
+        this._promptRequest = undefined;
+        this.shadowRoot.querySelector('form').requestSubmit();
+      } else if (!this._session || this._session.canQueueAutoSend()) {
+        this._pendingAutoSend = { request, sessionRequest, documentKey };
+        this._submitWhenReady(this._pendingAutoSend)
+          .catch((error) => showToast({ text: error.message, variant: 'error' }));
+      } else {
+        this._promptRequest = undefined;
+      }
+    } else {
+      this._promptRequest = undefined;
+      this.shadowRoot.querySelector('form').requestSubmit();
+    }
+    return true;
+  }
+
+  async _submitWhenReady({ request, sessionRequest, documentKey }) {
+    await this._sessionReady;
+    const session = this._session;
+    await session?.ready;
+    if (!this.isConnected || this._promptRequest !== request
+      || this._sessionRequest !== sessionRequest || this._session !== session
+      || this._documentKey !== documentKey
+      || !session?.canSend() || this.blocked) return;
+    this._promptRequest = undefined;
+    this._pendingAutoSend = undefined;
+    this.shadowRoot.querySelector('form').requestSubmit();
+  }
+
+  get _disabled() {
+    return this.disabled || !!this._access;
+  }
+
+  get _documentKey() {
+    const { org, site, path } = this._context ?? {};
+    return JSON.stringify([org, site, path]);
   }
 
   openPrompts() {
@@ -79,7 +236,7 @@ export default class NxAoInput extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEvent ??= `nx-ao-input-${crypto.randomUUID()}`;
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle];
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
@@ -95,12 +252,38 @@ export default class NxAoInput extends LitElement {
       },
       onError: (message) => showToast({ text: message, variant: 'error' }),
     });
+    this._unsubscribeHash = hashChange.subscribe((state) => {
+      if (this._explicitContext) return;
+      this._context = state;
+      this._syncSession();
+    });
+    this._syncSession();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._promptRequest = undefined;
+    this._pendingAutoSend = undefined;
     this._voice?.stop();
     this._slashMenu.close();
+    this._unsubscribeHash?.();
+    this._unsubscribeEvents?.();
+    this._releaseSession?.();
+    this._releaseSession = undefined;
+    this._unsubscribeEvents = undefined;
+    this._unsubscribeHash = undefined;
+    this._session = undefined;
+    this._sessionIdentity = undefined;
+    this._sessionRequest = undefined;
+  }
+
+  willUpdate() {
+    this.toggleAttribute('data-access-unavailable', this._standalone
+      && (!this._session || !!this._access));
+  }
+
+  updated(changed) {
+    if (changed.has('onSubmit')) this._syncSession();
   }
 
   _toggleVoiceInput() {
@@ -124,11 +307,9 @@ export default class NxAoInput extends LitElement {
   }
 
   _getSlashItems(filter) {
-    const skills = (this.getSkills?.() ?? []).map((id) => ({ id, label: id }));
-    const filtered = filter
-      ? skills.filter((item) => item.id.toLowerCase().includes(filter))
-      : skills;
-    return filtered.length ? [{ section: 'Skills' }, ...filtered] : [];
+    const skills = this._standalone
+      ? this._session?.controller?.getSkills() : this.getSkills?.();
+    return toSlashMenuItems({ skills: skills ?? [], filter });
   }
 
   _onSlashSelect(skillId) {
@@ -137,30 +318,40 @@ export default class NxAoInput extends LitElement {
   }
 
   _send(text) {
+    if (this._disabled) return;
     const context = this.items.filter((item) => !item.dataBase64);
     const attachments = this.items.filter((item) => item.dataBase64);
-    this.onSubmit?.({ text, context, attachments });
+    if (this._standalone) {
+      if (!this._session?.send({
+        context: this._context, args: [text, context, attachments],
+      })) return;
+    } else if (this.onSubmit?.({ text, context, attachments }) === false) return;
     this.shadowRoot.querySelector('.chat-input').value = '';
     this.shadowRoot.querySelector('nx-pills')?.clear();
   }
 
   _submit(e) {
     e?.preventDefault();
-    if (this.blocked) {
-      this.onStop?.();
-      return;
-    }
+    if (this.blocked || this._disabled) return;
     const text = this.draft.trim();
     if (!text) return;
-    const harness = this.altHarness ? 'cma' : 'coworker';
+    const { harness } = this;
     sampleRUM('click', { source: 'chat-submit', target: `button.chat-send.harness-${harness}` });
     this._slashMenu.close();
     this._send(text);
   }
 
   _handleInput(e) {
+    if (this._disabled) return;
     this._slashMenu.onInput(e);
-    this.onInput?.();
+    if (this._standalone) this._session?.controller?.warmSession();
+    else this.onInput?.();
+  }
+
+  _stop() {
+    if (this._standalone) this._session?.controller?.stop();
+    else this.onStop?.();
+    this.focusInput();
   }
 
   _handleKeydown(e) {
@@ -216,7 +407,7 @@ export default class NxAoInput extends LitElement {
             <span class="chat-drop-title">Drop a file to add context</span>
             <span class="chat-drop-hint">Supports documents, images, and code</span>
           </div>` : nothing}
-        <nx-pills addEvent=${this.addEvent ?? ''}></nx-pills>
+        <nx-pills addEvent=${this._standalone ? this._contextEvent : this.addEvent ?? ''}></nx-pills>
         <input
           class="chat-file-input"
           type="file"
@@ -225,11 +416,11 @@ export default class NxAoInput extends LitElement {
           hidden
           @change=${this._onFileInputChange}
         />
-        <div class="chat-input-wrap ${this.altHarness ? '' : 'coworker-chat'}">
+        <div class="chat-input-wrap ${this.harness === 'cma' ? '' : 'coworker-chat'}">
           <textarea
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."
-            ?disabled=${this.blocked}
+            ?disabled=${this.blocked || this._disabled}
             @input=${this._handleInput}
             @keydown=${this._handleKeydown}
             @blur=${this._slashMenu.onBlur}
@@ -237,7 +428,7 @@ export default class NxAoInput extends LitElement {
         </div>
         <div class="chat-actions" ?data-thinking=${this.blocked} ?data-voice-listening=${this._voiceListening}>
           <nx-menu size="m" .items=${this.menuItems ?? ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-            <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
+            <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" ?disabled=${this._disabled} @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>
             </button>
@@ -248,18 +439,19 @@ export default class NxAoInput extends LitElement {
                 type="button"
                 class="chat-voice nx-action-btn-icon nx-btn-sm"
                 ?data-listening=${this._voiceListening}
-                ?disabled=${this.blocked}
+                ?disabled=${this.blocked || this._disabled}
                 aria-pressed=${this._voiceListening}
                 aria-label=${this._voiceListening ? 'Stop recording' : 'Use voice input'}
                 @click=${this._toggleVoiceInput}
               >${icon('mic')}</button>
             ` : nothing}
             <button
+              type="button"
               class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
               ?hidden=${!this.blocked}
-              @click=${this._submit}
+              @click=${this._stop}
             > ${icon('stop')}</button>
-            <button type="submit" class="chat-send harness-${this.altHarness ? 'cma' : 'coworker'} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
+            <button type="submit" class="chat-send harness-${this.harness} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} ?disabled=${this._disabled} aria-label="Send">
               ${icon('send')}
             </button>
           </div>

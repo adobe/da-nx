@@ -2,11 +2,12 @@
 
 Shared, UI-free logic for picking assets from an AEM as a Cloud Service repository with the [AEM Asset Selector](https://experience.adobe.com/solutions/CQ-assets-selectors). It resolves the site's repository config, builds the URL to store or insert, checks approval and publish status, and loads Adobe's hosted selector script.
 
-Three editors consume it.
+Four consumers use it.
 
 - **Canvas** (da-live `blocks/canvas/ew-panel-extensions/aem-assets.js`)
+- **Canvas rail panel** (da-live `blocks/canvas/ew-canvas-assets/`)
 - **Classic editor** (da-live `blocks/edit/da-assets/`)
-- **SC editor** (`nx/blocks/form/utils/aem-selector.js`)
+- **Form editor** (da-live `blocks/form/assets/aem-selector.js`)
 
 da-live loads these files at runtime through `getNx2()`, for example `` await import(`${getNx2()}/utils/aem-assets/urls.js`) ``. That makes every export a cross-repository contract. Keep file names, export names, and positional signatures backward compatible. Add new behavior through new exports or optional trailing parameters.
 
@@ -18,7 +19,7 @@ UI stays with each consumer. That covers the dialog, the error panels, Smart Cro
 aem-assets/
   constants.js          Default asset base path
   config.js             Dynamic Media and approved-only rules
-  filter-schema.js      Approved-only Content Advisor filter props
+  filter-schema.js      Content Advisor filters
   selector-props.js     Asset Selector props and feature set
   repository-config.js  DA site config resolution into repoConfig
   urls.js               URL builders, rendition resolution, metadata readers
@@ -39,7 +40,7 @@ aem-assets/
 
 - The selector shows the full **folder hierarchy** from AEM DAM.
 - URLs point to the **publish** tier, `https://publish-p…/content/dam/…`.
-- An asset whose `repo:scene7FileStatus` is set to anything other than `PublishComplete` is rejected.
+- An asset is only accepted when it is published to AEM Publish. The check reads `isPublishedToAemPublish` from the [Assets Author API `RepositoryMetadata` schema](https://developer.adobe.com/experience-cloud/experience-manager-apis/api/stable/assets/author/) and falls back to `aem:published`, which the selector sends today but the API marks as deprecated. Only `true` passes. A missing or non-boolean value is rejected, and so is an asset that is only on preview.
 
 ### 2. Author + Dynamic Media Delivery
 
@@ -76,12 +77,18 @@ Keys live in the DA config at `https://da.live/config#/<org>/` or `https://da.li
 | `aem.repositoryId` | Yes | `author-p1-e1.adobeaemcloud.com` or `delivery-p1-e1.adobeaemcloud.com` | Selects the repository mode by its prefix. Host only, without `https://`. |
 | `aem.assets.prod.origin` | No | e.g. `assets.example.com` | Overrides the derived URL host. A value starting with `delivery-` also enables DM delivery. |
 | `aem.assets.prod.basepath` | No | e.g. `/adobe/assets` | Overrides the default base path for DM and delivery URLs. |
-| `aem.assets.image.type` | No | `link` | Sets `insertAsLink` so consumers insert images as links. |
+| `aem.assets.image.type` | No | `link` | Sets `imageType` to `link` so consumers insert images as links (see `assetNodeSpec`). |
 | `aem.asset.dm.delivery` | No | `on` | Browses author but builds DM delivery URLs. Enables Author + DM. |
 | `aem.asset.dm.approvedonly` | No | absent, `on`, or `off` | Author + DM only. Absent or `on` locks the Approved filter. Exact `off` removes it. |
 | `aem.asset.smartcrop.select` | No | `on` | Sets `isSmartCrop`. Implies DM delivery. |
 | `aem.asset.mime.renditions` | No | e.g. `image/vnd.adobe.photoshop:avif, image/*:original` | Comma-separated `mimetype:rendition` overrides. See [Rendition resolution](#rendition-resolution). |
 | `aem.asset.image.modifiers` | No | e.g. `width=1200&quality=80` | Query parameters added to delivery image URLs. See [`image-modifiers.js`](#image-modifiersjs). |
+
+Keys in the `flags` sheet:
+
+| Key | Required | Values | Description |
+|---|---|---|---|
+| `aem.assets.image.linkAsImage` | No | `true` | With `aem.assets.image.type` `link`, sets `imageType` to `editable-link`: inserted as links, edited as images (`assetNodeSpec` yields an image with `editAs: 'image'`). |
 
 ---
 
@@ -161,12 +168,16 @@ The default export is the base path `/adobe/assets`.
 ### `filter-schema.js`
 
 - `createApprovedOnlyFilterSchema()` returns the Content Advisor filter schema that locks the Approved status.
-- `getApprovedOnlyFilterProps(approvedOnly)` returns `{ filterSchema, filterSchemaSource }` when `approvedOnly` is true, else `{}`.
+- `createImagesOnlyFilterSchema()` returns the Content Advisor filter schema that locks the file type to images (`type` = `image/*`).
+- `toFilterProps(...filters)` combines filters, each a list of filter groups, into the selector's single `{ filterSchema, filterSchemaSource }`. Empty or missing filters add nothing, and no groups at all return `{}`.
+- `getApprovedOnlyFilterProps(approvedOnly)` returns the approved-only filter props when `approvedOnly` is true, else `{}`.
 
 ### `selector-props.js`
 
 - `buildFeatureSet(isDmEnabled)` returns `upload`, `collections`, `detail-panel`, and `advisor`, plus `dynamic-media` when DM is enabled.
-- `buildAssetSelectorProps({ imsToken, repoConfig, externalBrief, onClose, handleSelection })` returns the props for `renderAssetSelector`, including the approved-only filter when enabled. For author-tier repos it also sets `path` to the last remembered folder of that repository.
+- `buildAssetSelectorProps({ imsToken, repoConfig, externalBrief, filterSchema, onClose, handleSelection, rail })` returns the props for `renderAssetSelector`, including the approved-only filter when enabled. An optional `filterSchema` adds the caller's filter groups, for example `createImagesOnlyFilterSchema()`. For author-tier repos it also sets `path` to the last remembered folder of that repository. `handleSelection` is omitted when not supplied, for a display-only selector.
+- `rail: true` renders the selector in rail (side-panel) layout instead of a modal. The caller chooses the mode; it is not a site config key.
+- `dragAndDrop: true` adds `acvConfig` with `dragOptions` (all asset types) and `selectionType: 'multiple'`, so assets can be dragged out of the selector. Drop targets read `JSON.parse(e.dataTransfer.getData(ASSET_DRAG_DATA_TYPE))`, an array of assets, where `ASSET_DRAG_DATA_TYPE` is `'collectionviewdata'`.
 - `rememberAssetFolder(repoConfig, assetPath)` remembers the folder of a selected asset per repository, in memory, so the picker reopens there. Delivery-tier repos have no folder structure and are ignored.
 
 ### `repository-config.js`
@@ -188,7 +199,8 @@ Config documents load through `nx2/utils/daConfig.js`, which caches them per pag
   isDmEnabled,            // DM delivery URLs apply
   isSmartCrop,            // Smart Crop selection is on
   approvedOnly,           // the Approved filter is locked on
-  insertAsLink,           // insert images as links
+  imageType,              // 'link' | 'editable-link' | null; see assetNodeSpec
+  insertAsLink,           // deprecated boolean (imageType is link or editable-link); removed in a fast-follow PR
   mimeRenditionOverrides, // Record<string, string> from aem.asset.mime.renditions
   siteImageModifiers,     // query string from aem.asset.image.modifiers, or null
 }
@@ -209,7 +221,6 @@ Helpers.
 - `resolveRenditionType(mimetype, { mimeRenditionOverrides })` returns `avif`, `play`, or `original`.
 - `getAssetAlt(asset)` prefers `Iptc4xmpExt:ExtDescrAccessibility`, then `dc:description`, `dc:title`, and the asset name.
 - `getDmApprovalStatus(asset)` returns `{ status, activationTarget }` from the asset metadata.
-- `getScene7PublishStatus(asset)` returns `repo:scene7FileStatus`.
 
 ### `image-modifiers.js`
 
@@ -220,6 +231,7 @@ Helpers.
 
 - `resolveAssetUrl(asset, repoConfig)` picks the URL builder for the mode and applies the site image modifiers.
 - `resolveAssetSelection({ asset, repoConfig })` returns `{ href, isImage, alt }` or `{ error }`.
+- `assetNodeSpec({ href, isImage, alt, imageType })` returns `{ kind: 'link', href }` (non-image, or `imageType` `link`) or `{ kind: 'image', attrs: { src, alt?, editAs? } }`. `alt` is set only when truthy; `editAs: 'image'` only for `editable-link`. Width styling is left to the host.
 
 | Error | When |
 |---|---|
@@ -227,7 +239,7 @@ Helpers.
 | `DM_ERROR_MSG` | Author + DM, and the asset is not approved for delivery |
 | `PUBLISH_ERROR_MSG` | Author + Publish, and the asset is not published |
 
-Callers own the UI for each error. Canvas and the classic editor ignore a missing format silently and show the other two in their error panel. The SC editor shows every error inline and keeps the previous value.
+Callers own the UI for each error. Canvas and the classic editor ignore a missing format silently and show the other two in their error panel. The form editor shows every error inline and keeps the previous value.
 
 ### `selector.js`
 

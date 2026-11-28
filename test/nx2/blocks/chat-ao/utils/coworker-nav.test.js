@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import {
   COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
 } from '../../../../../nx2/blocks/chat-ao/utils/coworker-nav.js';
-import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
+import { resetMockIms, setMockIms } from '../../../mocks/ims.js';
 
 describe('getCoworkerHref', () => {
   [

@@ -144,6 +144,32 @@ export const hashChange = (() => {
   };
 })();
 
+// Hosts whose tools work on the current site and take its path as hash (`#/org/site`).
+const SITE_HASH_HOSTS = ['da.live', 'author.aem.live'];
+
+const parseUrl = (href) => {
+  try {
+    return new URL(href, window.location.href);
+  } catch {
+    return undefined;
+  }
+};
+
+// True for links on this site (incl. relative), da.live or author.aem.live.
+export const acceptsSiteHash = (href) => {
+  const url = parseUrl(href);
+  if (!url) return false;
+  return url.origin === window.location.origin || SITE_HASH_HOSTS.includes(url.hostname);
+};
+
+// Sets the site path (`fullpath` from hashChange, e.g. `/org/site`) as the url hash.
+export const withSiteHash = ({ href, fullpath }) => {
+  const url = parseUrl(href);
+  if (!fullpath || !url) return href;
+  url.hash = fullpath;
+  return url.href;
+};
+
 export const loadPageStyle = (href) => new Promise((resolve) => {
   if (!document.querySelector(`head > link[href="${href}"]`)) {
     const link = document.createElement('link');
@@ -159,6 +185,14 @@ export const loadPageStyle = (href) => new Promise((resolve) => {
 
 export { loadStyle };
 export { default as loadScript } from '../../nx/utils/script.js';
+
+export const PRODUCT_NAME = 'Experience Workspace';
+
+// Sets a dynamic title as `<name> | Experience Workspace`, or just the product name.
+// Content-authored page titles should be maintained in the content instead.
+export function setPageTitle(name) {
+  document.title = name ? `${name} | ${PRODUCT_NAME}` : PRODUCT_NAME;
+}
 
 // Sheet-format JSON (as served by DA/AEM config stores) -> simple object,
 // keyed by sheet name(s), values are each sheet's `data` array.

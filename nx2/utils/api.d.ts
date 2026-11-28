@@ -20,6 +20,11 @@ export interface ApiResponse extends Response {
   permissions: string[];
 }
 
+export interface VersionListResponse extends ApiResponse {
+  /** Whether older audit activity was omitted. Present on successful hlx6 listings. */
+  truncated?: boolean;
+}
+
 /** Normalized return shape for `source.list`. Items are always in the
  * legacy `{ name, ext, path, lastModified, ... }` form regardless of whether
  * the server is hlx6 (content-type entries) or legacy DA. */
@@ -31,6 +36,8 @@ export interface ListResult {
   continuationToken: string | null;
   /** Same hint as `ApiResponse.permissions`. */
   permissions?: string[];
+  /** HTTP status of a failed site-level listing (e.g. 404 for a missing folder). */
+  status?: number;
 }
 
 // ─── low-level ──────────────────────────────────────────────────────────────
@@ -188,9 +195,9 @@ export const source: {
 // ─── versions ───────────────────────────────────────────────────────────────
 
 export const versions: {
-  list(arg: { org: string; site: string; path: string }): Promise<ApiResponse>;
+  list(arg: { org: string; site: string; path: string }): Promise<VersionListResponse>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  list(fullPath: string): Promise<ApiResponse>;
+  list(fullPath: string): Promise<VersionListResponse>;
 
   get(arg: {
     org: string;

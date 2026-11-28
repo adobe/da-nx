@@ -18,6 +18,52 @@ so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
 paths documented there — don't need to know which element they got, and
 don't need to query for it either.
 
+Automatic prompts wait for the selected harness and session to initialize,
+including restored episode history. This applies to both Coworker and CMA,
+in full chat and standalone inputs. Only the latest startup prompt is submitted.
+Manual prompts still prefill immediately without sending.
+
+If `autoSend` arrives during the first Coworker or CMA startup, including
+history and skills loading after access is granted, `nx-chat-ao` fills
+the input and submits the draft on the first session update where
+`session.canSend()` is true, instead of dropping the send. Edits made while
+waiting are preserved in that submission. `setPrompt` resolves `true` when the
+prompt is accepted, without waiting for initialization or acknowledging delivery.
+Replacing it with a manual prompt, changing the session scope, or removing the
+input/chat cancels the queued submission. Changing documents also cancels it,
+even within the same org/site. Initialization errors remain visible in the full chat panel.
+While a turn is
+running (unless a plan approval is pending) the input is blocked, so the prompt
+is rejected (`setPrompt` resolves `false`): the draft is left untouched, no
+send is scheduled, and a warning toast asks the user to wait for the response.
+
+## Coworker backend ownership
+
+`coworker/` owns AO endpoint resolution and the on-demand
+`checkCoworkerAccess()` helper. It checks chat access for the current IMS user
+and organization, returning `{ allowed }` or `{ error, status? }`. ACS uses
+the AO region with a VA7 fallback; only production is supported.
+
+Entitlement enforcement is temporarily bypassed during Coworker startup; no ACS
+request is made. The helper and access handling remain intact. The flow below
+applies when `checkAccess({ enforceEntitlement: true })` is used.
+
+Coworker session startup checks access before loading history or skills and
+opening connections. The standalone input stays hidden until access is permitted,
+preserving its draft and attachments. The full panel shows checking, denied, and
+verification-error states with a disabled composer; errors offer Retry.
+The decision is shared by the session's views.
+Auto-send can queue throughout the first successful startup, but not during Retry
+or its subsequent initialization. Denials and failed checks cancel queued sends
+without clearing the draft. Retry only checks access; after permission, review
+the draft and Send.
+Denials offer Open Profile to check the signed-in user and selected Adobe org.
+Switching org reloads the page and checks access again.
+CMA startup is unchanged. The full panel uses the presentation-only
+`renderChatStatus()` renderer in `shared/chat/status/status.js`. Default status
+mapping and wording live in `shared/chat/access.js` for either harness to reuse;
+the ACS request remains Coworker-specific.
+
 ## Input ownership
 
 `nx-ao-input` (`input.js` / `input.css`) owns the draft, pills/attachments,
@@ -25,7 +71,8 @@ file selection/drop, slash menu, prompts, and voice input. `nx-chat-ao` retains
 conversation, session, approval, history, and document-event handling, delegating
 `setPrompt()` to the input.
 
-Hosts supply `blocked`, `altHarness`, `prompts`, `menuItems`, and `getSkills()`.
+Hosts supply `blocked`, `disabled`, `cma`, `prompts`, `menuItems`, and `getSkills()`.
+`disabled` prevents input without showing the turn's Stop action.
 `onSubmit({ text, context, attachments })` runs synchronously before the draft
 and pills clear. Other callbacks are `onStop()`, `onInput()` (session warming),
 and `onMenuSelect(id)`.
@@ -39,7 +86,7 @@ bubbled pill activation into `HIGHLIGHT_SELECTION`.
 
 ## Session warming
 
-`AoChatController.warmSession()` (`ao-controller.js`) kicks the current
+`CoworkerChatController.warmSession()` (`coworker/controller.js`) kicks the current
 episode's backend session awake and attaches its WebSocket — called both as
 soon as the user starts typing (so the orchestrator's cold start happens
 during typing instead of after Send) and right after `_loadEpisode` loads or
@@ -119,7 +166,7 @@ reports the episode as idle while it's paused waiting on the user — there is
 no active generation for a reattach to rejoin, so a socket drop during a
 pending question/plan/permission used to reattach anyway, get the same
 "not active (state=idle)" rejection as the idle-tab case above, and surface
-it as a scary `Error: Cannot ATTACH to episode ...` — even though the popover
+it as a scary `Error: Cannot ATTACH to episode ...` — even though the interaction
 itself was working fine and needed no live socket (`answerQuestion`/
 `respondToPlanApproval`/`respondToPermission` all already reconnect via
 `RESUME` on demand when the user actually responds). `_shouldReattachOnClose()`
@@ -177,7 +224,8 @@ without that lead-in cue. Deliberately not built yet, pending real usage.
 
 ## Episode switching
 
-`switchEpisode`/`startNewEpisode` (`ao-controller.js`) are blocked by
+`switchEpisode` (`coworker/controller.js`) and `startNewEpisode`
+(`base-chat-controller.js`) are blocked by
 `_blockedByActiveTurn`, which is true only while `_thinking` **and** there's
 no pending question. A pending question means the turn is merely suspended
 (not actively streaming) — AO persists it durably, so it's safe to abandon
@@ -220,6 +268,10 @@ AO pauses a turn by sending a `USER_QUESTION`/`question` event (see the
 discrepancy) — this is the only shape AO sends for a "should I proceed?"
 pause today; no separate permission-request concept has shown up in practice
 for this client.
+
+Pending questions render inline with "Waiting for your response" until answered
+or skipped. The card then becomes the existing Answered/Declined summary and
+"Thinking..." resumes. New questions follow the scroll only when already near the bottom.
 
 **Responding to a resumed question — cold vs. warm connection.** `_respondToQuestion`
 checks whether the socket was already open _before_ sending:
@@ -346,7 +398,7 @@ question, a pending plan approval does _not_ disable the chat input.
 `chat-ao.js`'s `_blocked` getter (`thinking && !pendingPlanApproval`) is what
 every input-disabling/send-blocking site checks instead of raw `thinking` —
 the textarea's `disabled` state, `_submit`'s stop-vs-send branch, `_sendPrompt`,
-and `ao-controller.js`'s own `sendMessage` guard. A pending question still
+and `base-chat-controller.js`'s own `sendMessage` guard. A pending question still
 uses raw `thinking` and stays blocking, unchanged.
 
 This isn't just a UI preference — AO has a real backend mechanism,
@@ -439,24 +491,23 @@ needs_permission}` shape as the live event's `pending_calls`. An earlier
   matching that precedent, rather than inventing a softer treatment AO's own
   UI doesn't bother with.
 
-`renderPermissionCard`/`renderPermissionRow` (`renderers.js`) and the card's
-positioning (`chat-ao.css`) deliberately match nx-chat's own
-`renderApprovalCard`/`.approval-actions` — same floating-over-the-input
-placement (`position: absolute`, `.chat-form-wrap`-relative, verbatim the
-same offsets `question-card.js` already uses) and the same box treatment
-(background/border/shadow, tool-name-then-summary-then-right-aligned-buttons
-layout) — visual parity is intentional, but it's independent code, not
-shared, per this component's standing rule. No "Always approve" button, per
-the point above.
+`renderPermissionCard`/`renderPermissionRow` (`renderers.js`) render inline
+in an assistant message, like the pending question card, with the same
+padding, blue border, background, and corner radius. A "Waiting for your
+approval..." indicator replaces "Thinking..." until the gate is resolved.
+New requests follow the scroll only when already near the bottom; focusing
+Approve does not pull readers away from history. No "Always approve"
+button, per the point above.
 
-A tool call's `arguments` can be a large raw blob (a real case: a full
-rendered-HTML page body as one of the arguments) — capped the same way this
-file already caps other raw-content dumps: `.permission-row-detail` gets
-`.tool-call-detail`'s exact treatment (`max-height: 120px; overflow-y:
-auto`), and `.permission-card` itself gets `.question-card`'s exact
-treatment (`max-height: 60vh; overflow-y: auto`) so Approve/Reject stay
-reachable by scrolling the card, rather than the whole thing overflowing
-off-screen.
+Tool names use Coworker's frontend labels for built-in tools, otherwise
+replacing underscores with spaces and capitalizing words. The raw name
+remains available in the tooltip. Arguments stay collapsed behind Details.
+Objects, including JSON-encoded objects, expand into key/value rows with
+monospace values; nested objects and arrays retain their complete,
+pretty-printed JSON. Invalid JSON and non-object arguments fall back to
+plain text. Strings render as text, never as HTML. Expanded details use
+the conversation's normal scrolling rather than a floating card or nested
+scroll boxes.
 
 ## Markdown rendering
 
@@ -480,7 +531,7 @@ arguments}`), `tool_call_end` (`{tool_call_id, result, success, duration_s}`)
 tool type (native, MCP, skill, code-exec); no manifest opt-in is needed to
 receive them.
 
-`ao-controller.js` handles all three events, patching the same
+`base-chat-controller.js` handles all three events, patching the same
 `{ role: 'assistant', toolCall: {...} }` entry in `_messages` in place by
 `toolCallId` — always looked up by id rather than array index, since
 `_messages` can be replaced out from under an in-flight patch (e.g. while
@@ -506,7 +557,7 @@ episode comes back `success: false`, `result` starting with `"Loaded schema
 for "`, then retries and succeeds — normal, deterministic, not a failure)
 and a user's own permission denial (`result` starting with `"<system-info>
 User denied permission"` — the user's deliberate choice, not something gone
-wrong). An earlier version of this doc had `ao-controller.js`/`episodes.js`
+wrong). An earlier version of this doc had the controller/episode helpers
 detect the deferred-schema case specifically (via `isDeferredSchemaResult`,
 matching that one string) and map it to a `'retrying'` status so no badge
 showed — but the permission-denial case proved that was one instance of a
@@ -551,7 +602,7 @@ one aggregate `{ status: 'summary', summaryText: 'Used N tools' }` row per
 turn — coarser than per-call (no titles, no per-call detail, just a count),
 but real. `renderToolCallCard` renders that row as a plain expandable
 `<summary>` with no status badge; opening it (`@toggle`) calls
-`AoChatController#hydrateToolCall`, which fetches the turn's full event log
+`BaseChatController#hydrateToolCall`, which fetches the turn's full event log
 (no caching — there's exactly one summary row per turn, and hydration is
 already guarded against re-entry via `loadingCalls`/`calls`, so a second
 fetch for the same turn never actually happens), extracts every real
@@ -602,7 +653,7 @@ scrolled up in history yanked the view back to the bottom.
 
 ## Stop / interrupt
 
-`stop()` (`ao-controller.js`) sends `INTERRUPT` over an already-open socket
+`stop()` (`base-chat-controller.js`) sends `INTERRUPT` over an already-open socket
 and calls `_done()` immediately, client-side, without waiting for AO to
 confirm the abort — AO's own abort is asynchronous, so the turn can keep
 producing events for a beat after `INTERRUPT` is sent, until `TURN_ABORTED`
@@ -792,7 +843,7 @@ hard-restrict what it will answer.
 
 ## Manifest override
 
-`sendMessage` (`ao-controller.js`) always sends `manifestId` on `USER_INPUT`,
+`sendMessage` (`base-chat-controller.js`) always sends `manifestId` on `USER_INPUT`,
 resolved by `_resolveManifest()`:
 
 - `?nx-chat-ao-manifest=<name>` in the URL uses that manifest id directly —

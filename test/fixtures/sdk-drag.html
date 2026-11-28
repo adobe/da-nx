@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<body>
+  <button style="width:160px;height:60px">Drag heading</button>
+  <script type="module">
+    import { createHostActions } from '/nx/utils/sdk.js';
+
+    window.addEventListener('message', async (event) => {
+      if (event.source !== window.parent || !event.ports.length) return;
+      const actions = createHostActions({ port: event.ports[0], capabilities: { dragDrop: 1 } });
+      const payload = new URLSearchParams(window.location.search).has('image')
+        ? { files: [new File(['original-image'], 'photo.png', { type: 'image/png' })] }
+        : { data: { 'text/html': '<h2>Heading</h2>' } };
+      await actions.makeDraggable({
+        element: document.querySelector('button'),
+        getData: () => payload,
+        onResult: (result) => window.parent.postMessage({ type: 'drag-source-result', result }, event.origin),
+      });
+      window.parent.postMessage({ type: 'drag-source-ready' }, event.origin);
+    }, { once: true });
+    window.parent.postMessage({ type: 'drag-source-loaded' }, '*');
+  </script>
+</body>
+</html>

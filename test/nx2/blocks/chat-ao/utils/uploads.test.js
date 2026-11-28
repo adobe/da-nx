@@ -2,8 +2,8 @@ import { expect } from '@esm-bundle/chai';
 import {
   getOrgId, resolveAoHttpBase, resolveAoWsBase, uploadAttachment,
 } from '../../../../../nx2/blocks/chat-ao/utils/uploads.js';
-import { AO_HTTP_BASE, AO_WS_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
-import { setMockIms, resetMockIms } from '../../../../../nx2/test/mocks/ims.js';
+import { AO_HTTP_BASE, AO_WS_BASE } from '../../../../../nx2/blocks/chat-ao/coworker/constants.js';
+import { setMockIms, resetMockIms } from '../../../mocks/ims.js';
 
 function withActiveTartan(fulfillableData) {
   return [

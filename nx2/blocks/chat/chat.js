@@ -1,10 +1,11 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
+import { loadHrefSvg } from '../../utils/svg.js';
+import { PANEL_EVENT } from '../../utils/panel.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
 import '../shared/menu/menu.js';
 import ChatBackend from './chat-backend.js';
-import { renderMessage } from './renderers/renderers.js';
-import { renderToolCard } from './renderers/card-renderers.js';
+import { renderMessages } from './renderers/renderers.js';
 import '../shared/chat/new-chat/new-chat.js';
 import '../shared/chat/prompts/prompts.js';
 import '../shared/pills/pills.js';
@@ -12,8 +13,7 @@ import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload } from './utils/chat-helpers.js';
-import { PANEL_EVENT } from '../../utils/panel.js';
-import { CHAT_EVENT } from '../../utils/chat.js';
+import { CHAT_EVENT, skillsAppHref } from '../../utils/chat.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
@@ -22,6 +22,7 @@ import { ADD_MENU_ITEMS, ROLE } from './constants.js';
 import { sampleRUM } from '../../deps/rum.js';
 
 const styles = await loadStyle(import.meta.url);
+const closeIcon = await loadHrefSvg(new URL('../../img/icons/S2_Icon_Close_20_N.svg', import.meta.url).href);
 const { codeBase } = getConfig();
 
 const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
@@ -83,10 +84,6 @@ class NxChat extends LitElement {
 
   clear() {
     this._controller?.clear();
-  }
-
-  _closePanel() {
-    this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, { bubbles: true, composed: true }));
   }
 
   async _loadConfig() {
@@ -152,6 +149,11 @@ class NxChat extends LitElement {
     if (!org || !site) return;
 
     this._controller = new ChatBackend({
+      onTurnCompleted: (detail) => {
+        this.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
+          bubbles: true, composed: true, detail,
+        }));
+      },
       onToolDone: (scope, paths) => {
         this.dispatchEvent(new CustomEvent(CHAT_EVENT.AGENT_CHANGE, {
           bubbles: true,
@@ -180,7 +182,10 @@ class NxChat extends LitElement {
       },
     });
     this._controller.setContext(this._context ?? context);
-    this._controller.connect().then(() => this._controller.loadInitialMessages());
+    // History restoration resets messages, so finish it before flushing queued prompts.
+    await this._controller.loadInitialMessages();
+    if (this._destroyed) return;
+    await this._controller.connect();
   }
 
   disconnectedCallback() {
@@ -282,11 +287,7 @@ class NxChat extends LitElement {
     if (id === MENU_OPTIONS.MANAGE_PROMPT || id === MENU_OPTIONS.MANAGE_SKILLS) {
       const { org, site } = this._context ?? {};
       if (!org || !site) return;
-      const url = new URL(window.location.href);
-      url.pathname = '/apps/skills';
-      url.search = `?tab=${id}`;
-      url.hash = `#/${org}/${site}`;
-      window.open(url.href, '_blank', 'noopener,noreferrer');
+      window.open(skillsAppHref({ org, site, tab: id }), '_blank', 'noopener,noreferrer');
     }
   }
 
@@ -336,10 +337,13 @@ class NxChat extends LitElement {
         >${icon('clear')}<span>Clear</span></button>
         <button
           type="button"
-          class="chat-header-btn"
+          class="chat-header-btn close-btn"
+          title="Close chat panel"
           aria-label="Close chat panel"
-          @click=${this._closePanel}
-        >${icon('close')}</button>
+          @click=${() => this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, {
+            bubbles: true, composed: true,
+          }))}
+        >${closeIcon?.cloneNode(true)}</button>
       </div>
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
@@ -350,9 +354,10 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
         : nothing}
-        ${this.messages?.map((msg) => {
-          if (msg.toolCard) return renderToolCard(msg.toolCard);
-          return renderMessage(msg, this.toolCards);
+        ${renderMessages({
+          messages: this.messages,
+          thinking: this.thinking || !!this.pendingInteraction,
+          toolCards: this.toolCards,
         })}
         ${this.thinking && !this.messages?.at(-1)?.streaming && !this.pendingInteraction
         ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
