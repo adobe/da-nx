@@ -7,6 +7,7 @@ let activeTooltip;
 class NxTooltip extends LitElement {
   static properties = {
     for: { type: String },
+    anchor: { type: String },
     placement: { type: String, reflect: true },
   };
 
@@ -15,6 +16,10 @@ class NxTooltip extends LitElement {
   }
 
   get open() { return this._supported && this.matches(':popover-open'); }
+
+  get _anchor() {
+    return (this.anchor && this.getRootNode().getElementById(this.anchor)) || this._trigger;
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -119,7 +124,7 @@ class NxTooltip extends LitElement {
       || !this.textContent.trim() || this.open) return;
     activeTooltip?.close();
     activeTooltip = this;
-    this.showPopover({ source: this._trigger });
+    this.showPopover({ source: this._anchor });
     this._positionArrow();
   }
 
@@ -135,7 +140,7 @@ class NxTooltip extends LitElement {
   _positionArrow = () => {
     if (!this.open || !this._trigger) return;
     const rect = this.getBoundingClientRect();
-    const anchor = this._trigger.getBoundingClientRect();
+    const anchor = this._anchor.getBoundingClientRect();
     if (rect.bottom <= anchor.top) this.dataset.side = 'top';
     else if (rect.top >= anchor.bottom) this.dataset.side = 'bottom';
     else if (rect.right <= anchor.left) this.dataset.side = 'left';

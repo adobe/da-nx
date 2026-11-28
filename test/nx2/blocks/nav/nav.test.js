@@ -184,15 +184,24 @@ describe('nav search slot', () => {
   });
 });
 
-describe('nav brand override', () => {
+describe('nav branding', () => {
   let nav;
   let config;
   let stylesheet;
+  let originalFetch;
 
   const logoHref = '/nx2/img/icons/S2_Icon_Home_20_N.svg';
+  const lockupSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 56"></svg>';
+  const lockupHref = '/test/fixtures/nav-brand.svg';
 
   beforeEach(async () => {
     config = getConfig();
+    originalFetch = window.fetch;
+    window.fetch = (url, options) => (
+      String(url).endsWith(lockupHref)
+        ? Promise.resolve(new Response(lockupSvg))
+        : originalFetch(url, options)
+    );
     nav = document.createElement('nx-nav');
     nav.loadNav = async () => {};
     stylesheet = document.createElement('link');
@@ -206,17 +215,101 @@ describe('nav brand override', () => {
   afterEach(async () => {
     nav.remove();
     stylesheet.remove();
+    window.fetch = originalFetch;
     await setConfig(config);
   });
 
-  async function mountBrand() {
+  async function mountBrand(content = `<a href="${lockupHref}">Original lockup</a>`) {
     const section = document.createElement('div');
-    section.innerHTML = `<a href="${logoHref}">Original lockup</a>`;
+    section.innerHTML = content;
     nav._brand = await nav.decorateBrand(section);
     document.body.append(nav);
     await nav.updateComplete;
     return nav._brand;
   }
+
+  it('uses the authored image and product name instead of the script override', async () => {
+    await setConfig({ ...config, navBrand: { logoHref: '/unused.svg', label: 'Script brand' } });
+    const brand = await mountBrand(`<a href="/"><picture>
+      <source srcset="${logoHref}" type="image/svg+xml">
+      <img src="${logoHref}" alt="Authored logo">
+    </picture> Content product </a>`);
+    const img = brand.querySelector('.brand-icon img');
+    expect(img.getAttribute('src')).to.equal(logoHref);
+    expect(img.alt).to.equal('');
+    expect(brand.querySelector('.brand-icon picture source').getAttribute('srcset')).to.equal(logoHref);
+    expect(brand.querySelector('.brand-label').textContent).to.equal('Content product');
+    expect(getComputedStyle(brand.querySelector('.brand-label')).display).not.to.equal('none');
+    expect(brand.getAttribute('aria-label')).to.equal('Content product');
+    expect(brand.getAttribute('href')).to.equal('/');
+    expect(brand.querySelector('svg')).to.be.null;
+  });
+
+  it('uses the authored image alternative text when no separate product name is supplied', async () => {
+    const brand = await mountBrand(`<a href="/"><img src="${logoHref}" alt="Content product"></a>`);
+    expect(brand.querySelector('.brand-label').textContent).to.equal('Content product');
+    expect(getComputedStyle(brand.querySelector('.brand-label')).display).not.to.equal('none');
+    expect(brand.getAttribute('aria-label')).to.equal('Content product');
+    expect(brand.querySelector('img').alt).to.equal('');
+  });
+
+  it('lets the host override authored title visibility without changing content', async () => {
+    const brand = await mountBrand(`<a href="/"><img src="${logoHref}" alt="">Content product</a>`);
+    const label = brand.querySelector('.brand-label');
+    nav.style.setProperty('--nx-nav-brand-label-display', 'none');
+    expect(getComputedStyle(label).display).to.equal('none');
+    nav.shadowRoot.querySelector('.site-nav').innerHTML = '<button>Site navigation</button>';
+    nav.style.setProperty('--nx-nav-brand-label-display', 'inline');
+    expect(getComputedStyle(label).display).not.to.equal('none');
+    expect(brand.getAttribute('aria-label')).to.equal('Content product');
+  });
+
+  it('uses the existing SVG-link format for a logo and separate product title', async () => {
+    const brand = await mountBrand(`<a href="${logoHref}">Content product</a>`);
+    expect(brand.querySelector('.brand-icon svg')).to.exist;
+    expect(brand.querySelector('img')).to.be.null;
+    expect(brand.querySelector('.brand-label').textContent).to.equal('Content product');
+    expect(brand.getAttribute('aria-label')).to.equal('Content product');
+    expect(brand.getAttribute('href')).to.equal('/');
+    expect(getComputedStyle(brand.querySelector('.brand-label')).display).not.to.equal('none');
+  });
+
+  it('shows the title only while the sibling navigation area is empty', async () => {
+    const brand = await mountBrand(`<a href="${logoHref}">Content product</a>`);
+    const label = brand.querySelector('.brand-label');
+    const area = nav.shadowRoot.querySelector('.site-nav');
+    expect(area.matches(':empty')).to.equal(true);
+    expect(getComputedStyle(area).display).to.equal('none');
+    expect(getComputedStyle(label).display).not.to.equal('none');
+    area.innerHTML = '<button>Site navigation</button>';
+    expect(getComputedStyle(area).display).not.to.equal('none');
+    expect(getComputedStyle(label).display).to.equal('none');
+    area.replaceChildren();
+    expect(getComputedStyle(label).display).not.to.equal('none');
+    expect(brand.getAttribute('aria-label')).to.equal('Content product');
+  });
+
+  it('omits breadcrumb placeholders until a route is available', async () => {
+    const brand = await mountBrand(`<a href="${logoHref}">Content product</a>`);
+    const label = brand.querySelector('.brand-label');
+    const breadcrumb = document.createElement('nx-breadcrumb');
+    nav._breadcrumbs = breadcrumb;
+    nav._hashState = {};
+    await nav.updateComplete;
+    const area = nav.shadowRoot.querySelector('.site-nav');
+    expect(area.matches(':empty')).to.equal(true);
+    expect(getComputedStyle(label).display).not.to.equal('none');
+    nav._hashState = { org: 'adobe', site: 'site' };
+    await nav.updateComplete;
+    await breadcrumb.updateComplete;
+    expect(area.querySelector('nx-breadcrumb')).to.equal(breadcrumb);
+    expect(breadcrumb.pathSegments).to.deep.equal(['adobe', 'site']);
+    expect(getComputedStyle(label).display).to.equal('none');
+    nav._hashState = {};
+    await nav.updateComplete;
+    expect(area.matches(':empty')).to.equal(true);
+    expect(getComputedStyle(label).display).not.to.equal('none');
+  });
 
   it('replaces the fragment lockup with a named home link and a decorative logo', async () => {
     await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
@@ -263,19 +356,23 @@ describe('nav brand override', () => {
     expect(textStyle.color).to.equal(getComputedStyle(nav).color);
   });
 
-  it('shows only the logo by default with breadcrumbs in line with the main container', async () => {
+  it('shows only the logo with visible left navigation in line with the main container', async () => {
     await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
     const brand = await mountBrand();
     const siteNav = nav.shadowRoot.querySelector('.site-nav');
+    siteNav.innerHTML = '<button>Site navigation</button>';
     expect(brand.getBoundingClientRect().width).to.equal(44);
     expect(siteNav.getBoundingClientRect().left - nav.getBoundingClientRect().left).to.equal(56);
   });
 
   [undefined, { label: 'Missing logo' }, { logoHref }].forEach((navBrand) => {
-    it(`preserves the original SVG lockup with ${JSON.stringify(navBrand)} configuration`, async () => {
+    it(`uses the content SVG with ${JSON.stringify(navBrand)} configuration`, async () => {
       await setConfig({ ...config, navBrand });
       const brand = await mountBrand();
-      expect(brand.querySelector('svg')).to.exist;
+      const svg = brand.querySelector('.brand-icon svg');
+      expect(svg.getAttribute('viewBox')).to.equal('0 0 112 56');
+      expect(svg.getAttribute('aria-hidden')).to.equal('true');
+      expect(brand.querySelector('.brand-label').textContent).to.equal('Original lockup');
       expect(brand.querySelector('img')).to.be.null;
       expect(brand.getAttribute('aria-label')).to.equal('Original lockup');
       expect(brand.getAttribute('href')).to.equal('/');
@@ -479,6 +576,7 @@ describe('nav site navigation', () => {
 
   it('starts all areas together and retains the current nav until the reload completes', async () => {
     const loadNav = nav.loadNav.bind(nav);
+    window.history.replaceState(null, '', '/#/adobe/site/docs');
     await mountFragment({ breadcrumb: '<li>breadcrumbs</li>' });
     const { _brand, _siteNav, _breadcrumbs, _actions } = nav;
     const started = [];

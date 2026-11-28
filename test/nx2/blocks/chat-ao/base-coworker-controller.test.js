@@ -1,8 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import BaseChatController from '../../../../nx2/blocks/chat-ao/base-chat-controller.js';
-import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker-chat-controller.js';
-import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
-import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
+import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker/controller.js';
+import CmaChatController from '../../../../nx2/blocks/chat-ao/cma/controller.js';
 import { AO_FRAME } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
 
 // These cover the Base/Coworker split (PR: split controller into Base +
@@ -19,11 +18,7 @@ function makeBase() {
   return { controller, updates, sent };
 }
 
-describe('controller decoupling — re-export identity', () => {
-  it('ao-controller is the Coworker controller (historical default export preserved)', () => {
-    expect(AoChatController).to.equal(CoworkerChatController);
-  });
-
+describe('controller decoupling — inheritance', () => {
   it('Coworker extends Base', () => {
     const coworker = new CoworkerChatController({ onUpdate: () => { } });
     expect(coworker).to.be.instanceOf(BaseChatController);
