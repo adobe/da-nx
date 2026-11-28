@@ -44,16 +44,27 @@
   }
 }
 
+:host([bordered]) .tile {
+  width: 56px;
+  height: 56px;
+  outline: 1px solid var(--s2-gray-300);
+  outline-offset: -1px;
+}
+
 /* Slotted icon: <svg> (themed via currentcolor) or <img>; 40px untinted, 20px on a tint. */
 .tile ::slotted([slot="icon"]) {
   display: block;
   width: 40px;
   height: 40px;
+  max-width: 40px;
+  max-height: 40px;
 }
 
 .tile.has-bg ::slotted([slot="icon"]) {
   width: 20px;
   height: 20px;
+  max-width: 20px;
+  max-height: 20px;
 }
 
 .tile ::slotted(svg) {
@@ -62,6 +73,14 @@
 
 .tile ::slotted(img) {
   object-fit: cover;
+}
+
+:host([bordered]) .tile ::slotted([slot="icon"]) {
+  width: 32px;
+  height: 32px;
+  max-width: 32px;
+  max-height: 32px;
+  object-fit: contain;
 }
 
 .header[hidden],

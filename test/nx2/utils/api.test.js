@@ -365,6 +365,15 @@ describe('api.js', () => {
       expect(result.permissions).to.deep.equal(['read', 'write']);
     });
 
+    it('source.list returns the status of a failed site listing', async () => {
+      restoreFetch();
+      installFetch({ status: 404, body: '' });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await source.list({ org: o, site: s, path: '/folder' });
+      expect(result.ok).to.equal(false);
+      expect(result.status).to.equal(404);
+    });
+
     it('source.list normalizes hlx6 items via hlx6ToDaList using the parent path', async () => {
       restoreFetch();
       installFetch({
@@ -1359,11 +1368,21 @@ describe('api.js', () => {
       expect(last.method).to.equal('POST');
     });
 
-    it('aem.preview bulk uses /* and { paths }', async () => {
+    it('aem.preview bulk posts paths to the Helix 6 resource root', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await aem.preview({ org: o, site: s, path: ['/a', '/b'] });
       const last = lastCall();
-      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/preview/*`);
+      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/preview/`);
+      expect(last.method).to.equal('POST');
+      expect(JSON.parse(last.body)).to.deep.equal({ paths: ['/a', '/b'] });
+    });
+
+    it('aem.preview bulk keeps /* on legacy', async () => {
+      const { org: o, site: s } = makeOrgSite();
+      await aem.preview({ org: o, site: s, path: ['/a', '/b'] });
+      const last = lastCall();
+      expect(last.url).to.equal(`${HLX_ADMIN}/preview/${o}/${s}/main/*`);
+      expect(last.method).to.equal('POST');
       expect(JSON.parse(last.body)).to.deep.equal({ paths: ['/a', '/b'] });
     });
 
@@ -1377,6 +1396,7 @@ describe('api.js', () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await aem.unPreview({ org: o, site: s, path: ['/a', '/b'] });
       const last = lastCall();
+      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/preview/`);
       expect(last.method).to.equal('POST');
       expect(JSON.parse(last.body)).to.deep.equal({ paths: ['/a', '/b'], delete: true });
     });
@@ -1387,11 +1407,21 @@ describe('api.js', () => {
       expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/live/x.html`);
     });
 
+    it('aem.publish bulk posts paths to the Helix 6 resource root', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      await aem.publish({ org: o, site: s, path: ['/a', '/b'] });
+      const last = lastCall();
+      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/live/`);
+      expect(last.method).to.equal('POST');
+      expect(JSON.parse(last.body)).to.deep.equal({ paths: ['/a', '/b'] });
+    });
+
     it('aem.unPublish bulk includes delete:true', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await aem.unPublish({ org: o, site: s, path: ['/a', '/b'] });
       const last = lastCall();
-      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/live/*`);
+      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/live/`);
+      expect(last.method).to.equal('POST');
       expect(JSON.parse(last.body)).to.deep.equal({ paths: ['/a', '/b'], delete: true });
     });
 
