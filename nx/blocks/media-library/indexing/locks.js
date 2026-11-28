@@ -142,3 +142,16 @@ export async function removeIndexLock(sitePath) {
   }
   return resp;
 }
+
+export function startIndexLockHeartbeat({ sitePath, lockData }) {
+  let heartbeat;
+  const timer = setInterval(() => {
+    heartbeat ??= refreshIndexLock(sitePath, lockData)
+      .catch(() => {})
+      .finally(() => { heartbeat = undefined; });
+  }, IndexConfig.LOCK_HEARTBEAT_INTERVAL_MS);
+  return () => {
+    clearInterval(timer);
+    return heartbeat;
+  };
+}
