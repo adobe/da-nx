@@ -143,16 +143,13 @@ export async function removeIndexLock(sitePath) {
   return resp;
 }
 
-// Returns a stop function that resolves once a running heartbeat has finished.
-export function startIndexLockHeartbeat({
-  sitePath, lockData, intervalMs = IndexConfig.LOCK_HEARTBEAT_INTERVAL_MS,
-}) {
+export function startIndexLockHeartbeat({ sitePath, lockData }) {
   let heartbeat;
   const timer = setInterval(() => {
     heartbeat ??= refreshIndexLock(sitePath, lockData)
       .catch(() => {})
       .finally(() => { heartbeat = undefined; });
-  }, intervalMs);
+  }, IndexConfig.LOCK_HEARTBEAT_INTERVAL_MS);
   return () => {
     clearInterval(timer);
     return heartbeat;
