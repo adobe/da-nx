@@ -1,4 +1,4 @@
-import { LitElement, html } from 'da-lit';
+import { LitElement, html, nothing } from 'da-lit';
 import { getConfig, getMetadata } from '../../scripts/nx.js';
 
 import { loadStyle, hashChange } from '../../utils/utils.js';
@@ -84,7 +84,7 @@ class NXNav extends LitElement {
       this.decorateActions(sections[sections.length - 1]),
     ]);
     if (this._navLoadId !== loadId) return;
-    this._siteNav = siteNav;
+    this._siteNav = siteNav?.children.length ? siteNav : null;
     this._breadcrumbs = breadcrumbs;
     this._brand = brand;
     this._actions = actions;
@@ -117,24 +117,30 @@ class NXNav extends LitElement {
     brandLink.classList.add('brand-area');
     const { href, textContent } = brandLink;
     const { navBrand } = getConfig();
+    const authoredImage = brandLink.querySelector('img');
+    const svg = !authoredImage && href.includes('.svg')
+      && !(navBrand?.logoHref && navBrand.label) ? await loadHrefSvg(href) : null;
+    const brand = authoredImage || svg
+      ? { label: textContent.trim() || authoredImage?.alt } : navBrand;
 
-    const hasLockup = href.includes('.svg');
-    if (navBrand?.logoHref && navBrand.label) {
+    if (authoredImage || svg || (brand?.logoHref && brand.label)) {
       const icon = document.createElement('span');
       icon.classList.add('brand-icon');
-      const img = document.createElement('img');
-      img.src = navBrand.logoHref;
-      img.alt = '';
-      icon.append(img);
+      if (svg) {
+        const logo = svg.cloneNode(true);
+        logo.setAttribute('aria-hidden', 'true');
+        icon.append(logo);
+      } else {
+        const img = authoredImage ?? document.createElement('img');
+        if (!authoredImage) img.src = brand.logoHref;
+        img.alt = '';
+        icon.append(img.closest('picture') ?? img);
+      }
       const label = document.createElement('span');
       label.classList.add('brand-label');
-      label.textContent = navBrand.label;
-      brandLink.setAttribute('aria-label', navBrand.label);
+      label.textContent = brand.label;
+      brandLink.setAttribute('aria-label', brand.label);
       brandLink.replaceChildren(icon, label);
-    } else if (hasLockup) {
-      brandLink.setAttribute('aria-label', textContent);
-      const lockup = await loadHrefSvg(href);
-      if (lockup) brandLink.replaceChildren(lockup);
     }
     brandLink.href = '/';
 
@@ -208,16 +214,17 @@ class NXNav extends LitElement {
   updated() {
     const breadcrumbs = this._siteNav
       ? [...this._siteNav.querySelectorAll('nx-breadcrumb')] : [this._breadcrumbs].filter(Boolean);
-    if (!breadcrumbs.length) return;
     const pathSegments = hashStateToPathSegments(this._hashState);
     breadcrumbs.forEach((breadcrumb) => { breadcrumb.pathSegments = pathSegments; });
   }
 
   render() {
+    const breadcrumbs = hashStateToPathSegments(this._hashState)?.length
+      ? this._breadcrumbs : nothing;
     return html`
       <div class="brand-cluster">
         ${this._brand}
-        <div class="site-nav">${this._siteNav ?? this._breadcrumbs}</div>
+        <div class="site-nav">${this._siteNav ?? breadcrumbs}</div>
       </div>
       <div class="nav-search"><slot name="search" @slotchange=${this.onSearchSlotChange}></slot></div>
       <div class="action-area">
