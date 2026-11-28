@@ -307,6 +307,27 @@ describe('schema editor utils', () => {
       expect(schemas).to.deep.equal({ broken: { status: 'invalid-json', raw: '{ "title": ' } });
     });
 
+    it('keeps markup and entities in schema text through a save and a load', async () => {
+      const { org, site } = uniqueOrgSite();
+      const path = `/${org}/${site}/.da/forms/schemas`;
+      const schema = { ...SCHEMA, description: 'Use <em>small</em> &copy; exactly.' };
+      let stored;
+      installRoutes({
+        hlx6: false,
+        routes: {
+          [`POST ${DA_ADMIN}/source${path}/faqs.html`]: () => new Response('{}', { status: 201 }),
+          [`GET ${DA_ADMIN}/list${path}`]: json([{ name: 'faqs', ext: 'html', path: `${path}/faqs.html` }]),
+          [`GET ${DA_ADMIN}/source${path}/faqs.html`]: () => new Response(stored, { status: 200 }),
+        },
+      });
+
+      await saveSchema(`/${org}/${site}`, 'faqs', JSON.stringify(schema));
+      stored = await calls.find((c) => c.method === 'POST').body.get('data').text();
+      const schemas = await loadSchemas(org, site);
+
+      expect(schemas).to.deep.equal({ faqs: { status: 'loaded', schema } });
+    });
+
     it('falls back to the org schemas when the site listing fails', async () => {
       const { org, site } = uniqueOrgSite();
       const orgPath = `/${org}/.da/forms/schemas`;
