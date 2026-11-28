@@ -1,9 +1,11 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { PANEL_EVENT, registerPanelSection } from '../../../../nx2/utils/panel.js';
 import { calls, installFetch, restoreFetch } from '../../mocks/fetch.js';
 
 await setConfig({ hostnames: [] });
+await import('../../../../nx2/blocks/shared/tooltip/tooltip.js');
 await import('../../../../nx2/blocks/sidenav/sidenav.js');
 
 describe('sidenav chat action', () => {
@@ -91,13 +93,64 @@ describe('sidenav chat action', () => {
     await sidenav.updateComplete;
     const button = sidenav.shadowRoot.querySelector('button');
     expect(button.getAttribute('aria-label')).to.equal('Open chat');
-    expect(button.getAttribute('title')).to.equal('Chat');
+    expect(button.hasAttribute('title')).to.equal(false);
+    const tooltip = button.nextElementSibling;
+    await tooltip.updateComplete;
+    expect(tooltip.textContent).to.equal('Open chat');
+    expect(tooltip.for).to.equal(button.id);
+    expect(tooltip.anchor).to.equal(button.querySelector('.icon').id);
+    expect(tooltip.placement).to.equal('right');
     expect(button.type).to.equal('button');
     expect(button.querySelector('.icon').getAttribute('aria-hidden')).to.equal('true');
     expect(button.closest('li').nextElementSibling.querySelector('a').textContent).to.equal('Home');
     expect(loaded).to.equal(0);
     expect([...sidenav.shadowRoot.querySelectorAll('a')].map((link) => link.textContent))
       .to.deep.equal(['Home', 'Apps']);
+  });
+
+  it('associates each navigation link with its own right-side tooltip', async () => {
+    const links = [...sidenav.shadowRoot.querySelectorAll('a')];
+    for (const link of links) {
+      const tooltip = link.nextElementSibling;
+      await tooltip.updateComplete;
+      expect(tooltip.localName).to.equal('nx-tooltip');
+      expect(tooltip.for).to.equal(link.id);
+      expect(tooltip.anchor).to.equal(link.firstElementChild.id);
+      expect(tooltip.textContent).to.equal(link.textContent);
+      expect(tooltip.placement).to.equal('right');
+      expect(link.getAttribute('aria-describedby')).to.equal(tooltip.id);
+    }
+  });
+
+  it('shows a navigation tooltip on hover and dismisses it with Escape', async () => {
+    const link = sidenav.shadowRoot.querySelector('a');
+    const tooltip = link.nextElementSibling;
+    await tooltip.updateComplete;
+    const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      link.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+      await clock.tickAsync(499);
+      expect(tooltip.open).to.equal(false);
+      await clock.tickAsync(1);
+      expect(tooltip.open).to.equal(true);
+      link.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+      expect(tooltip.open).to.equal(false);
+    } finally {
+      clock.restore();
+    }
+  });
+
+  it('updates tooltip labels and associations when navigation items change', async () => {
+    sidenav._navLinks = [{ text: 'Profile', href: `${window.location.origin}/profile` }];
+    await sidenav.updateComplete;
+    const link = sidenav.shadowRoot.querySelector('a');
+    const tooltip = link.nextElementSibling;
+    await tooltip.updateComplete;
+    expect(tooltip.textContent).to.equal('Profile');
+    expect(tooltip.for).to.equal(link.id);
+    expect(tooltip.hasAttribute('anchor')).to.equal(false);
+    expect(link.getAttribute('aria-describedby')).to.equal(tooltip.id);
+    expect(sidenav.shadowRoot.querySelectorAll('a')).to.have.length(1);
   });
 
   it('toggles and reuses the registered chat panel without changing navigation', async () => {
@@ -136,6 +189,7 @@ describe('sidenav chat action', () => {
       expect(panel.querySelector('.panel-body').firstElementChild).to.equal(content);
       expect(panel.hidden).to.equal(false);
       expect(button.getAttribute('aria-label')).to.equal('Close chat');
+      expect(button.nextElementSibling.textContent).to.equal('Close chat');
       expect(button.getAttribute('aria-expanded')).to.equal('true');
       expect(button.closest('li').classList.contains('is-active')).to.equal(true);
       expect(home.classList.contains('is-active')).to.equal(true);
@@ -143,6 +197,7 @@ describe('sidenav chat action', () => {
       await sidenav.updateComplete;
       expect(panel.hidden).to.equal(true);
       expect(button.getAttribute('aria-label')).to.equal('Open chat');
+      expect(button.nextElementSibling.textContent).to.equal('Open chat');
       expect(button.getAttribute('aria-expanded')).to.equal('false');
       expect(button.closest('li').classList.contains('is-active')).to.equal(false);
       expect(home.classList.contains('is-active')).to.equal(true);

@@ -130,6 +130,19 @@ describe('nx-pills', () => {
       expect(getComputedStyle(list).maxHeight).to.equal('none');
       expect(list.scrollHeight).to.equal(list.clientHeight);
     });
+
+    it(`caps pill width by default and lets hosts change it via --nx-pill-max-width at size ${size}`, async () => {
+      const label = 'x'.repeat(200);
+      el = await makePills({ size, items: [{ id: 'long', label }] });
+      el.style.display = 'block';
+      el.style.width = '600px';
+      const pill = el.shadowRoot.querySelector('.pill');
+      const cap = size === 'm' ? 240 : 200;
+      expect(pill.getBoundingClientRect().width).to.equal(cap);
+
+      el.style.setProperty('--nx-pill-max-width', '100%');
+      expect(pill.getBoundingClientRect().width).to.equal(600);
+    });
   });
 
   it('renders a remove button by default', async () => {

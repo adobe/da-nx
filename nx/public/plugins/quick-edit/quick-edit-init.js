@@ -20,9 +20,22 @@ export function prepare(body, search) {
   return { ...payload };
 }
 
+// Reuse same-origin scripts from the real head (document.head can be clobbered) to avoid reruns.
+export function getUtilHrefs({ doc, origin }) {
+  const urls = [...doc.querySelectorAll('head > script[src]')]
+    .filter(({ src }) => URL.canParse(src))
+    .map(({ src }) => new URL(src))
+    .filter((url) => url.origin === origin);
+  const find = (filename) => urls.find(({ pathname }) => pathname.endsWith(`/${filename}`))?.href;
+  const scriptsHref = find('scripts.js') ?? `${origin}/scripts/scripts.js`;
+  const aemHref = find('aem.js') ?? new URL('aem.js', scriptsHref).href;
+  return { aemHref, scriptsHref };
+}
+
 async function loadUtilFunctions() {
-  const aemPromise = import(`${location.origin}/scripts/aem.js`);
-  const scriptsPromise = import(`${location.origin}/scripts/scripts.js`);
+  const { aemHref, scriptsHref } = getUtilHrefs({ doc: document, origin: location.origin });
+  const aemPromise = import(aemHref);
+  const scriptsPromise = import(scriptsHref);
   return {
     ...await aemPromise.catch((e) => {
       // eslint-disable-next-line no-console
