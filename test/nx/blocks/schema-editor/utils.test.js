@@ -291,6 +291,29 @@ describe('schema editor utils', () => {
       expect(calls.filter((c) => c.url.startsWith(AEM_API))).to.be.empty;
     });
 
+    it('lists only HTML schemas, not other files or folders', async () => {
+      const { org, site } = uniqueOrgSite();
+      const path = `/${org}/${site}/.da/forms/schemas`;
+      installRoutes({
+        hlx6: false,
+        routes: {
+          [`GET ${DA_ADMIN}/list${path}`]: json([
+            { name: 'faqs', ext: 'html', path: `${path}/faqs.html` },
+            { name: 'faqs', ext: 'json', path: `${path}/faqs.json` },
+            { name: 'archive', path: `${path}/archive` },
+          ]),
+          [`GET ${DA_ADMIN}/source${path}/faqs.html`]: html(schemaHtml(JSON.stringify(SCHEMA))),
+          [`GET ${DA_ADMIN}/source${path}/faqs.json`]: json({ data: [] }),
+        },
+      });
+
+      const schemas = await loadSchemas(org, site);
+
+      expect(schemas).to.deep.equal({ faqs: { status: 'loaded', schema: SCHEMA } });
+      expect(calls.filter((c) => c.url.startsWith(`${DA_ADMIN}/source`)).map((c) => c.url))
+        .to.deep.equal([`${DA_ADMIN}/source${path}/faqs.html`]);
+    });
+
     it('keeps a schema with invalid JSON as raw text for repair', async () => {
       const { org, site } = uniqueOrgSite();
       const path = `/${org}/${site}/.da/forms/schemas`;
