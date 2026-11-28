@@ -50,7 +50,10 @@ async function storeFor(org, site) {
   return (await isHlx6(org, site).catch(() => false)) ? source : daSource;
 }
 
-const toSchemaHtml = (jsonStr) => `<body><header></header><main><div><pre><code>${jsonStr}</code></pre></div></main><footer></footer></body>`;
+// The JSON goes into HTML, so `&` and `<` must stay text.
+const escapeJson = (jsonStr) => jsonStr.replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+
+const toSchemaHtml = (jsonStr) => `<body><header></header><main><div><pre><code>${escapeJson(jsonStr)}</code></pre></div></main><footer></footer></body>`;
 
 // loadSchema returns a tagged result the caller branches on via `status`:
 //   { status: 'loaded', schema }      — parsed successfully
