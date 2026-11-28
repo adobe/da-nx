@@ -883,13 +883,14 @@ function jsonOpts(method, payload) {
 }
 
 // Dispatcher for AEM ops that accept path as string or array.
-// Array of length >= 2 routes to the bulk /* endpoint with { paths, delete? }.
+// Array of length >= 2 sends { paths, delete? } to the bulk endpoint.
 // `forceUpdate` is bulk-only (server ignores it on single-path).
 async function callPath({
   api, org, site, path, method, includeDelete = false, forceUpdate,
 }) {
   if (Array.isArray(path) && path.length >= 2) {
-    const url = await getAemApiPath(api, org, site, '/*');
+    const baseHref = await getAemApiPath(api, org, site);
+    const url = `${baseHref}${baseHref.startsWith(`${AEM_API}/`) ? '/' : '/*'}`;
     const payload = { paths: path };
     if (includeDelete) payload.delete = true;
     if (forceUpdate) payload.forceUpdate = true;

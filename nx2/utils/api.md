@@ -314,6 +314,10 @@ const { preview, live, edit } = info;
 
 Combined preview + live (publish) operations. The `path` argument can be a **string** (single op) or an **array of length ≥ 2** (bulk op). Single string or one-item array hits the single-path endpoint.
 
+For bulk operations, Helix 6 uses `/preview/` or `/live/`. The legacy API uses `/*` after the ref.
+
+Helix 6 runs these batches synchronously and returns the completed job. The source bus allows up to 150 paths per preview; other content sources may have lower limits. Publish, unpublish, and unpreview allow up to 200 paths per batch. These methods do not set `forceAsync`.
+
 `forceUpdate` is **bulk-only** — server ignores it on single-path calls.
 
 **Returns:** all methods return a raw `Response`. Parse with `await resp.json()` or the `asJson` helper.
@@ -323,10 +327,10 @@ Combined preview + live (publish) operations. The `path` argument can be a **str
 | ------------ | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `getPreview` | `({ org, site, path })` or `(fullPath)`                  | GET preview status (single only).                                                                                |
 | `getPublish` | `({ org, site, path })` or `(fullPath)`                  | GET publish status (single only).                                                                                |
-| `preview`    | `({ org, site, path, forceUpdate? })`                    | string → POST `/preview/{path}`. Array of 2+ → POST `/preview/.../*` with `{ paths, forceUpdate? }`.             |
-| `unPreview`  | `({ org, site, path })`                                  | string → DELETE `/preview/{path}`. Array of 2+ → POST `/preview/.../*` with `{ paths, delete: true }`.           |
-| `publish`    | `({ org, site, path, forceUpdate? })`                    | string → POST `/live/{path}`. Array of 2+ → POST `/live/.../*` with `{ paths, forceUpdate? }`.                   |
-| `unPublish`  | `({ org, site, path })`                                  | string → DELETE `/live/{path}`. Array of 2+ → POST `/live/.../*` with `{ paths, delete: true }`.                 |
+| `preview`    | `({ org, site, path, forceUpdate? })`                    | POST. Bulk body: `{ paths, forceUpdate? }`. |
+| `unPreview`  | `({ org, site, path })`                                  | DELETE for a single path, POST with `{ paths, delete: true }` for bulk. |
+| `publish`    | `({ org, site, path, forceUpdate? })`                    | POST. Bulk body: `{ paths, forceUpdate? }`. |
+| `unPublish`  | `({ org, site, path })`                                  | DELETE for a single path, POST with `{ paths, delete: true }` for bulk. |
 
 
 ### URL shapes
@@ -334,8 +338,8 @@ Combined preview + live (publish) operations. The `path` argument can be a **str
 
 |                     | hlx6                                                    | legacy                                                   |
 | ------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
-| preview / unPreview | `${AEM_API}/{org}/sites/{site}/preview{path}` (or `/*`) | `${HLX_ADMIN}/preview/{org}/{site}/main{path}` (or `/*`) |
-| publish / unPublish | `${AEM_API}/{org}/sites/{site}/live{path}` (or `/*`)    | `${HLX_ADMIN}/live/{org}/{site}/main{path}` (or `/*`)    |
+| preview / unPreview | `${AEM_API}/{org}/sites/{site}/preview{path}` (bulk: `/`) | `${HLX_ADMIN}/preview/{org}/{site}/main{path}` (bulk: `/*`) |
+| publish / unPublish | `${AEM_API}/{org}/sites/{site}/live{path}` (bulk: `/`)    | `${HLX_ADMIN}/live/{org}/{site}/main{path}` (bulk: `/*`)    |
 
 
 ### Examples
